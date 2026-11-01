@@ -29,7 +29,7 @@ final class GmailTests: XCTestCase {
 
     func testPKCEMatchesRFC7636Example() {
         // RFC 7636 appendix B.
-        let pkce = PKCE(verifier: "dBjftJeZ4CVP-mJ92IZJ7Es8SZAjEbhgwvQ7Gk2Uiq8")
+        let pkce = PKCE(verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
         XCTAssertEqual(pkce.challenge, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
         let random = PKCE.make()
         XCTAssertEqual(random.verifier.count, 43)
