@@ -66,9 +66,9 @@ simulator and older phones fall back to the heuristic summarizer.
 
 ## What Graham needs to do
 
-- [ ] App ID + App Store Connect app record for `com.grahamdeno.reelmail` (done for TestFlight, if the
-      `testflight` workflow is green).
-- [ ] Repo secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` for the TestFlight workflow.
+- [x] App ID + App Store Connect app record for `com.grahamdeno.reelmail` (app "Reelmail", Apple ID 6829365391).
+- [x] Repo secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` for the TestFlight workflow.
+- [x] Internal TestFlight group "Me" with Graham as the tester; build 1001 is in it.
 - [ ] Create a Google **iOS** OAuth client (read-only scope) and put its ID in `Config/Local.xcconfig`
       locally. For TestFlight builds it will need to be supplied to CI too (a later change).
 - [ ] Test on an **iPhone 15 Pro or newer with Apple Intelligence on**, then run the Summary Lab.
