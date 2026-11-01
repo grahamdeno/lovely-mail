@@ -35,22 +35,46 @@ final class DesignScreenshotTests: XCTestCase {
         return store
     }
 
+    private func foregroundScene() async throws -> UIWindowScene {
+        for _ in 0..<100 {
+            if let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }) {
+                return scene
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        return try XCTUnwrap(
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive },
+            "Screenshot capture requires an active foreground application scene; none became available within 10 seconds.")
+    }
+
     private func capture<Content: View>(_ content: Content, name: String) async throws {
+        let scene = try await foregroundScene()
+        let previousKeyWindow = scene.windows.first { $0.isKeyWindow }
         let controller = UIHostingController(rootView: content.preferredColorScheme(.light))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
         window.overrideUserInterfaceStyle = .light
         window.rootViewController = controller
         window.makeKeyAndVisible()
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previousKeyWindow?.makeKey()
+        }
         controller.view.frame = window.bounds
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
         try await Task.sleep(nanoseconds: 500_000_000)
         window.layoutIfNeeded()
+        XCTAssertEqual(scene.activationState, .foregroundActive)
+        XCTAssertTrue(window.windowScene === scene)
         let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
         let image = renderer.image { _ in
             XCTAssertTrue(window.drawHierarchy(in: window.bounds, afterScreenUpdates: true),
-                          "View hierarchy could not be captured")
+                          "View hierarchy could not be captured from the foreground scene")
         }
         XCTAssertGreaterThan(image.size.width, 0)
         let attachment = XCTAttachment(image: image)
