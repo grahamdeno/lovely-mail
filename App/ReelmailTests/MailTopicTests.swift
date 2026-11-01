@@ -13,22 +13,19 @@ final class MailTopicTests: XCTestCase {
         Email(id: "sent", threadId: thread, from: SampleData.me, to: [SampleData.maya.email],
             subject: "Re: Same subject", date: Date(timeIntervalSince1970: date), body: "I’ll check and confirm.", isUnread: false, isFromMe: true)
     }
-    func testSameTopicUpdatesOnePostAndKeepsReplyContext() throws {
+    func testSameTopicUpdatesOnePostAndKeepsUnfinishedRequest() throws {
         let request = post("first", date: 100, needsReply: true)
         let reply = sent(200)
         let before = try XCTUnwrap(MailTopic.make(posts: [request], sent: [reply]).first)
-        XCTAssertFalse(before.possibleReply)
-        XCTAssertEqual(before.status, "Your reply is the latest loaded message")
-        let update = post("update", date: 300)
-        let topics = MailTopic.make(posts: [request, update], sent: [reply])
+        XCTAssertTrue(before.possibleReply, "A reply is not evidence of completion")
+        let topics = MailTopic.make(posts: [request, post("update", date: 300)], sent: [reply])
         XCTAssertEqual(topics.count, 1)
         let after = try XCTUnwrap(topics.first)
         XCTAssertEqual(after.id, before.id)
         XCTAssertEqual(after.origin.id, "first")
         XCTAssertEqual(after.latest.id, "update")
         XCTAssertEqual(after.lastReply?.id, reply.id)
-        XCTAssertEqual(after.status, "New mail since your last loaded reply")
-        XCTAssertFalse(after.possibleReply)
+        XCTAssertTrue(after.possibleReply)
     }
     func testNewRequestAfterReplyRemainsPossible() throws {
         let topic = try XCTUnwrap(MailTopic.make(posts: [post("new", date: 300, needsReply: true)], sent: [sent(200)]).first)
@@ -49,9 +46,29 @@ final class MailTopicTests: XCTestCase {
         sensitive.summary.sensitive = true
         let topic = try XCTUnwrap(MailTopic.make(posts: [sensitive, post("public", date: 200)], sent: []).first)
         XCTAssertTrue(topic.sensitive)
+        XCTAssertTrue(topic.preview.concealed)
+        XCTAssertNil(topic.replyContext)
     }
     func testTimestampHasNoSecondCounter() {
         XCTAssertEqual(MailTime.label(Date(timeIntervalSince1970: 100), now: Date(timeIntervalSince1970: 1905)), "30 min ago")
+    }
+    func testExcerptKeepsRequestInsteadOfOnlyFirstSentence() {
+        let body = "Hi families,\nThe game is Friday at 9. Team photos follow. Please confirm whether your player can make it.\nThanks, Dana"
+        let preview = MailTopic.sourcePreview(body, category: .events, automated: false)
+        XCTAssertTrue(preview.contains("The game is Friday at 9."))
+        XCTAssertTrue(preview.contains("Please confirm"))
+        XCTAssertFalse(preview.contains("Thanks, Dana"))
+    }
+    func testMayaRequestAndDeadlineRemainAfterHoldingReply() throws {
+        let fallback = FallbackSummarizer()
+        let posts = SampleData.emails.filter { $0.from.id == SampleData.maya.id }.map {
+            Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0)))
+        }
+        let topic = try XCTUnwrap(MailTopic.make(posts: posts, sent: SampleData.sentByMe).first)
+        XCTAssertTrue(topic.possibleReply)
+        XCTAssertTrue(topic.preview.text.contains("Thursday"))
+        XCTAssertEqual(topic.preview.label, "Excerpt")
+        XCTAssertNotNil(topic.replyContext)
     }
 }
 

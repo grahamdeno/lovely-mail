@@ -13,14 +13,49 @@ struct MailTopic: Identifiable {
         posts.contains { ConversationPresentation.isSensitive($0.email, summary: $0.summary) }
             || lastReply.map { ConversationPresentation.isSensitive($0, summary: nil) } == true
     }
-    var possibleReply: Bool {
-        posts.contains { $0.summary.needsReply && $0.email.date > (lastReply?.date ?? .distantPast) }
-    }
+    // A later reply is not evidence that an earlier request was completed.
+    var possibleReply: Bool { posts.contains { $0.summary.needsReply } }
     var status: String {
         if let lastReply {
             return latest.email.date > lastReply.date ? "New mail since your last loaded reply" : "Your reply is the latest loaded message"
         }
         return possibleReply ? "Possible request · no reply loaded" : "Latest loaded update"
+    }
+    var title: String { sensitive ? "Private topic" : origin.summary.headline }
+    var preview: ConversationPreview {
+        if sensitive { return ConversationPreview(text: "Open the conversation to read private details.", label: nil, concealed: true) }
+        // Prefer a possibly unfinished request over a later informational fragment.
+        let focus = posts.first { $0.summary.needsReply } ?? latest
+        if !focus.summary.needsReply, focus.summary.engine == .appleIntelligence,
+           !focus.summary.blurb.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return ConversationPreview(text: focus.summary.blurb, label: "AI summary", concealed: false)
+        }
+        let text = Self.sourcePreview(focus.email.body, category: focus.summary.category, automated: focus.email.from.isAutomated)
+        return ConversationPreview(text: text.isEmpty ? "Open the source to read this message." : text, label: "Excerpt", concealed: false)
+    }
+    var replyContext: String? {
+        guard !sensitive, let lastReply else { return nil }
+        let text = lastReply.body.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        guard !text.isEmpty else { return nil }
+        return "You: " + TextClamp.words(text, max: 18)
+    }
+    static func sourcePreview(_ body: String, category: PostCategory, automated: Bool) -> String {
+        var lines = body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if let first = lines.first, FallbackSummarizer.isGreeting(first), lines.count > 1 { lines.removeFirst() }
+        let text = lines.joined(separator: " ")
+        guard !text.isEmpty else { return "" }
+        let regex = try? NSRegularExpression(pattern: #"[\s\S]+?(?:[.!?](?=\s|$)|$)"#)
+        let ns = text as NSString
+        let sentences = regex?.matches(in: text, range: NSRange(location: 0, length: ns.length))
+            .map { ns.substring(with: $0.range).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty } ?? []
+        guard let first = sentences.first else { return TextClamp.words(text, max: 45) }
+        let request = sentences.last { FallbackSummarizer.needsReply(body: $0, automated: automated, category: category) }
+        if let request, request != first {
+            let context = TextClamp.words(first, max: 24)
+            let action = TextClamp.words(request, max: 30)
+            return context + " " + action
+        }
+        return TextClamp.words(first, max: 45)
     }
     static func make(posts: [Post], sent: [Email]) -> [MailTopic] {
         let groups = Dictionary(grouping: posts) { post in

@@ -4,14 +4,17 @@ struct PeopleView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var query = ""
+    private var topics: [MailTopic] { MailTopic.make(posts: store.activePosts, sent: store.sentByMe) }
     private var people: [Person] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.people.filter {
             q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.email.localizedCaseInsensitiveContains(q)
         }.sorted {
-            let a = store.conversation(with: $0).last?.date ?? .distantPast
-            let b = store.conversation(with: $1).last?.date ?? .distantPast
-            return a == b ? $0.name < $1.name : a > b
+            let a = topics.first { $0.person.id == $0.person.id }
+            let left = topics.first(where: { topic in topic.person.id == $0.id })?.updatedAt ?? .distantPast
+            let right = topics.first(where: { topic in topic.person.id == $1.id })?.updatedAt ?? .distantPast
+            _ = a
+            return left == right ? $0.name < $1.name : left > right
         }
     }
     var body: some View {
@@ -20,17 +23,16 @@ struct PeopleView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("People").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader)
                     Spacer()
-                    Text(store.mode == .sample ? "Demo" : "Loaded mail").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text(store.mode == .sample ? "Demo" : "Partial history").font(.caption).foregroundStyle(CalmStyle.secondary)
                 }.padding(.bottom, 16)
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
                     TextField("Find a person", text: $query).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityLabel("Find a person by name or email address")
                 }.padding(14).background(Color.white, in: RoundedRectangle(cornerRadius: 14)).padding(.bottom, 12)
-                if people.isEmpty { Text(query.isEmpty ? "No people in the loaded mail yet." : "No matching people.").padding(.vertical, 24) }
+                if people.isEmpty { Text(query.isEmpty ? "No conversations yet." : "No matching people.").padding(.vertical, 24) }
                 ForEach(people) { person in
-                    let topics = MailTopic.make(posts: store.activePosts.filter { $0.email.from.id == person.id }, sent: store.sentByMe)
-                    let topic = topics.first
+                    let topic = topics.first { $0.person.id == person.id }
                     Button { router.open(.thread(person)) } label: {
                         HStack(alignment: .top, spacing: 12) {
                             CalmAvatar(person: person, size: 44)
@@ -43,19 +45,19 @@ struct PeopleView: View {
                                     Text(person.email).font(.caption).foregroundStyle(CalmStyle.secondary)
                                 }
                                 if let topic {
-                                    Text(topic.sensitive ? "Private topic" : topic.origin.summary.headline).font(.subheadline).lineLimit(1)
-                                    Text(topic.sensitive ? "Open the conversation for private details." : topic.status)
-                                        .font(.caption).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
+                                    Text(topic.title).font(.subheadline).lineLimit(1)
+                                    Text((topic.preview.label.map { $0 + ": " } ?? "") + topic.preview.text)
+                                        .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                                 }
                             }
                             if store.activePosts.contains(where: { $0.email.from.id == person.id && $0.email.isUnread }) {
-                                Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).padding(.top, 7).accessibilityLabel("Unread loaded messages")
+                                Circle().fill(CalmStyle.blue).frame(width: 6, height: 6).padding(.top, 7).accessibilityLabel("Unread loaded messages")
                             }
                         }.padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityHint("Opens the loaded conversation")
+                    }.buttonStyle(.plain).accessibilityHint("Opens the conversation and original messages")
                     Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                 }
-                Text(store.mode == .sample ? "Fictional connections. Demo sender filtering also applies here." : "Loaded inbox only; sent history is not imported. No reply loaded does not mean you have not replied.")
+                Text(store.mode == .sample ? "Fictional conversations." : "Loaded inbox only. Sent history is not imported yet.")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
             }.padding(20)
         }.background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
