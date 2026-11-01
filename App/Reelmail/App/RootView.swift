@@ -17,15 +17,12 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(RM.Palette.header)
+            .background(Color(hex: 0xF7F6F2))
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: RM.Space.s) {
-                    if router.tab == .home { ChipRow() }
-                    RollingTabBar(selection: $router.tab)
-                        .padding(.horizontal, RM.Space.l)
-                }
-                .padding(.top, RM.Space.s)
-                .background(RM.Palette.sheet)
+                RollingTabBar(selection: $router.tab)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color(hex: 0xF7F6F2))
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
@@ -37,9 +34,9 @@ struct RootView: View {
                     case .summaryLab: SummaryLabView()
                     }
                 }
-                .toolbarBackground(RM.Palette.sheet, for: .navigationBar)
+                .toolbarBackground(route.isCalmTimeline ? Color(hex: 0xF7F6F2) : RM.Palette.sheet, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(.dark, for: .navigationBar)
+                .toolbarColorScheme(route.isCalmTimeline ? .light : .dark, for: .navigationBar)
             }
         }
         .sheet(item: Binding(
@@ -51,7 +48,14 @@ struct RootView: View {
     }
 }
 
-/// Category chips, sitting just above the tab bar where the thumb rests.
+private extension Route {
+    var isCalmTimeline: Bool {
+        if case .thread = self { return true }
+        return false
+    }
+}
+
+/// Retained for source compatibility; no longer displayed above the main navigation.
 struct ChipRow: View {
     @Environment(FeedStore.self) private var store
 
@@ -60,13 +64,11 @@ struct ChipRow: View {
             HStack(spacing: RM.Space.s) {
                 ForEach(FeedChip.allCases) { chip in
                     let selected = store.chip == chip
-                    Button {
-                        store.chip = chip
-                    } label: {
+                    Button { store.chip = chip } label: {
                         Text(chip.title)
                             .font(RM.Typo.caption)
                             .padding(.horizontal, 12)
-                            .frame(height: 32)
+                            .frame(height: 44)
                             .foregroundStyle(selected ? RM.Palette.ink : RM.Palette.secondary)
                             .background(selected ? Color.white : RM.Palette.surface)
                             .rmCorner(RM.Radius.button)
