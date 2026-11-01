@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// A chronological view over loaded mail, not a claim of complete mailbox history.
 struct ThreadView: View {
     @Environment(FeedStore.self) private var store
     let person: Person
@@ -8,32 +7,53 @@ struct ThreadView: View {
     var body: some View {
         let messages = store.conversation(with: person)
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(person.name).font(.title.weight(.semibold))
+            LazyVStack(spacing: 12) {
+                VStack(spacing: 8) {
+                    AvatarView(person: person, size: 48).accessibilityHidden(true)
+                    Text(person.name).font(.title3.weight(.semibold))
                         .accessibilityAddTraits(.isHeader)
-                    Text(person.email).font(.subheadline).textSelection(.enabled)
-                    Label(store.mode == .sample ? "Demo conversation · fictional mail" : "Partial Gmail history",
-                          systemImage: "info.circle")
-                        .font(.caption.weight(.medium))
-                    Text(store.mode == .sample
-                         ? "Incoming and outgoing sample messages appear together below."
-                         : "Only loaded inbox messages are shown. Sent and archived history are not imported yet.")
+                    Text(store.mode == .sample ? "Fictional demo conversation" : "Partial Gmail history")
                         .font(.caption).foregroundStyle(Color(hex: 0x626C69))
+                    DisclosureGroup("Conversation details") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(person.email).textSelection(.enabled)
+                            Text(store.mode == .sample
+                                 ? "Incoming and outgoing fictional mail."
+                                 : "Only loaded inbox mail is shown; sent and archived history are not imported yet.")
+                            Text("Short messages show imported original text. Longer messages may show a labeled summary or excerpt. Verify important details in the email. Read-only; no sending here.")
+                        }
+                        .font(.caption).padding(.top, 8)
+                    }
+                    .font(.caption).tint(Color(hex: 0x176B63))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 8)
+                .padding(.bottom, 16)
 
                 if messages.isEmpty {
-                    Label("No loaded messages with this person", systemImage: "bubble.left.and.bubble.right")
-                        .font(.subheadline).padding(.vertical, 24)
+                    Text("No loaded messages with this person.")
+                        .font(.body).foregroundStyle(Color(hex: 0x626C69))
                 }
 
-                ForEach(messages) { email in
-                    TimelineMessage(email: email, summary: store.post(for: email)?.summary)
+                ForEach(Array(messages.enumerated()), id: \.element.id) { index, email in
+                    let previous: Email? = index > 0 ? messages[index - 1] : nil
+                    let summary = store.post(for: email)?.summary
+                    let grouped = ConversationPresentation.groups(email, after: previous)
+                    if previous == nil || !Calendar.current.isDate(email.date, inSameDayAs: previous!.date) {
+                        Text(email.date.formatted(date: .abbreviated, time: .omitted))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color(hex: 0x626C69))
+                            .padding(.vertical, 8)
+                    }
+                    if previous?.threadId != email.threadId {
+                        Text(ConversationPresentation.isSensitive(email, summary: summary) ? "Private email topic" : email.subject)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color(hex: 0x626C69))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+                    ConversationBubble(email: email, summary: summary, grouped: grouped)
                 }
             }
-            .padding(20)
+            .padding(16)
         }
         .background(Color(hex: 0xF7F6F2))
         .foregroundStyle(Color(hex: 0x202827))
@@ -45,63 +65,57 @@ struct ThreadView: View {
     }
 }
 
-private struct TimelineMessage: View {
+private struct ConversationBubble: View {
     let email: Email
     let summary: EmailSummary?
-
-    private var sensitive: Bool { summary?.sensitive == true }
+    let grouped: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(email.isFromMe ? "You" : email.from.name)
-                    .font(.subheadline.weight(.semibold))
-                Spacer(minLength: 8)
-                Text(email.isFromMe ? "Sent" : "Received")
-                    .font(.caption).foregroundStyle(Color(hex: 0x626C69))
-            }
-            Text(email.date.formatted(date: .abbreviated, time: .shortened))
-                .font(.caption).foregroundStyle(Color(hex: 0x626C69))
-            Text(sensitive ? "Private message" : email.subject)
-                .font(.headline)
-            if sensitive {
-                Label("Private details hidden. Expand the source to read.", systemImage: "lock")
-                    .font(.subheadline)
-            } else if let summary {
-                Text(summary.blurb).font(.body)
-                Text("Generated summary · verify important details in the source")
-                    .font(.caption).foregroundStyle(Color(hex: 0x626C69))
-            } else {
-                Text("Summary unavailable. Expand the source to read this message.")
-                    .font(.subheadline).foregroundStyle(Color(hex: 0x626C69))
-            }
-
-            DisclosureGroup {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("From: \(email.from.email)")
-                    Text("To: \(email.to.joined(separator: ", "))")
-                    Text("Recipient details reflect the current import; CC and Reply-To are not available in this view.")
-                        .font(.caption).foregroundStyle(Color(hex: 0x626C69))
-                    Divider()
-                    Text(email.body.isEmpty ? "No readable body was imported." : email.body)
-                        .font(.body)
+        let preview = ConversationPresentation.preview(email, summary: summary)
+        HStack(alignment: .bottom, spacing: 0) {
+            if email.isFromMe { Spacer(minLength: 36) }
+            VStack(alignment: .leading, spacing: 8) {
+                if email.to.count > 1 {
+                    Label("Additional recipients · see details", systemImage: "person.2")
+                        .font(.caption)
                 }
-                .font(.subheadline)
-                .textSelection(.enabled)
-                .padding(.top, 12)
-            } label: {
-                Label("Source email · plain text", systemImage: "doc.text")
-                    .font(.subheadline.weight(.medium))
-                    .frame(minHeight: 44)
+                if let label = preview.label {
+                    Text(label).font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(hex: 0x626C69))
+                }
+                if preview.concealed {
+                    Label(preview.text, systemImage: "lock").font(.body)
+                } else {
+                    Text(preview.text).font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+                DisclosureGroup("Email details") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Subject: \(email.subject)")
+                        Text("From: \(email.from.email)")
+                        Text("To: \(email.to.joined(separator: ", "))")
+                        Text(email.date.formatted(date: .abbreviated, time: .shortened))
+                        Text("Imported plain text; CC and Reply-To are not yet available.")
+                        Divider()
+                        Text(email.body.isEmpty ? "No readable body was imported." : email.body).font(.body)
+                    }
+                    .font(.caption).textSelection(.enabled).padding(.top, 8)
+                }
+                .font(.caption).tint(Color(hex: 0x176B63))
+                if !grouped {
+                    Text(email.date.formatted(date: .omitted, time: .shortened))
+                        .font(.caption2).foregroundStyle(Color(hex: 0x626C69))
+                }
             }
-            .tint(Color(hex: 0x176B63))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(email.isFromMe ? Color(hex: 0xDCEDE7) : Color(hex: 0xECEEEA),
+                        in: RoundedRectangle(cornerRadius: 20))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(email.isFromMe ? "Your email" : "Email from \(email.from.name)")
+            if !email.isFromMe { Spacer(minLength: 36) }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(email.isFromMe ? Color(hex: 0xEAF2EF) : Color.white,
-                    in: RoundedRectangle(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18).strokeBorder(Color(hex: 0xE4E8E3), lineWidth: 1)
-        }
+        .padding(.top, grouped ? 0 : 6)
     }
 }
