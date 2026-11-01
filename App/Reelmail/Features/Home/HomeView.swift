@@ -12,8 +12,8 @@ struct CalmAvatar: View {
     let person: Person
     var size: CGFloat = 40
     var body: some View {
-        Text(person.initials).font(.subheadline.weight(.semibold))
-            .foregroundStyle(CalmStyle.blue)
+        Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
+            .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(CalmStyle.blue)
             .frame(width: size, height: size)
             .background(CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
             .accessibilityHidden(true)
@@ -23,15 +23,19 @@ struct CalmAvatar: View {
 struct HomeView: View {
     @Environment(FeedStore.self) private var store
     @State private var filter = 0
-    private var posts: [Post] {
-        store.visiblePosts.filter { post in
+    @State private var showingFiltered = false
+    private var topics: [MailTopic] {
+        store.topics.filter { topic in
+            let reading = topic.latest.summary.category == .newsletter || (store.mode == .sample && topic.posts.contains {
+                store.demoRules.decision(messageID: $0.id, sender: $0.email.from.email).destination == .reading
+            })
             switch filter {
-            case 1: return post.summary.needsReply
-            case 2: return !post.summary.needsReply && post.summary.category != .newsletter
-            case 3: return post.summary.category == .newsletter
+            case 1: return topic.possibleReply
+            case 2: return !topic.possibleReply && !reading
+            case 3: return reading
             default: return true
             }
-        }.sorted { $0.email.date > $1.email.date }
+        }
     }
     var body: some View {
         ScrollView {
@@ -41,40 +45,42 @@ struct HomeView: View {
                     HStack(spacing: 8) {
                         ForEach(Array(["All", "Possible replies", "Updates", "Reading"].enumerated()), id: \.offset) { index, title in
                             Button { filter = index } label: {
-                                Text(title).font(.subheadline.weight(.medium))
-                                    .padding(.horizontal, 14).frame(minHeight: 44)
+                                Text(title).font(.subheadline.weight(.medium)).padding(.horizontal, 14).frame(minHeight: 44)
                                     .foregroundStyle(filter == index ? Color.white : CalmStyle.secondary)
                                     .background(filter == index ? CalmStyle.blue : Color.white, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(filter == index ? .isSelected : [])
+                            }.buttonStyle(.plain).accessibilityAddTraits(filter == index ? .isSelected : [])
                         }
                     }
                 }.scrollIndicators(.hidden)
-                if let error = store.errorMessage {
-                    Label(error + " Displayed mail may be incomplete.", systemImage: "exclamationmark.triangle")
-                        .font(.subheadline).padding(16)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                if let error = store.errorMessage { Text(error).font(.subheadline) }
+                if store.mode == .sample, let error = store.demoRules.persistenceError {
+                    Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
                 }
                 if store.isLoading { ProgressView("Loading mail…") }
-                if store.isSummarizing {
-                    Text("Refining summaries on this device").font(.caption).foregroundStyle(CalmStyle.secondary)
-                }
+                if store.isSummarizing { Text("Refining summaries on this device").font(.caption) }
                 if store.lens != nil || store.chip != .forYou {
-                    Button("Show all loaded mail") { store.lens = nil; store.chip = .forYou }
-                        .frame(minHeight: 44).tint(CalmStyle.blue)
+                    Button("Show all loaded mail") { store.lens = nil; store.chip = .forYou }.frame(minHeight: 44)
                 }
-                ForEach(posts) { post in CompactMailCard(post: post) }
+                ForEach(topics) { topic in TopicCard(topic: topic) }
                 if !store.isLoading {
-                    Text(posts.isEmpty ? "No loaded messages match this view." : "You’re through the loaded mail.")
+                    Text(topics.isEmpty ? "No loaded topics match this view." : "You’re through the loaded topics.")
                         .font(.subheadline.weight(.medium))
-                    Text("Loaded history only. Summaries and reply suggestions may be imperfect; check the source when details matter.")
+                    Text("Grouped by loaded thread and sender, not subject or matching names. Status describes loaded messages, not resolved tasks. Summaries can be imperfect.")
                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
-                if store.mode == .sample { DemoTriageReviewLink() }
             }.padding(20)
         }
-        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
+        .toolbar {}
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if store.mode == .sample {
+                Button { showingFiltered = true } label: {
+                    Label("Filtered · \(store.filteredDemoPosts.count) demo messages", systemImage: "line.3.horizontal.decrease.circle")
+                        .font(.caption).frame(maxWidth: .infinity, minHeight: 44)
+                }.background(CalmStyle.background)
+            }
+        }
+        .sheet(isPresented: $showingFiltered) { FilteredDemoReview() }
         .refreshable { await store.load() }
     }
 }
@@ -86,7 +92,7 @@ struct HomeHeader: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("reelmail").font(.title2.weight(.bold)).accessibilityAddTraits(.isHeader)
-                Text(store.mode == .sample ? "Demo · fictional mail" : "Gmail · partial, read-only history")
+                Text(store.mode == .sample ? "Demo · fictional mail" : "Partial inbox · sent history not imported")
                     .font(.caption).foregroundStyle(CalmStyle.secondary)
             }
             Spacer()
@@ -97,52 +103,101 @@ struct HomeHeader: View {
     }
 }
 
-private struct CompactMailCard: View {
+private struct TopicCard: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
-    let post: Post
-    private var sensitive: Bool { ConversationPresentation.isSensitive(post.email, summary: post.summary) }
+    let topic: MailTopic
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                CalmAvatar(person: post.email.from, size: 34)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(post.email.from.name).font(.subheadline.weight(.semibold))
-                    Text(post.email.date, style: .relative).font(.caption).foregroundStyle(CalmStyle.secondary)
-                }
-                Spacer(minLength: 0)
-                if post.email.isUnread {
-                    Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread locally")
-                }
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                Text(sensitive ? "Private message" : post.summary.headline).font(.headline)
-                Text(sensitive ? "Open the source to read private details." : post.summary.blurb)
-                    .font(.body).fixedSize(horizontal: false, vertical: true)
-                Text(sensitive ? "Private details hidden" : (post.summary.engine == .appleIntelligence ? "Generated summary" : "Source excerpt"))
+        VStack(alignment: .leading, spacing: 4) {
+            Button { router.open(.thread(topic.person)) } label: {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        CalmAvatar(person: topic.person, size: 34)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(topic.person.name).font(.subheadline.weight(.semibold))
+                            Text(MailTime.label(topic.updatedAt)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if topic.posts.contains(where: { $0.email.isUnread }) {
+                            Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread locally")
+                        }
+                    }
+                    Text(topic.sensitive ? "Private topic" : topic.origin.summary.headline).font(.headline)
+                    if topic.sensitive {
+                        Label("Open sources to read private details.", systemImage: "lock").font(.body)
+                    } else {
+                        if topic.posts.count > 1 {
+                            Text(topic.origin.summary.blurb).font(.body)
+                            Text(topic.origin.summary.engine == .appleIntelligence ? "Earlier · generated summary" : "Earlier · source excerpt")
+                                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                        }
+                        if let reply = topic.lastReply {
+                            let preview = ConversationPresentation.preview(reply, summary: nil)
+                            Text("You: " + preview.text).font(.subheadline)
+                            if let label = preview.label { Text(label).font(.caption).foregroundStyle(CalmStyle.secondary) }
+                        }
+                        Text(topic.latest.summary.blurb).font(.body)
+                        Text(topic.latest.summary.engine == .appleIntelligence ? "Latest incoming · generated summary" : "Latest incoming · source excerpt")
+                            .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    }
+                    Text(topic.status).font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
+                }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityHint("Opens the person’s loaded conversation; source messages are also available below")
+            HStack {
+                Text("\(topic.posts.count + (topic.lastReply == nil ? 0 : 1)) loaded messages shown")
                     .font(.caption).foregroundStyle(CalmStyle.secondary)
+                Spacer(minLength: 0)
+                Menu {
+                    Section("Source emails") {
+                        ForEach(topic.posts) { post in
+                            Button(topic.sensitive ? "Source · " + MailTime.label(post.email.date) : post.email.subject + " · " + MailTime.label(post.email.date)) {
+                                store.markRead(post); router.open(.email(post.id))
+                            }
+                        }
+                    }
+                    if store.mode == .sample {
+                        Section("Saved demo sender rules · no Gmail changes") {
+                            Button("Filter this demo sender") { store.demoRules.setSender(topic.person.email, destination: .filtered) }
+                            Button("Keep this demo sender in Reading") { store.demoRules.setSender(topic.person.email, destination: .reading) }
+                            Button("Remove demo sender rule") { store.demoRules.setSender(topic.person.email, destination: nil) }
+                        }.disabled(store.demoRules.persistenceError != nil)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
+                }.accessibilityLabel("Topic sources and organization")
             }
-            if post.summary.needsReply {
-                Label("Possible reply needed", systemImage: "arrowshape.turn.up.left")
-                    .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
-            }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 16) { conversationButton; sourceButton }
-                VStack(alignment: .leading, spacing: 0) { conversationButton; sourceButton }
-            }
-        }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 20))
-        .foregroundStyle(CalmStyle.ink)
+        }.padding(16).background(Color.white, in: RoundedRectangle(cornerRadius: 20))
     }
-    private var conversationButton: some View {
-        Button { router.open(.thread(post.email.from)) } label: {
-            Label("Conversation", systemImage: "bubble.left").font(.subheadline.weight(.medium)).frame(minHeight: 44)
-        }.buttonStyle(.plain).foregroundStyle(CalmStyle.blue)
-    }
-    private var sourceButton: some View {
-        Button { store.markRead(post); router.open(.email(post.id)) } label: {
-            Text("View source").font(.caption).frame(minHeight: 44)
-        }.buttonStyle(.plain).foregroundStyle(CalmStyle.secondary)
+}
+
+private struct FilteredDemoReview: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    Text("Fictional mail only. These saved rules change the demo Home and People views, never Gmail. No learned spam classifier is active.")
+                        .font(.subheadline)
+                    if let error = store.demoRules.persistenceError { Text(error).font(.subheadline) }
+                    if store.filteredDemoPosts.isEmpty { Text("No filtered demo messages.") }
+                    ForEach(store.filteredDemoPosts) { post in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(post.email.from.name).font(.headline)
+                            Text(ConversationPresentation.isSensitive(post.email, summary: post.summary) ? "Private message" : post.email.subject)
+                            Text(store.demoRules.decision(messageID: post.id, sender: post.email.from.email).reason).font(.caption)
+                            Button("Restore this sender") { store.demoRules.setSender(post.email.from.email, destination: nil) }
+                                .frame(minHeight: 44)
+                            Button("Keep this message visible") { store.demoRules.setMessage(post.id, destination: .inbox) }
+                                .frame(minHeight: 44)
+                        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                            .disabled(store.demoRules.persistenceError != nil)
+                    }
+                }.padding(20)
+            }.background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+                .navigationTitle("Filtered demo mail").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }.tint(CalmStyle.blue).preferredColorScheme(.light)
     }
 }
