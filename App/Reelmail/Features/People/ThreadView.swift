@@ -69,19 +69,24 @@ private struct ConversationBubble: View {
     let email: Email
     let summary: EmailSummary?
     let grouped: Bool
+    @State private var showingDetails = false
+
+    private var secondaryInk: Color {
+        email.isFromMe ? Color.white.opacity(0.9) : Color(hex: 0x626C69)
+    }
 
     var body: some View {
         let preview = ConversationPresentation.preview(email, summary: summary)
         HStack(alignment: .bottom, spacing: 0) {
             if email.isFromMe { Spacer(minLength: 36) }
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 if email.to.count > 1 {
                     Label("Additional recipients · see details", systemImage: "person.2")
-                        .font(.caption)
+                        .font(.caption).foregroundStyle(secondaryInk)
                 }
                 if let label = preview.label {
                     Text(label).font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(hex: 0x626C69))
+                        .foregroundStyle(secondaryInk)
                 }
                 if preview.concealed {
                     Label(preview.text, systemImage: "lock").font(.body)
@@ -90,32 +95,63 @@ private struct ConversationBubble: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                 }
-                DisclosureGroup("Email details") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Subject: \(email.subject)")
-                        Text("From: \(email.from.email)")
-                        Text("To: \(email.to.joined(separator: ", "))")
-                        Text(email.date.formatted(date: .abbreviated, time: .shortened))
-                        Text("Imported plain text; CC and Reply-To are not yet available.")
-                        Divider()
-                        Text(email.body.isEmpty ? "No readable body was imported." : email.body).font(.body)
+                HStack(spacing: 12) {
+                    if !grouped {
+                        Text(email.date.formatted(date: .omitted, time: .shortened))
+                            .font(.caption2)
                     }
-                    .font(.caption).textSelection(.enabled).padding(.top, 8)
+                    Button { showingDetails = true } label: {
+                        Text("Details").font(.caption)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Show original email and details")
                 }
-                .font(.caption).tint(Color(hex: 0x176B63))
-                if !grouped {
-                    Text(email.date.formatted(date: .omitted, time: .shortened))
-                        .font(.caption2).foregroundStyle(Color(hex: 0x626C69))
-                }
+                .foregroundStyle(secondaryInk)
             }
+            .foregroundStyle(email.isFromMe ? Color.white : Color(hex: 0x202827))
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(email.isFromMe ? Color(hex: 0xDCEDE7) : Color(hex: 0xECEEEA),
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+            .background(email.isFromMe ? Color(hex: 0x245FCC) : Color(hex: 0xECEEEA),
                         in: RoundedRectangle(cornerRadius: 20))
             .accessibilityElement(children: .contain)
             .accessibilityLabel(email.isFromMe ? "Your email" : "Email from \(email.from.name)")
             if !email.isFromMe { Spacer(minLength: 36) }
         }
         .padding(.top, grouped ? 0 : 6)
+        .sheet(isPresented: $showingDetails) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(email.subject).font(.headline)
+                        Text("From: \(email.from.email)")
+                        Text("To: \(email.to.joined(separator: ", "))")
+                        Text(email.date.formatted(date: .abbreviated, time: .shortened))
+                        Text("Imported plain text; CC and Reply-To are not yet available.")
+                            .font(.caption).foregroundStyle(Color(hex: 0x626C69))
+                        Divider()
+                        Text(email.body.isEmpty ? "No readable body was imported." : email.body)
+                            .font(.body)
+                    }
+                    .font(.subheadline)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
+                }
+                .background(Color(hex: 0xF7F6F2))
+                .foregroundStyle(Color(hex: 0x202827))
+                .navigationTitle("Email details")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showingDetails = false }
+                    }
+                }
+                .tint(Color(hex: 0x245FCC))
+            }
+            .preferredColorScheme(.light)
+        }
     }
 }
