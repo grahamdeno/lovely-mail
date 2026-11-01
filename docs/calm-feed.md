@@ -22,12 +22,11 @@ Implement Home, person timeline, and Filtered review using deterministic fiction
 ## Milestone B: trustworthy live triage
 Verify personal Gmail sign-in in a distributed build. Add persistent real-message storage, bounded paginated import with coverage status, incoming/sent history, and persistent reversible filtering corrections. Explicit sender rules may use feedback initially; do not claim trained personalization before it exists. Separate action-needed from reply-needed. Never silently fall back to fictional mail.
 
-## Current status
-- Read-only static audit completed in conversation; no local compile or runtime verification performed.
-- Redesign branch created from testflight at 44ede596bba75a3ea477125882207ff0eadba0db.
-- App source subtree hashes matched scaffold at audit time.
-- Existing live retrieval is limited to a default 30 inbox messages; complete sent/archived history and learned junk reduction are not implemented in the inspected pipeline.
-- Design slice not yet implemented.
+## Current status (Nov 1, 2026)
+- Approved compact design is on testflight (merge d0f86da, design head 2cb8bf1); uploaded as build 1002. That build has no Google client ID, so it runs in sample mode.
+- Branch fix/gmail-release-config: TestFlight workflow now injects the client ID from Config/Release.xcconfig, refuses unconfigured uploads unless demo_build is requested, and verifies the archived Info.plist. Callback parsing extracted and tested; client ID validation tightened.
+- Blocked on: a Google iOS OAuth client for com.grahamdeno.reelmail (none exists; the cos-mail-beta iOS client is bound to com.tangomike.cosmail).
+- Live import limits unchanged: 30 inbox messages, no pagination, no sent/archived history, no outgoing direction, no account identity, filtering rules are demo-only.
 
 ## Next implementation task
-Inspect existing design tokens, router, root navigation, sample data, and dependent views. Implement the design slice in a scoped PR with tests, without changing Gmail scopes or triggering TestFlight distribution. Report actual build results and unresolved limitations.
+After the client ID lands and a configured build is approved and uploaded: verify on device sign-in, inbox load, refresh, and relaunch. Then Milestone B: account identity, paginated import with coverage, sent history with outgoing direction, account-scoped filtering rules.

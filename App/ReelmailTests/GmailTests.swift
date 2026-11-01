@@ -18,6 +18,48 @@ final class GmailTests: XCTestCase {
         XCTAssertTrue(GmailConfig(clientID: "123-abc.apps.googleusercontent.com").isConfigured)
     }
 
+    func testMalformedClientIDsStayInSampleMode() {
+        for bad in ["123-abc.apps.googleusercontent.com.evil", " 123-abc", "abc.apps.googleusercontent.com",
+                    "123-abc", "123-abc.apps.googleusercontent.com/x"] {
+            XCTAssertFalse(GmailConfig(clientID: bad).isConfigured, bad)
+        }
+        XCTAssertTrue(GmailConfig(clientID: "456735134102-jc712gcpnljkbme25bu6p2l2ivjv6330.apps.googleusercontent.com").isConfigured)
+    }
+
+    /// The built app must carry an expanded value (empty for demo/test builds), never the literal $(...) placeholder.
+    func testBuiltInfoPlistClientIDIsExpanded() {
+        let bundle = Bundle(for: GmailService.self)
+        let raw = bundle.object(forInfoDictionaryKey: "GoogleIOSClientID") as? String
+        XCTAssertNotNil(raw, "GoogleIOSClientID missing from the app's Info.plist")
+        XCTAssertFalse(raw?.contains("$(") ?? true)
+        let config = GmailConfig.fromBundle(bundle)
+        XCTAssertTrue(config.clientID.isEmpty || config.isConfigured, "Client ID is set but malformed")
+    }
+
+    func testCallbackAcceptsMatchingStateAndScheme() {
+        let config = GmailConfig(clientID: "123-abc.apps.googleusercontent.com")
+        let url = URL(string: "com.googleusercontent.apps.123-abc:/oauthredirect?state=s1&code=4/xyz")!
+        XCTAssertEqual(config.authorizationCode(from: url, expectedState: "s1"), .success("4/xyz"))
+    }
+
+    func testCallbackRejectsWrongStateSchemeOrMissingCode() {
+        let config = GmailConfig(clientID: "123-abc.apps.googleusercontent.com")
+        let wrongState = URL(string: "com.googleusercontent.apps.123-abc:/oauthredirect?state=other&code=c")!
+        let wrongScheme = URL(string: "com.googleusercontent.apps.999-x:/oauthredirect?state=s1&code=c")!
+        let noCode = URL(string: "com.googleusercontent.apps.123-abc:/oauthredirect?state=s1")!
+        XCTAssertEqual(config.authorizationCode(from: wrongState, expectedState: "s1"), .failure(.invalid))
+        XCTAssertEqual(config.authorizationCode(from: wrongScheme, expectedState: "s1"), .failure(.invalid))
+        XCTAssertEqual(config.authorizationCode(from: noCode, expectedState: "s1"), .failure(.invalid))
+    }
+
+    func testCallbackReportsGoogleDenial() {
+        let config = GmailConfig(clientID: "123-abc.apps.googleusercontent.com")
+        let url = URL(string: "com.googleusercontent.apps.123-abc:/oauthredirect?state=s1&error=access_denied")!
+        XCTAssertEqual(config.authorizationCode(from: url, expectedState: "s1"), .failure(.denied("access_denied")))
+        // A denial with a forged state is treated as invalid, not trusted.
+        XCTAssertEqual(config.authorizationCode(from: url, expectedState: "s2"), .failure(.invalid))
+    }
+
     func testRedirectUsesReversedClientID() {
         let config = GmailConfig(clientID: "123-abc.apps.googleusercontent.com")
         XCTAssertEqual(config.redirectScheme, "com.googleusercontent.apps.123-abc")
@@ -25,6 +67,10 @@ final class GmailTests: XCTestCase {
         let url = config.authorizationURL(pkce: PKCE(verifier: "v"), state: "s")?.absoluteString ?? ""
         XCTAssertTrue(url.contains("gmail.readonly"))
         XCTAssertTrue(url.contains("code_challenge_method=S256"))
+        let items = URLComponents(string: url)?.queryItems ?? []
+        XCTAssertEqual(items.first(where: { $0.name == "redirect_uri" })?.value, config.redirectURI)
+        XCTAssertEqual(items.first(where: { $0.name == "client_id" })?.value, config.clientID)
+        XCTAssertEqual(items.first(where: { $0.name == "scope" })?.value, GmailScope.readOnly)
     }
 
     func testPKCEMatchesRFC7636Example() {

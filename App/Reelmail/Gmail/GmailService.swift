@@ -9,13 +9,16 @@ import UIKit
 @MainActor
 final class GmailService: NSObject {
     enum GmailError: LocalizedError {
-        case notConfigured, cancelled, badCallback, http(Int), notSignedIn
+        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn
 
         var errorDescription: String? {
             switch self {
             case .notConfigured: return "Gmail isn't set up yet. Add a Google iOS client ID to Config/Local.xcconfig."
             case .cancelled: return "Sign-in was cancelled."
             case .badCallback: return "Google returned an unexpected sign-in response."
+            case .denied(let reason) where reason == "access_denied":
+                return "Google denied access. This Google account may not be on the app's test-user list."
+            case .denied(let reason): return "Google declined sign-in (\(reason))."
             case .http(let code): return "Gmail returned HTTP \(code)."
             case .notSignedIn: return "Not signed in to Gmail."
             }
@@ -60,9 +63,14 @@ final class GmailService: NSObject {
         }
         authSession = nil
 
-        let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        guard items.first(where: { $0.name == "state" })?.value == state,
-              let code = items.first(where: { $0.name == "code" })?.value else { throw GmailError.badCallback }
+        let code: String
+        switch config.authorizationCode(from: callback, expectedState: state) {
+        case .success(let value): code = value
+        case .failure(.denied(let reason)):
+            log.error("Google declined sign-in: \(reason, privacy: .public)")
+            throw GmailError.denied(reason)
+        case .failure(.invalid): throw GmailError.badCallback
+        }
 
         let tokens = try await exchange([
             "grant_type": "authorization_code",
