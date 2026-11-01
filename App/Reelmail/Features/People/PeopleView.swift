@@ -7,14 +7,13 @@ struct PeopleView: View {
     private var topics: [MailTopic] { MailTopic.make(posts: store.activePosts, sent: store.sentByMe) }
     private var people: [Person] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let snapshot = topics
         return store.people.filter {
             q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.email.localizedCaseInsensitiveContains(q)
-        }.sorted {
-            let a = topics.first { $0.person.id == $0.person.id }
-            let left = topics.first(where: { topic in topic.person.id == $0.id })?.updatedAt ?? .distantPast
-            let right = topics.first(where: { topic in topic.person.id == $1.id })?.updatedAt ?? .distantPast
-            _ = a
-            return left == right ? $0.name < $1.name : left > right
+        }.sorted { leftPerson, rightPerson in
+            let left = snapshot.first(where: { $0.person.id == leftPerson.id })?.updatedAt ?? .distantPast
+            let right = snapshot.first(where: { $0.person.id == rightPerson.id })?.updatedAt ?? .distantPast
+            return left == right ? leftPerson.name < rightPerson.name : left > right
         }
     }
     var body: some View {
