@@ -18,6 +18,9 @@ struct RootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(hex: 0xF7F6F2))
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if router.tab == .home && store.mode == .sample { DemoTriageReviewLink() }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 RollingTabBar(selection: $router.tab)
                     .padding(.horizontal, 16)
