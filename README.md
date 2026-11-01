@@ -13,8 +13,8 @@ People, Money, Catch up later), and a vertical reel of posts written on device b
 - **Never sends.** "Draft reply" offers **Copy** and **Open in Gmail** only. You press Send in Gmail.
 - **No secrets in the repo.** The Google client ID comes from `Config/Local.xcconfig`, which is
   gitignored. OAuth tokens live in the Keychain, this device only. Email bodies are never logged.
-- **Archive and Snooze are local for now** (they hide posts in the app). Doing them in Gmail would
-  need `gmail.modify`, which is intentionally not requested yet.
+- **Hide is local.** Hiding a message only affects the app. Changing Gmail would need `gmail.modify`,
+  which is intentionally not requested.
 
 ## What's here
 
