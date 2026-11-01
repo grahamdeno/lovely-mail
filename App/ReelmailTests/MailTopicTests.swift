@@ -78,14 +78,14 @@ final class HomeFilteringTests: XCTestCase {
         let suite = "reelmail.topic-tests." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let first = FeedStore(gmail: TopicDemoClient(), summarizeOnDevice: false, triageDefaults: defaults)
+        let first = FeedStore(gmail: TopicDemoClient(), summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
         await first.load()
         XCTAssertEqual(first.topics.filter { $0.person.id == SampleData.maya.id }.count, 1)
         XCTAssertTrue(first.demoRules.setSender(SampleData.maya.email, destination: .filtered))
         XCTAssertFalse(first.topics.contains { $0.person.id == SampleData.maya.id })
         XCTAssertFalse(first.people.contains { $0.id == SampleData.maya.id })
         XCTAssertEqual(first.filteredDemoPosts.filter { $0.email.from.id == SampleData.maya.id }.count, 2)
-        let reopened = FeedStore(gmail: TopicDemoClient(), summarizeOnDevice: false, triageDefaults: defaults)
+        let reopened = FeedStore(gmail: TopicDemoClient(), summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
         await reopened.load()
         XCTAssertFalse(reopened.topics.contains { $0.person.id == SampleData.maya.id })
         XCTAssertTrue(reopened.demoRules.setSender(SampleData.maya.email, destination: nil))
@@ -98,7 +98,7 @@ final class HomeFilteringTests: XCTestCase {
 private final class TopicDemoClient: GmailInboxClient {
     let config = GmailConfig(clientID: "")
     var isSignedIn: Bool { false }
-    func fetchInbox(maxResults: Int) async throws -> [Email] { XCTFail("No Gmail fetching in topic demo tests"); return [] }
+    func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot { XCTFail("No Gmail fetching in topic demo tests"); return .empty }
     func signIn() async throws { XCTFail("No sign-in in topic demo tests") }
     func signOut() {}
 }

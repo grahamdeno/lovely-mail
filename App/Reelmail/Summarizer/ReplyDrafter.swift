@@ -12,13 +12,8 @@ struct TemplateReplyDrafter: ReplyDrafter {
 
     func draft(replyTo email: Email, myName: String) async throws -> String {
         let topic = FallbackSummarizer.cleanSubject(email.subject, fallbackBody: email.body).lowercased()
-        return """
-        Hi \(email.from.firstName),
-
-        Thanks for the note about \(topic). I'll get back to you shortly with an answer.
-
-        \(myName)
-        """
+        let signOff = myName.isEmpty ? "" : "\n\n" + myName
+        return "Hi \(email.from.firstName),\n\nThanks for the note about \(topic). I'll get back to you shortly with an answer." + signOff
     }
 }
 
@@ -29,10 +24,10 @@ struct AppleIntelligenceReplyDrafter: ReplyDrafter {
         let session = LanguageModelSession(instructions: """
         You draft short, warm, plain email replies for the user to edit and send themselves.
         Answer what was asked only if the email makes the answer obvious; otherwise acknowledge and say you'll follow up.
-        Keep it under 80 words. Sign off with the user's first name.
+        Keep it under 80 words. \(myName.isEmpty ? "Do not add a signature." : "Sign off with the user's first name.")
         """)
         let prompt = """
-        The user's name: \(myName)
+        \(myName.isEmpty ? "" : "The user's name: " + myName)
         Reply to this email from \(email.from.name).
         Subject: \(email.subject)
 

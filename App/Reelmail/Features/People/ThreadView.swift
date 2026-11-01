@@ -2,13 +2,15 @@ import SwiftUI
 
 struct ThreadView: View {
     @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
     let person: Person
     @State private var showingInfo = false
     var body: some View {
         let messages = store.conversation(with: person)
+        let latestIncoming = messages.last { !$0.isFromMe }.flatMap { store.post(for: $0) }
         ScrollView {
             LazyVStack(spacing: 10) {
-                Text(store.mode == .sample ? "Demo · fictional conversation" : "Partial Gmail history · read-only")
+                Text(store.mode == .sample ? "Demo · fictional conversation" : "Recent mail with \(person.firstName) · read-only")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.bottom, 4)
                 if messages.isEmpty { Text("No loaded messages with this person.").padding(.vertical, 24) }
                 ForEach(Array(messages.enumerated()), id: \.element.id) { index, email in
@@ -29,6 +31,19 @@ struct ThreadView: View {
             }.padding(16)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .safeAreaInset(edge: .bottom) {
+            if let latestIncoming {
+                HStack {
+                    Text("Draft here, send in Gmail").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Spacer()
+                    Button { router.draftPostID = latestIncoming.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
+                        .buttonStyle(CalmActionStyle(prominent: true))
+                }
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 16).padding(.bottom, 8)
+            }
+        }
         .navigationTitle(person.name).navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -102,7 +117,7 @@ private struct ConversationInfoSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(person.name).font(.title2.weight(.semibold))
                     Text(person.email).textSelection(.enabled)
-                    Text(mode == .sample ? "Fictional incoming and outgoing demo mail." : "Only loaded inbox messages are shown. Sent and archived history are not imported yet.")
+                    Text(mode == .sample ? "Fictional incoming and outgoing demo mail." : "Recent Primary inbox mail and your sent replies from the last 90 days. Older history stays in Gmail.")
                     Text("Short messages show original imported text. Longer messages show a labeled summary or excerpt when available. Generated summaries can be imperfect; verify details in the source.")
                     Text("Read-only. Nothing can be sent from this screen.")
                 }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -125,8 +140,7 @@ private struct EmailSourceSheet: View {
                     Text("From: \(email.from.email)")
                     Text("To: \(email.to.joined(separator: ", "))")
                     Text(email.date.formatted(date: .abbreviated, time: .shortened))
-                    Text("Imported plain text; CC and Reply-To are not yet available.")
-                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    if !email.cc.isEmpty { Text("Cc: \(email.cc.joined(separator: ", "))") }
                     Divider()
                     Text(email.body.isEmpty ? "No readable body was imported." : email.body).font(.body)
                 }.font(.subheadline).textSelection(.enabled)

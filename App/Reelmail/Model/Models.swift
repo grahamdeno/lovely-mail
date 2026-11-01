@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct Person: Identifiable, Hashable, Sendable {
+struct Person: Identifiable, Hashable, Sendable, Codable {
     let id: String
     let name: String
     let email: String
@@ -17,26 +17,35 @@ struct Person: Identifiable, Hashable, Sendable {
 
     var color: Color { Color(hue: hue, saturation: 0.32, brightness: 0.52) }
 
-    /// Automated senders never "need a reply".
-    var isAutomated: Bool {
-        let local = email.split(separator: "@").first.map { String($0).lowercased() } ?? ""
-        let automated = ["no-reply", "noreply", "do-not-reply", "receipts", "notices", "billing",
-                         "news", "hello", "updates", "trips", "care", "office", "accounts", "info"]
-        return automated.contains(local)
-    }
+    /// Address-only guess. Live mail also carries header and label signals; see `Email.isAutomated`.
+    var isAutomated: Bool { SenderSignals.looksAutomated(address: email) }
 }
 
-struct Email: Identifiable, Hashable, Sendable {
+struct Email: Identifiable, Hashable, Sendable, Codable {
     let id: String
     let threadId: String
     let from: Person
     let to: [String]
+    var cc: [String] = []
     let subject: String
     let date: Date
     /// Plain text body. Never logged.
     let body: String
     var isUnread: Bool = true
     var isFromMe: Bool = false
+    /// Bulk, notification or list mail according to Gmail's own signals (category tabs, list headers)
+    /// plus the address shape. Automated mail never counts as a person waiting on you.
+    var bulk: Bool = false
+
+    init(id: String, threadId: String, from: Person, to: [String], cc: [String] = [], subject: String, date: Date,
+         body: String, isUnread: Bool = true, isFromMe: Bool = false, bulk: Bool = false) {
+        self.id = id; self.threadId = threadId; self.from = from; self.to = to; self.cc = cc
+        self.subject = subject; self.date = date; self.body = body
+        self.isUnread = isUnread; self.isFromMe = isFromMe; self.bulk = bulk
+    }
+
+    var isAutomated: Bool { bulk || from.isAutomated }
+    var recipients: [String] { to + cc }
 }
 
 enum PostCategory: String, CaseIterable, Codable, Sendable {
@@ -82,13 +91,13 @@ enum PostCategory: String, CaseIterable, Codable, Sendable {
     }
 }
 
-enum SummaryEngine: String, Sendable {
+enum SummaryEngine: String, Sendable, Codable {
     case appleIntelligence = "Apple Intelligence"
     case fallback = "Fallback"
 }
 
 /// What a summarizer produces for one email. Plain value type used across the app.
-struct EmailSummary: Hashable, Sendable {
+struct EmailSummary: Hashable, Sendable, Codable {
     var headline: String
     var blurb: String
     var needsReply: Bool
@@ -106,3 +115,30 @@ struct Post: Identifiable, Hashable {
 }
 
 enum DataMode: String { case sample = "Sample mode", gmail = "Gmail (read-only)" }
+
+/// Signals that a sender is a system, list or company rather than a person.
+enum SenderSignals {
+    private static let exactLocalParts: Set<String> = [
+        "no-reply", "noreply", "do-not-reply", "donotreply", "receipts", "notices", "billing", "news",
+        "hello", "updates", "trips", "care", "office", "accounts", "info", "support", "notifications",
+        "notification", "alerts", "alert", "newsletter", "team", "marketing", "sales", "orders", "service",
+        "customerservice", "help", "mailer", "mailer-daemon", "postmaster", "digest", "community",
+    ]
+    private static let fragments = ["noreply", "no-reply", "donotreply", "do-not-reply", "notification", "mailer", "newsletter", "unsubscribe", "bounce", "auto-", "automated"]
+
+    static func looksAutomated(address: String) -> Bool {
+        let local = address.split(separator: "@").first.map { String($0).lowercased() } ?? ""
+        if exactLocalParts.contains(local) { return true }
+        return fragments.contains { local.contains($0) }
+    }
+
+    /// Gmail labels that mean the message landed outside the Primary tab.
+    static let bulkLabels: Set<String> = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS"]
+
+    static func isBulk(labelIds: [String], hasListHeaders: Bool, precedence: String?, address: String) -> Bool {
+        if hasListHeaders { return true }
+        if labelIds.contains(where: bulkLabels.contains) { return true }
+        if let precedence, ["bulk", "list", "junk"].contains(precedence.lowercased()) { return true }
+        return looksAutomated(address: address)
+    }
+}

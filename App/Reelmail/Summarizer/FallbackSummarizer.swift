@@ -74,11 +74,7 @@ struct FallbackSummarizer: EmailSummarizer {
     }
 
     static func needsReply(body: String, automated: Bool, category: PostCategory) -> Bool {
-        guard !automated, category != .newsletter else { return false }
-        let l = body.lowercased()
-        let asks = ["let me know", "can you", "could you", "would you", "please confirm", "rsvp",
-                    "are you free", "please reply", "your thoughts", "what do you think"]
-        return body.contains("?") || asks.contains { l.contains($0) }
+        ReplySignals.needsReply(body: body, automated: automated, category: category)
     }
 
     static func isSensitive(_ lower: String) -> Bool {

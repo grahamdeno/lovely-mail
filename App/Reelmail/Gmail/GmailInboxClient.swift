@@ -1,10 +1,36 @@
 import Foundation
 
+/// What one import of the account produced. Everything here is read-only data from Gmail.
+struct MailboxSnapshot: Codable, Equatable {
+    /// The signed-in address from users/me/profile.
+    var account: String
+    /// Primary-tab inbox messages, newest first.
+    var inbox: [Email]
+    /// Messages the account sent, newest first.
+    var sent: [Email]
+    var fetchedAt: Date
+    /// True when the import stopped at its limit rather than at the end of the mailbox.
+    var inboxTruncated: Bool = false
+
+    static let empty = MailboxSnapshot(account: "", inbox: [], sent: [], fetchedAt: .distantPast)
+}
+
+/// How much to import. Bounded on purpose; see docs/calm-feed.md.
+struct ImportLimits: Equatable {
+    var inboxMessages = 120
+    var sentMessages = 60
+    /// Only sent mail newer than this is imported (days).
+    var sentWindowDays = 90
+
+    static let standard = ImportLimits()
+}
+
 @MainActor
 protocol GmailInboxClient: AnyObject {
     var config: GmailConfig { get }
     var isSignedIn: Bool { get }
-    func fetchInbox(maxResults: Int) async throws -> [Email]
+    /// Imports the mailbox. `known` lets the client skip downloading messages it already has.
+    func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot
     func signIn() async throws
     func signOut()
 }

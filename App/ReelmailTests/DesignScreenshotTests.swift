@@ -30,7 +30,7 @@ final class DesignScreenshotTests: XCTestCase {
         try await capture(NavigationStack { ThreadView(person: person) }.environment(store).environment(router).dynamicTypeSize(.accessibility2), name: "06-Timeline-larger-text")
     }
     private func demoStore() async -> FeedStore {
-        let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false)
+        let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()
         XCTAssertEqual(store.mode, .sample)
         return store
@@ -73,7 +73,7 @@ final class DesignScreenshotTests: XCTestCase {
 private final class ScreenshotInboxClient: GmailInboxClient {
     let config = GmailConfig(clientID: "")
     var isSignedIn: Bool { false }
-    func fetchInbox(maxResults: Int) async throws -> [Email] { XCTFail("Screenshot capture must never fetch Gmail"); return [] }
+    func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot { XCTFail("Screenshot capture must never fetch Gmail"); return .empty }
     func signIn() async throws { XCTFail("Screenshot capture must never sign in") }
     func signOut() {}
 }

@@ -1,93 +1,89 @@
 import SwiftUI
 
-/// My profile: data source, Gmail connection, privacy, and the Summary Lab.
+/// Account, connection state, rules and the Summary Lab.
 struct MyProfileView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
+    @State private var showingFiltered = false
+
+    private var sourceDetail: String {
+        switch (store.mode, store.gmailConfigured) {
+        case (.gmail, _):
+            var parts = [store.account ?? ""]
+            parts.append("\(store.posts.count) inbox messages, \(store.sentByMe.count) sent")
+            if let fetched = store.lastFetched { parts.append("updated " + MailTime.label(fetched).lowercased()) }
+            return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+        case (.sample, true): return "Fictional mail. Connect Gmail to see your own."
+        case (.sample, false): return "This build has no Gmail configuration, so it shows fictional mail."
+        }
+    }
 
     var body: some View {
-        ScreenScaffold(title: "Profile") {
-            ScrollView {
-                VStack(alignment: .leading, spacing: RM.Space.m) {
-                    HStack(spacing: RM.Space.m) {
-                        Image("AppIconImage")
-                            .resizable()
-                            .frame(width: 56, height: 56)
-                            .rmCorner(RM.Radius.avatar(size: 56))
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("reelmail").font(.system(size: 24, weight: .bold)).foregroundStyle(.white)
-                            Text("Email, reeled.").font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
-                        }
-                    }
-                    .padding(.bottom, RM.Space.s)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Profile").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader).padding(.bottom, 2)
 
-                    InfoCard(title: "Mail source", value: store.mode.rawValue,
-                             detail: store.gmailConfigured
-                                ? "Read-only access. Reelmail can't send, delete or change your mail."
-                                : "Gmail isn't configured in this build, so you're seeing sample emails.")
+                ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail, read-only" : "Demo", detail: sourceDetail)
 
-                    if store.gmailConfigured {
-                        Button {
-                            Task {
-                                if store.mode == .gmail { await store.disconnectGmail() } else { await store.connectGmail() }
-                            }
-                        } label: {
-                            Label(store.mode == .gmail ? "Disconnect Gmail" : "Connect Gmail (read-only)",
-                                  systemImage: "envelope.badge.shield.half.filled")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(RMButtonStyle(kind: .ghostLight))
-                        .background(Color.white)
-                        .rmCorner(RM.Radius.button)
-                    }
-
-                    let status = ModelStatus.current
-                    InfoCard(title: "On-device AI", value: status.title, detail: status.detail)
-
-                    Button { router.open(.summaryLab) } label: {
-                        HStack {
-                            Label("Summary Lab", systemImage: "flask")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(RMButtonStyle(kind: .ghostDark))
-
-                    Button { store.restoreAll() } label: {
-                        Label("Bring back archived and snoozed", systemImage: "arrow.uturn.backward").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(RMButtonStyle(kind: .ghostDark))
-
-                    Text("Privacy: Reelmail reads Gmail with read-only permission, summarizes on this iPhone with Apple Intelligence, and never sends email.")
-                        .font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
-                        .padding(.top, RM.Space.s)
-
-                    if let error = store.errorMessage {
-                        Text(error).font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+                if store.needsReconnect {
+                    Text("Google signed you out. While Reelmail is in testing this happens every 7 days. Your loaded mail is still here.")
+                        .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
+                }
+                if store.gmailConfigured {
+                    if store.mode == .gmail, !store.needsReconnect {
+                        Button { Task { await store.disconnectGmail() } } label: {
+                            Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
+                        }.buttonStyle(CalmActionStyle())
+                    } else {
+                        Button { Task { await store.connectGmail() } } label: {
+                            Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail (read-only)", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
+                        }.buttonStyle(CalmActionStyle(prominent: true))
                     }
                 }
-                .padding(RM.Space.l)
+                if let error = store.errorMessage, !store.needsReconnect {
+                    Text(error).font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
+
+                let status = ModelStatus.current
+                ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
+
+                ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
+                Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
+                    .buttonStyle(CalmActionStyle())
+                if !store.hiddenPosts.isEmpty {
+                    Button { store.restoreAll() } label: { Label("Show hidden mail (\(store.hiddenPosts.count))", systemImage: "eye").frame(maxWidth: .infinity) }
+                        .buttonStyle(CalmActionStyle())
+                }
+                Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
+                    .buttonStyle(CalmActionStyle())
+
+                Text("Reelmail reads Gmail with read-only permission, writes summaries on this iPhone, and never sends, deletes or changes your mail. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+                    .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
             }
+            .padding(20)
         }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
+    }
+
+    private var rulesSummary: String {
+        let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
+        return filtered == 0 ? "No senders filtered" : (filtered == 1 ? "1 sender filtered" : "\(filtered) senders filtered")
     }
 }
 
-struct InfoCard: View {
+struct ProfileCard: View {
     let title: String
     let value: String
     let detail: String
-
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
-            Text(value).font(RM.Typo.title).foregroundStyle(.white)
-            Text(detail).font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
+            Text(title).font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(value).font(.headline)
+            Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
         }
-        .padding(RM.Space.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RM.Palette.surface)
-        .rmCorner(RM.Radius.card)
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
     }
 }
