@@ -58,6 +58,37 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee ci-artifacts/build.log
 
+      - name: Export screenshot attachments
+        if: ${{ !cancelled() && hashFiles('ci-artifacts/Reelmail.xcresult/Info.plist') != '' }}
+        run: |
+          mkdir -p ci-artifacts/screenshots
+          xcrun xcresulttool export attachments --help > ci-artifacts/attachment-export-help.txt
+          set -o pipefail
+          xcrun xcresulttool export attachments \
+            --path ci-artifacts/Reelmail.xcresult \
+            --output-path ci-artifacts/screenshots \
+            2>&1 | tee ci-artifacts/attachment-export.log
+          python3 - <<'PY'
+          from pathlib import Path
+          from html import escape
+          import json
+          root = Path('ci-artifacts/screenshots')
+          images = sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in {'.png', '.jpg', '.jpeg'})
+          if not images:
+              raise SystemExit('No screenshot images were exported; inspect the result bundle and export log.')
+          entries = []
+          cards = []
+          for p in images:
+              relative = p.relative_to(root).as_posix()
+              entries.append(relative)
+              cards.append('<figure><img src="' + escape(relative, quote=True) + '" alt="Captured demo interface"><figcaption>' + escape(relative) + '</figcaption></figure>')
+          page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Reelmail demo captures</title><style>body{font:16px system-ui;background:#f7f6f2;color:#202827;margin:24px}main{display:flex;flex-wrap:wrap;gap:24px}figure{margin:0;max-width:393px}img{width:100%;height:auto}figcaption{overflow-wrap:anywhere;padding:12px 0}</style><h1>Reelmail demo captures</h1><p>Fictional mail. Captures are evidence of rendering, not visual approval. This gallery is a downloaded artifact, not a hosted website.</p><main>' + ''.join(cards) + '</main></html>'
+          (root / 'index.html').write_text(page)
+          (root / 'images.json').write_text(json.dumps(entries, indent=2))
+          with open('ci-artifacts/screenshot-summary.txt', 'w') as f:
+              f.write(str(len(images)) + ' exported image attachments. Visual review pending.\n')
+          PY
+
       - name: Save validation summary
         if: always()
         env:
@@ -67,7 +98,21 @@ jobs:
           mkdir -p ci-artifacts
           printf 'Commit: %s\nJob status before artifact upload: %s\n' "$HEAD_SHA" "$JOB_STATUS" > ci-artifacts/validation.txt
           cat ci-artifacts/validation.txt >> "$GITHUB_STEP_SUMMARY"
-          echo 'Simulator screenshots and device validation are not supplied by this workflow.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f ci-artifacts/screenshot-summary.txt ]; then
+            cat ci-artifacts/screenshot-summary.txt >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No verified screenshot export is available from this run.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo 'Device validation and visual approval remain separate.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload screenshot gallery
+        if: ${{ !cancelled() && hashFiles('ci-artifacts/screenshots/index.html') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: reelmail-screenshots-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/screenshots/
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Upload diagnostic artifacts
         if: always()
