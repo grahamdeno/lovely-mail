@@ -1,0 +1,4 @@
+// Copy to Config/Local.xcconfig (gitignored) and fill in.
+// An iOS-type OAuth client from Google Cloud Console, Gmail API enabled,
+// scope gmail.readonly only. Looks like 1234567890-abc123.apps.googleusercontent.com
+GOOGLE_IOS_CLIENT_ID = YOUR_CLIENT_ID.apps.googleusercontent.com

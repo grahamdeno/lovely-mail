@@ -1,0 +1,90 @@
+name: testflight
+# Archives Reelmail and uploads it to TestFlight (internal testing only).
+# Runs on push to the `testflight` branch, or by hand once this file is on main.
+# Needs repo secrets ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (an App Store Connect API key)
+# and the App Store Connect app record for com.grahamdeno.reelmail.
+# Never submits for review. That stays manual.
+on:
+  push:
+    branches: [testflight]
+  workflow_dispatch:
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Tools
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Write API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          if [ -z "$ASC_KEY_P8" ]; then echo "::error::ASC_KEY_P8 secret is missing"; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey.p8"
+
+      - name: Archive
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Reelmail.xcodeproj -scheme Reelmail \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Reelmail.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER" \
+            CURRENT_PROJECT_VERSION=$((1000 + ${{ github.run_number }})) \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee "$RUNNER_TEMP/archive.log" | tail -n 40 \
+            || { grep -E "error:|Error|No profiles|No Accounts|certificate|provisioning" "$RUNNER_TEMP/archive.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+
+      - name: Export and upload
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          cat > "$RUNNER_TEMP/export.plist" <<'P'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>7MHDTK68M2</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          P
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Reelmail.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER" 2>&1 | tee "$RUNNER_TEMP/export.log" | tail -n 40 \
+            || { grep -E "error:|Error|failed|certificate|provisioning" "$RUNNER_TEMP/export.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          echo "::notice::Uploaded build $((1000 + ${{ github.run_number }})) to App Store Connect"
+
+      - name: Remove key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"

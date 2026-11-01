@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged with the generated Info.plist. Value comes from the xcconfig. -->
+	<key>GoogleIOSClientID</key>
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlegmail</string>
+	</array>
+</dict>
+</plist>

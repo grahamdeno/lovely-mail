@@ -1,0 +1,56 @@
+name: build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Privacy guard (no send scopes or send endpoints in app code)
+        run: |
+          if grep -rnE "gmail\.send|gmail\.compose|gmail\.modify|mail\.google\.com/\"|messages/send|drafts/send|/send\?|\.send\(" App/Reelmail; then
+            echo "::error::Reelmail must stay read-only. Found a send scope or endpoint above."
+            exit 1
+          fi
+          echo "No send scopes or endpoints found."
+
+      - name: Select the newest Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the project
+        run: xcodegen generate
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available iPhone | grep -Eo '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          echo "Simulator: $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test (simulator, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Reelmail.xcodeproj \
+            -scheme Reelmail \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|warning: .*FoundationModels|Test Case|Executed|\*\* (BUILD|TEST)" | tail -n 200 \
+            || { grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }

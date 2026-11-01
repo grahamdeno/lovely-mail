@@ -1,0 +1,6 @@
+// Checked-in defaults. Secrets never go here.
+// The Google iOS OAuth client ID lives in Config/Local.xcconfig (gitignored).
+// Empty means the app runs in sample mode with fake emails.
+GOOGLE_IOS_CLIENT_ID =
+
+#include? "Local.xcconfig"
