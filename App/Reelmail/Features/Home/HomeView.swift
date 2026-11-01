@@ -24,53 +24,62 @@ struct HomeView: View {
     @Environment(FeedStore.self) private var store
     @State private var filter = 0
     @State private var showingFiltered = false
-    private let filters = ["All mail", "Possible replies", "Updates", "Reading"]
-    private var topics: [MailTopic] {
-        store.topics.filter { topic in
-            let reading = topic.latest.summary.category == .newsletter || (store.mode == .sample && topic.posts.contains {
-                store.demoRules.decision(messageID: $0.id, sender: $0.email.from.email).destination == .reading
-            })
+    private var posts: [Post] {
+        store.visiblePosts.filter { post in
+            let reading = post.summary.category == .newsletter || (store.mode == .sample &&
+                store.demoRules.decision(messageID: post.id, sender: post.email.from.email).destination == .reading)
             switch filter {
-            case 1: return topic.possibleReply
-            case 2: return !topic.possibleReply && !reading
+            case 1: return post.summary.needsReply
+            case 2: return !post.summary.needsReply && !reading
             case 3: return reading
             default: return true
             }
-        }
+        }.sorted { $0.email.date > $1.email.date }
     }
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 HomeHeader(onFiltered: { showingFiltered = true })
-                Menu {
-                    Picker("Mail view", selection: $filter) {
-                        ForEach(filters.indices, id: \.self) { index in Text(filters[index]).tag(index) }
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(["All", "Possible replies", "Updates", "Reading"].enumerated()), id: \.offset) { index, title in
+                            Button { filter = index } label: {
+                                Text(title).font(.subheadline.weight(.medium))
+                                    .padding(.horizontal, 14).frame(minHeight: 44)
+                                    .foregroundStyle(filter == index ? Color.white : CalmStyle.secondary)
+                                    .background(filter == index ? CalmStyle.blue : Color.white, in: Capsule())
+                            }.buttonStyle(.plain).accessibilityAddTraits(filter == index ? .isSelected : [])
+                        }
                     }
-                } label: {
-                    HStack(spacing: 6) { Text(filters[filter]); Image(systemName: "chevron.down").font(.caption) }
-                        .font(.subheadline.weight(.medium)).frame(minHeight: 44)
-                }.accessibilityLabel("Mail view: " + filters[filter])
-                if let error = store.errorMessage { Label(error, systemImage: "exclamationmark.triangle").font(.subheadline) }
+                }.scrollIndicators(.hidden)
+                if let error = store.errorMessage {
+                    Label(error + " Displayed mail may be incomplete.", systemImage: "exclamationmark.triangle")
+                        .font(.subheadline).padding(16)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                }
                 if store.mode == .sample, let error = store.demoRules.persistenceError {
                     Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
                 }
                 if store.isLoading { ProgressView("Loading mail…") }
-                if store.isSummarizing { Text("Updating summaries…").font(.caption).foregroundStyle(CalmStyle.secondary) }
+                if store.isSummarizing {
+                    Text("Refining summaries on this device").font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
                 if store.lens != nil || store.chip != .forYou {
-                    Button("Show all loaded mail") { store.lens = nil; store.chip = .forYou }.frame(minHeight: 44)
+                    Button("Show all loaded mail") { store.lens = nil; store.chip = .forYou }
+                        .frame(minHeight: 44).tint(CalmStyle.blue)
                 }
-                ForEach(topics) { topic in TopicCard(topic: topic) }
-                if !store.isLoading && topics.isEmpty {
-                    Text("Nothing in this view.").font(.subheadline).padding(.vertical, 24)
+                ForEach(posts) { post in CompactMailCard(post: post) }
+                if !store.isLoading {
+                    Text(posts.isEmpty ? "No loaded messages match this view." : "You’re through the loaded mail.")
+                        .font(.subheadline.weight(.medium))
+                    Text("Loaded history only. Summaries and reply suggestions may be imperfect; check the source when details matter.")
+                        .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
-                DisclosureGroup("About this view") {
-                    Text("Only loaded mail is included. Topics are grouped by thread and sender. Excerpts are selected source text; AI summaries may be imperfect. A reply does not prove a request is complete. Live Gmail sent history is not imported yet.")
-                        .font(.caption).padding(.top, 8)
-                }.font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 8)
             }.padding(20)
-        }.background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
-            .sheet(isPresented: $showingFiltered) { FilteredDemoReview() }
-            .refreshable { await store.load() }
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
+        .sheet(isPresented: $showingFiltered) { FilteredDemoReview() }
+        .refreshable { await store.load() }
     }
 }
 
@@ -82,15 +91,13 @@ struct HomeHeader: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("reelmail").font(.title2.weight(.bold)).accessibilityAddTraits(.isHeader)
-                Text(store.mode == .sample ? "Demo · fictional mail" : "Partial Gmail history · read-only")
+                Text(store.mode == .sample ? "Demo · fictional mail" : "Gmail · partial, read-only history")
                     .font(.caption).foregroundStyle(CalmStyle.secondary)
             }
             Spacer()
             Menu {
                 Button("Account and settings") { router.tab = .profile }
-                if store.mode == .sample {
-                    Button("Filtered demo mail (\(store.filteredDemoPosts.count))", action: onFiltered)
-                }
+                if store.mode == .sample { Button("Filtered demo mail", action: onFiltered) }
             } label: {
                 CalmAvatar(person: store.me, size: 36).frame(minWidth: 44, minHeight: 44)
             }.accessibilityLabel("Account and mail options")
@@ -98,54 +105,60 @@ struct HomeHeader: View {
     }
 }
 
-private struct TopicCard: View {
+private struct CompactMailCard: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
-    let topic: MailTopic
+    let post: Post
+    private var sensitive: Bool { ConversationPresentation.isSensitive(post.email, summary: post.summary) }
     var body: some View {
-        let preview = topic.preview
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                CalmAvatar(person: topic.person, size: 32)
-                Text(topic.person.name).font(.subheadline.weight(.semibold))
-                Spacer(minLength: 4)
-                Text(MailTime.label(topic.updatedAt)).font(.caption).foregroundStyle(CalmStyle.secondary)
-                if topic.posts.contains(where: { $0.email.isUnread }) {
-                    Circle().fill(CalmStyle.blue).frame(width: 6, height: 6).accessibilityLabel("Unread locally")
+                CalmAvatar(person: post.email.from, size: 34)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(post.email.from.name).font(.subheadline.weight(.semibold))
+                    Text(MailTime.label(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
+                Spacer(minLength: 0)
+                if post.email.isUnread {
+                    Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread locally")
                 }
             }
-            Button { router.open(.thread(topic.person)) } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(topic.title).font(.headline)
-                    Text(preview.text).font(.body).fixedSize(horizontal: false, vertical: true)
-                    if let reply = topic.replyContext {
-                        Text(reply).font(.caption).foregroundStyle(CalmStyle.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityHint("Opens the conversation and original messages")
-            HStack {
-                if let label = preview.label { Text(label).font(.caption2).foregroundStyle(CalmStyle.secondary) }
-                Spacer()
-                Menu {
-                    Section("Source emails") {
-                        ForEach(topic.posts) { post in
-                            Button(topic.sensitive ? "Source · " + MailTime.label(post.email.date) : post.email.subject + " · " + MailTime.label(post.email.date)) {
-                                store.markRead(post); router.open(.email(post.id))
-                            }
-                        }
-                    }
-                    if store.mode == .sample {
-                        Section("Saved demo rules · no Gmail changes") {
-                            Button("Filter this demo sender") { store.demoRules.setSender(topic.person.email, destination: .filtered) }
-                            Button("Keep this demo sender in Reading") { store.demoRules.setSender(topic.person.email, destination: .reading) }
-                            Button("Remove demo sender rule") { store.demoRules.setSender(topic.person.email, destination: nil) }
-                        }.disabled(store.demoRules.persistenceError != nil)
-                    }
-                } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44) }
-                    .accessibilityLabel("Sources and organization")
-            }.padding(.top, -4)
-        }.padding(16).background(Color.white, in: RoundedRectangle(cornerRadius: 18))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(sensitive ? "Private message" : post.summary.headline).font(.headline)
+                Text(sensitive ? "Open the source to read private details." : post.summary.blurb)
+                    .font(.body).fixedSize(horizontal: false, vertical: true)
+                Text(sensitive ? "Private details hidden" : (post.summary.engine == .appleIntelligence ? "Generated summary" : "Source excerpt"))
+                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            if post.summary.needsReply {
+                Label("Possible reply needed", systemImage: "arrowshape.turn.up.left")
+                    .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { conversationButton; sourceButton }
+                VStack(alignment: .leading, spacing: 0) { conversationButton; sourceButton }
+            }
+        }
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 20))
+        .foregroundStyle(CalmStyle.ink)
+        .contextMenu {
+            if store.mode == .sample {
+                Button("Filter this demo sender") { store.demoRules.setSender(post.email.from.email, destination: .filtered) }
+                Button("Keep this demo sender in Reading") { store.demoRules.setSender(post.email.from.email, destination: .reading) }
+                Button("Remove demo sender rule") { store.demoRules.setSender(post.email.from.email, destination: nil) }
+            }
+        }
+    }
+    private var conversationButton: some View {
+        Button { router.open(.thread(post.email.from)) } label: {
+            Label("Conversation", systemImage: "bubble.left").font(.subheadline.weight(.medium)).frame(minHeight: 44)
+        }.buttonStyle(.plain).foregroundStyle(CalmStyle.blue)
+    }
+    private var sourceButton: some View {
+        Button { store.markRead(post); router.open(.email(post.id)) } label: {
+            Text("View source").font(.caption).frame(minHeight: 44)
+        }.buttonStyle(.plain).foregroundStyle(CalmStyle.secondary)
     }
 }
 
