@@ -1,68 +1,107 @@
 import SwiftUI
 
-/// DM-style conversation with one person: their mail on the left, mine on the right.
+/// A chronological view over loaded mail, not a claim of complete mailbox history.
 struct ThreadView: View {
     @Environment(FeedStore.self) private var store
-    @Environment(Router.self) private var router
     let person: Person
 
     var body: some View {
         let messages = store.conversation(with: person)
         ScrollView {
-            LazyVStack(spacing: RM.Space.s) {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(person.name).font(.title.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
+                    Text(person.email).font(.subheadline).textSelection(.enabled)
+                    Label(store.mode == .sample ? "Demo conversation · fictional mail" : "Partial Gmail history",
+                          systemImage: "info.circle")
+                        .font(.caption.weight(.medium))
+                    Text(store.mode == .sample
+                         ? "Incoming and outgoing sample messages appear together below."
+                         : "Only loaded inbox messages are shown. Sent and archived history are not imported yet.")
+                        .font(.caption).foregroundStyle(Color(hex: 0x626C69))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 8)
+
+                if messages.isEmpty {
+                    Label("No loaded messages with this person", systemImage: "bubble.left.and.bubble.right")
+                        .font(.subheadline).padding(.vertical, 24)
+                }
+
                 ForEach(messages) { email in
-                    Bubble(email: email, summary: store.post(for: email)?.summary)
-                        .onTapGesture {
-                            if !email.isFromMe { router.open(.email(email.id)) }
-                        }
+                    TimelineMessage(email: email, summary: store.post(for: email)?.summary)
                 }
             }
-            .padding(RM.Space.l)
+            .padding(20)
         }
-        .defaultScrollAnchor(.bottom)
-        .background(RM.Palette.sheet)
-        .navigationTitle(person.name)
+        .background(Color(hex: 0xF7F6F2))
+        .foregroundStyle(Color(hex: 0x202827))
+        .navigationTitle("Conversation")
         .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) {
-            if let latest = store.posts(from: person).first {
-                Button { router.draftPostID = latest.id } label: {
-                    Label("Draft reply", systemImage: "arrowshape.turn.up.left.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(RMButtonStyle(kind: .ghostLight))
-                .background(Color.white)
-                .rmCorner(RM.Radius.button)
-                .padding(RM.Space.l)
-            }
-        }
+        .toolbarBackground(Color(hex: 0xF7F6F2), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
     }
 }
 
-private struct Bubble: View {
+private struct TimelineMessage: View {
     let email: Email
     let summary: EmailSummary?
 
+    private var sensitive: Bool { summary?.sensitive == true }
+
     var body: some View {
-        HStack {
-            if email.isFromMe { Spacer(minLength: 48) }
-            VStack(alignment: .leading, spacing: 4) {
-                if let summary, !email.isFromMe {
-                    Text(summary.headline).font(RM.Typo.callout.weight(.semibold))
-                }
-                Text(email.isFromMe ? email.body : (summary?.sensitive == true ? "Private details hidden" : (summary?.blurb ?? email.body)))
-                    .font(RM.Typo.callout)
-                Text(email.date.formatted(date: .omitted, time: .shortened))
-                    .font(RM.Typo.micro).opacity(0.6)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(email.isFromMe ? "You" : email.from.name)
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 8)
+                Text(email.isFromMe ? "Sent" : "Received")
+                    .font(.caption).foregroundStyle(Color(hex: 0x626C69))
             }
-            .foregroundStyle(email.isFromMe ? RM.Palette.ink : .white)
-            .padding(RM.Space.m)
-            .background(email.isFromMe ? Color.white : RM.Palette.surface)
-            .rmCorner(RM.Radius.card)
-            .overlay(alignment: .topTrailing) {
-                if summary?.needsReply == true {
-                    Circle().fill(RM.Palette.violet).frame(width: 8, height: 8).offset(x: -8, y: 8)
-                }
+            Text(email.date.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption).foregroundStyle(Color(hex: 0x626C69))
+            Text(sensitive ? "Private message" : email.subject)
+                .font(.headline)
+            if sensitive {
+                Label("Private details hidden. Expand the source to read.", systemImage: "lock")
+                    .font(.subheadline)
+            } else if let summary {
+                Text(summary.blurb).font(.body)
+                Text("Generated summary · verify important details in the source")
+                    .font(.caption).foregroundStyle(Color(hex: 0x626C69))
+            } else {
+                Text("Summary unavailable. Expand the source to read this message.")
+                    .font(.subheadline).foregroundStyle(Color(hex: 0x626C69))
             }
-            if !email.isFromMe { Spacer(minLength: 48) }
+
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("From: \(email.from.email)")
+                    Text("To: \(email.to.joined(separator: ", "))")
+                    Text("Recipient details reflect the current import; CC and Reply-To are not available in this view.")
+                        .font(.caption).foregroundStyle(Color(hex: 0x626C69))
+                    Divider()
+                    Text(email.body.isEmpty ? "No readable body was imported." : email.body)
+                        .font(.body)
+                }
+                .font(.subheadline)
+                .textSelection(.enabled)
+                .padding(.top, 12)
+            } label: {
+                Label("Source email · plain text", systemImage: "doc.text")
+                    .font(.subheadline.weight(.medium))
+                    .frame(minHeight: 44)
+            }
+            .tint(Color(hex: 0x176B63))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(email.isFromMe ? Color(hex: 0xEAF2EF) : Color.white,
+                    in: RoundedRectangle(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18).strokeBorder(Color(hex: 0xE4E8E3), lineWidth: 1)
         }
     }
 }
