@@ -22,8 +22,8 @@ final class FeedStore {
     let photos: PhotoProvider = PlaceholderPhotoProvider()
     private let log = Logger(subsystem: "com.grahamdeno.reelmail", category: "feed")
 
-    init(gmail: GmailService = GmailService()) {
-        self.gmail = gmail
+    init(gmail: GmailService? = nil) {
+        self.gmail = gmail ?? GmailService()
     }
 
     var gmailConfigured: Bool { gmail.config.isConfigured }
