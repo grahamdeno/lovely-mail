@@ -98,6 +98,18 @@ jobs:
               f.write(str(len(images)) + ' exported image attachments. Visual review pending.\n')
           PY
 
+      - name: Print demo screenshots for remote review
+        # Fictional demo data only. Lets a reviewer without artifact access read the captures from the job log.
+        if: ${{ !cancelled() && hashFiles('ci-artifacts/screenshots/images.json') != '' }}
+        run: |
+          for f in $(find ci-artifacts/screenshots -name '*.png' | sort); do
+            out="${RUNNER_TEMP}/shot.jpg"
+            sips -s format jpeg -s formatOptions 55 --resampleWidth 390 "$f" --out "$out" >/dev/null
+            echo "SHOT-BEGIN $(basename "$f")"
+            base64 -i "$out" | tr -d '\n'; echo
+            echo "SHOT-END"
+          done
+
       - name: Save validation summary
         if: always()
         env:
