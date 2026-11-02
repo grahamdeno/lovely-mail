@@ -26,7 +26,7 @@ struct MyProfileView: View {
                 ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail, read-only" : "Demo", detail: sourceDetail)
 
                 if store.needsReconnect {
-                    Text("Google signed you out. While Dear is in testing this happens every 7 days. Your loaded mail is still here.")
+                    Text("Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
                         .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
                 }
@@ -58,7 +58,7 @@ struct MyProfileView: View {
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
 
-                Text("Dear reads Gmail with read-only permission, writes summaries on this iPhone, and never sends, deletes or changes your mail. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+                Text("Lovely reads Gmail with read-only permission, writes summaries on this iPhone, and never sends, deletes or changes your mail. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
             }
             .padding(20)

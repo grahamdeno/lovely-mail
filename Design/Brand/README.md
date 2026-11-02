@@ -1,9 +1,11 @@
-# Dear brand
+# Lovely brand
 
-**Name:** Dear (home screen). **App Store name:** Dear Mail. **Bundle ID stays** `com.grahamdeno.reelmail`
+**Name:** Lovely (home screen). **App Store name:** Lovely Mail. **Bundle ID stays** `com.grahamdeno.reelmail`
 (the Google OAuth client and App Store Connect record are tied to it; users never see it).
 
 **Line:** Mail from your people.
+
+**Intent:** "lovely to hear from you," as you would say about a letter from a friend. The airmail palette keeps it about correspondence, not romance: no pink or red as a main color.
 
 ## Palette: Airmail
 
@@ -24,11 +26,11 @@ Dark icon variant: background `#1E1B22`, hand `#86A2F0`, dot `#E77A91`.
 ## Rules
 1. Rose means one thing: someone is waiting on you. Nothing else is rose.
 2. Blue is everything you can tap.
-3. The italic wordmark ("dear", system serif italic) appears at the top of Home only. The rest of the app uses the system font.
+3. The italic wordmark ("lovely", system serif italic) appears at the top of Home only. The rest of the app uses the system font.
 4. The app stays light-only for now.
 
 ## Icon (Liquid Glass)
-- `App/Reelmail/AppIcon.icon` is an Icon Composer bundle (iOS 26 Liquid Glass): letter-paper fill, two glass layers (the handwritten d in blue, the dot in rose), specular highlights, neutral shadow. Dark and tinted appearances are defined in `icon.json`; clear mode is derived by the system.
+- `App/Reelmail/AppIcon.icon` is an Icon Composer bundle (iOS 26 Liquid Glass): letter-paper fill, two glass layers (the handwritten l, written in one stroke, in blue; the dot where the pen lifts, in rose), specular highlights, neutral shadow. Dark and tinted appearances are defined in `icon.json`; clear mode is derived by the system.
 - Layers are white-on-transparent 1024 PNGs in `AppIcon.icon/Assets/`; color comes from the layer fill so the system can recolor them for dark and tinted modes.
-- Masters: `icon-layer-d.svg`, `icon-layer-dot.svg` (layer art), `icon-flat.svg` / `icon-flat-1024.png` (flat reference for the App Store listing, website and social).
+- Masters: `icon-layer-l.svg`, `icon-layer-dot.svg` (layer art), `icon-flat.svg` / `icon-flat-1024.png` (flat reference for the App Store listing, website and social).
 - To adjust glass effects, open `AppIcon.icon` in Icon Composer (ships with Xcode 26) on a Mac. Not required to build.

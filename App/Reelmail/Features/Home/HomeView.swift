@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Dear's Airmail palette. Source of truth: Design/Brand/README.md.
+/// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
 enum CalmStyle {
     /// Letter paper.
     static let background = Color(hex: 0xFBF8F4)
@@ -19,13 +19,13 @@ enum CalmStyle {
     static let warningInk = Color(hex: 0x7A4A10)
 }
 
-/// The italic "dear" wordmark. Apple's serif (New York) so nothing extra ships with the app.
-struct DearWordmark: View {
+/// The italic "lovely" wordmark. Apple's serif (New York) so nothing extra ships with the app.
+struct Wordmark: View {
     var size: CGFloat = 30
     var body: some View {
-        Text("dear").font(.system(size: size, weight: .regular, design: .serif)).italic()
+        Text("lovely").font(.system(size: size, weight: .regular, design: .serif)).italic()
             .foregroundStyle(CalmStyle.blue)
-            .accessibilityLabel("Dear")
+            .accessibilityLabel("Lovely")
     }
 }
 
@@ -123,7 +123,7 @@ struct StatusNotices: View {
         VStack(alignment: .leading, spacing: 10) {
             if store.needsReconnect {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Google signed you out. While Dear is in testing this happens every 7 days. Your loaded mail is still here.")
+                    Text("Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
                         .font(.subheadline)
                     Button("Reconnect Gmail") { Task { await store.connectGmail() } }.buttonStyle(CalmActionStyle(prominent: true))
                 }
@@ -158,7 +158,7 @@ struct HomeHeader: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                DearWordmark().accessibilityAddTraits(.isHeader)
+                Wordmark().accessibilityAddTraits(.isHeader)
                 Text(subtitle).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
             }
             Spacer()
@@ -237,7 +237,7 @@ struct FilteredMailReview: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Saved rules change what Dear shows. Gmail is never changed.").font(.subheadline)
+                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Saved rules change what Lovely shows. Gmail is never changed.").font(.subheadline)
                     if let error = store.rules.persistenceError { Text(error).font(.subheadline) }
                     if store.filteredPosts.isEmpty { Text("Nothing is filtered.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
                     ForEach(store.filteredPosts) { post in

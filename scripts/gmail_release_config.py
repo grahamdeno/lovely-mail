@@ -95,7 +95,7 @@ def verify_app(app, mode, expected=None):
 
 
 def verify_icon(app):
-    """The compiled app must carry the AppIcon from AppIcon.icon and the Dear display name."""
+    """The compiled app must carry the AppIcon from AppIcon.icon and the Lovely display name."""
     app = Path(app)
     with (app / "Info.plist").open("rb") as f:
         info = plistlib.load(f)
@@ -105,9 +105,9 @@ def verify_icon(app):
         fail(f"Built app has no AppIcon (CFBundleIconName={name!r}); the Liquid Glass icon did not compile.")
     if not (app / "Assets.car").exists():
         fail("Built app has no Assets.car; the icon was not compiled.")
-    if info.get("CFBundleDisplayName") != "Dear":
-        fail(f"Display name is {info.get('CFBundleDisplayName')!r}, expected 'Dear'.")
-    print("Verified: AppIcon compiled into Assets.car; display name Dear")
+    if info.get("CFBundleDisplayName") != "Lovely":
+        fail(f"Display name is {info.get('CFBundleDisplayName')!r}, expected 'Lovely'.")
+    print("Verified: AppIcon compiled into Assets.car; display name Lovely")
 
 
 def selftest():
