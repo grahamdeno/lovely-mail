@@ -19,6 +19,18 @@ final class LocalTriageRules {
     private struct State: Codable {
         var messages: [String: LocalMailDestination] = [:]
         var senders: [String: LocalMailDestination] = [:]
+        /// "Not waiting on me" corrections. Added after v1; older saved state decodes with these empty.
+        var notWaitingMessages: Set<String> = []
+        var notWaitingSenders: Set<String> = []
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            messages = try c.decodeIfPresent([String: LocalMailDestination].self, forKey: .messages) ?? [:]
+            senders = try c.decodeIfPresent([String: LocalMailDestination].self, forKey: .senders) ?? [:]
+            notWaitingMessages = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingMessages) ?? []
+            notWaitingSenders = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingSenders) ?? []
+        }
     }
 
     private var state = State()
@@ -44,6 +56,30 @@ final class LocalTriageRules {
             return LocalTriageDecision(destination: route, reason: "Your saved rule for this sender")
         }
         return LocalTriageDecision(destination: .inbox, reason: "No saved rule; kept visible")
+    }
+
+    /// True when you said this message, or anything from this sender, is not waiting on you.
+    func isNotWaiting(messageID: String, sender: String) -> Bool {
+        state.notWaitingMessages.contains(messageID) || state.notWaitingSenders.contains(Self.normalize(sender))
+    }
+
+    var notWaitingSenderCount: Int { state.notWaitingSenders.count }
+
+    @discardableResult
+    func setNotWaiting(messageID: String, _ value: Bool) -> Bool {
+        guard !messageID.isEmpty else { return false }
+        var next = state
+        if value { next.notWaitingMessages.insert(messageID) } else { next.notWaitingMessages.remove(messageID) }
+        return save(next)
+    }
+
+    @discardableResult
+    func setNotWaiting(sender: String, _ value: Bool) -> Bool {
+        let key = Self.normalize(sender)
+        guard !key.isEmpty else { return false }
+        var next = state
+        if value { next.notWaitingSenders.insert(key) } else { next.notWaitingSenders.remove(key) }
+        return save(next)
     }
 
     @discardableResult

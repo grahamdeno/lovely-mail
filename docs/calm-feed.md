@@ -48,3 +48,27 @@ After the client ID lands and a configured build is approved: verify on device s
 - Likely cause: `in:inbox category:primary` returned nothing for this account (for example inbox tabs turned off). Not confirmed from device logs.
 - Change: the import now falls back to the inbox without Promotions/Social/Updates/Forums, then to the whole inbox. The empty state now says Gmail connected but returned no inbox mail, with the sent count.
 - Still unverified on a device until the next TestFlight build is installed.
+
+## Trustworthy "Waiting on you" (after the first real-inbox run, build 1004)
+First real run showed 23 waiting, including a portal notification, a do-not-reply school notice and a note from the owner's other address.
+
+Rules now (FeedTriage.assess, all must hold):
+- A person wrote it: not bulk/list mail, not a system address, no do-not-reply or portal wording.
+- Not from you: your account, any address on your sent mail, or your display name.
+- A direct ask in the author's own words (quoted text, signatures and link lines ignored).
+- Apple Intelligence, when it ran, agrees a reply is needed. It can veto; it cannot add.
+- You have not replied in the thread since.
+- Sent to you directly: not a cc, not a group of more than 6.
+- Under 14 days old. Older asks move to People with the reason shown.
+- You have not marked the message, or the sender, as not waiting.
+
+Every message carries a plain-language reason (shown on waiting rows, in the long-press menu and on the open message).
+Corrections ("Not waiting on me", "Never for <sender>") are stored locally per account and can be undone.
+
+Home layout: a List with no buttons on rows. Tap opens; swipe right to reply; swipe left for Not waiting or Hide;
+long-press for everything else. Filter pills scroll edge to edge. Loading shows in the header subtitle.
+
+Next steps:
+- Check the waiting count and reasons on the real inbox; tune machine phrases from misses.
+- Learn from corrections beyond the exact sender (for example, a domain that is always a portal).
+- Reference class for receipts and travel; daily summary.

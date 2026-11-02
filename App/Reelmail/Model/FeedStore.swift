@@ -46,7 +46,11 @@ final class FeedStore {
     private var demoRulesPlaceholder: LocalTriageRules { LocalTriageRules(accountID: "unknown-account", defaults: UserDefaults(suiteName: "reelmail.transient") ?? .standard) }
 
     var me: Person {
-        if let account { return Person(id: account, name: "You", email: account, hue: 0.62) }
+        if let account {
+            // Your display name as it appears on mail you sent, so the avatar shows your initials.
+            let name = sentByMe.first(where: { $0.isFromMe && !$0.from.name.isEmpty && !$0.from.name.contains("@") })?.from.name ?? "You"
+            return Person(id: account, name: name, email: account, hue: 0.62)
+        }
         return SampleData.me
     }
 
@@ -175,10 +179,21 @@ final class FeedStore {
 
     // MARK: Reading the feed
 
-    private var replies: [String: Date] { FeedTriage.latestReplies(in: sentByMe) }
+    /// Who you are and what you replied to, measured against the last refresh (or now, before one).
+    var triageContext: TriageContext {
+        TriageContext(account: mode == .gmail ? account : SampleData.me.email,
+                      sent: sentByMe, now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    }
 
-    func section(for post: Post) -> FeedSection {
-        FeedTriage.section(for: post, route: rules.decision(messageID: post.id, sender: post.email.from.email).destination, replies: replies)
+    func assessment(for post: Post, context: TriageContext? = nil) -> TriageAssessment {
+        let decision = rules.decision(messageID: post.id, sender: post.email.from.email)
+        return FeedTriage.assess(post, route: decision.destination, routeReason: decision.reason,
+                                 notWaiting: rules.isNotWaiting(messageID: post.id, sender: post.email.from.email),
+                                 context: context ?? triageContext)
+    }
+
+    func section(for post: Post, context: TriageContext? = nil) -> FeedSection {
+        assessment(for: post, context: context).section
     }
 
     /// Everything not hidden and not filtered by a rule.
@@ -188,14 +203,16 @@ final class FeedStore {
 
     /// The feed in priority order: sections top to bottom, newest first within each.
     var sections: [(section: FeedSection, posts: [Post])] {
-        let grouped = Dictionary(grouping: activePosts.filter { filter.includes(section(for: $0)) }, by: section(for:))
+        let context = triageContext
+        let grouped = Dictionary(grouping: activePosts.filter { filter.includes(section(for: $0, context: context)) },
+                                 by: { section(for: $0, context: context) })
         return FeedSection.allCases.compactMap { s in
             guard let items = grouped[s], !items.isEmpty else { return nil }
             return (s, items.sorted { $0.email.date > $1.email.date })
         }
     }
 
-    var waitingCount: Int { activePosts.filter { section(for: $0) == .waiting }.count }
+    var waitingCount: Int { let context = triageContext; return activePosts.filter { section(for: $0, context: context) == .waiting }.count }
     var topics: [MailTopic] { MailTopic.make(posts: activePosts, sent: sentByMe) }
 
     /// Messages a saved rule keeps out of the feed, for review and undo.
@@ -205,20 +222,23 @@ final class FeedStore {
     var filteredDemoPosts: [Post] { mode == .sample ? filteredPosts : [] }
     var hiddenPosts: [Post] { posts.filter { hidden.contains($0.id) } }
     var unreadCount: Int { activePosts.filter(\.email.isUnread).count }
-    var needsReplyPosts: [Post] { activePosts.filter { section(for: $0) == .waiting } }
+    var needsReplyPosts: [Post] { let context = triageContext; return activePosts.filter { section(for: $0, context: context) == .waiting } }
 
     var people: [Person] {
         var seenIDs = Set<String>()
         var waiting: [Person] = []; var rest: [Person] = []
-        for post in activePosts where !post.email.isAutomated {
+        let context = triageContext
+        let waitingIDs = Set(activePosts.filter { section(for: $0, context: context) == .waiting }.map(\.email.from.id))
+        for post in activePosts where FeedTriage.automatedReason(post.email) == nil && !context.isMine(post.email) {
             let p = post.email.from
             guard seenIDs.insert(p.id).inserted else { continue }
-            if needsReply(p) { waiting.append(p) } else { rest.append(p) }
+            if waitingIDs.contains(p.id) { waiting.append(p) } else { rest.append(p) }
         }
         return waiting + rest
     }
     func needsReply(_ person: Person) -> Bool {
-        activePosts.contains { $0.email.from.id == person.id && section(for: $0) == .waiting }
+        let context = triageContext
+        return activePosts.contains { $0.email.from.id == person.id && section(for: $0, context: context) == .waiting }
     }
     func posts(from person: Person) -> [Post] { posts.filter { $0.email.from.id == person.id } }
     func conversation(with person: Person) -> [Email] {
@@ -245,6 +265,19 @@ final class FeedStore {
         if let i = posts.firstIndex(where: { $0.id == post.id }) { posts[i].email.isUnread = false }
         if seen.insert(post.id).inserted { persist() }
     }
+    /// Your correction: this message (or everything from this sender) is not waiting on you. Local only.
+    func markNotWaiting(_ post: Post, wholeSender: Bool) {
+        guard mode == .sample || accountRules != nil else { return }
+        if wholeSender { rules.setNotWaiting(sender: post.email.from.email, true) }
+        else { rules.setNotWaiting(messageID: post.id, true) }
+    }
+    func undoNotWaiting(_ post: Post) {
+        guard mode == .sample || accountRules != nil else { return }
+        rules.setNotWaiting(messageID: post.id, false)
+        rules.setNotWaiting(sender: post.email.from.email, false)
+    }
+    func isMarkedNotWaiting(_ post: Post) -> Bool { rules.isNotWaiting(messageID: post.id, sender: post.email.from.email) }
+
     func setSenderRule(_ address: String, destination: LocalMailDestination?) {
         guard mode == .sample || accountRules != nil else { return }
         rules.setSender(address, destination: destination)

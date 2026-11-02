@@ -50,7 +50,7 @@ struct PeopleView: View {
                                 }
                                 if let latest {
                                     let preview = ConversationPresentation.preview(latest, summary: store.post(for: latest)?.summary)
-                                    Text((latest.isFromMe ? "You: " : "") + (preview.label.map { $0 + ": " } ?? "") + preview.text)
+                                    Text((latest.isFromMe ? "You: " : "") + FallbackSummarizer.firstSentence(of: preview.text))
                                         .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                                 }
                             }

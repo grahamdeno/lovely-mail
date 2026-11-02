@@ -64,67 +64,147 @@ struct HomeView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var showingFiltered = false
+    /// The last "Not waiting" correction, offered for undo for a few seconds.
+    @State private var undoPost: Post?
+
+    private let rowInsets = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
+
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                HomeHeader(onFiltered: { showingFiltered = true }).padding(.bottom, 14)
-                ScrollView(.horizontal) {
-                    HStack(spacing: 8) {
-                        ForEach(FeedFilter.allCases) { f in
-                            let selected = store.filter == f
-                            Button { store.filter = f } label: {
-                                HStack(spacing: 6) {
-                                    Text(f.title)
-                                    if f == .waiting, store.waitingCount > 0 { Text("\(store.waitingCount)").opacity(0.8) }
-                                }
-                                .font(.subheadline.weight(.medium))
-                                .padding(.horizontal, 14).frame(minHeight: 40)
-                                .foregroundStyle(selected ? Color.white : CalmStyle.secondary)
-                                .background(selected ? CalmStyle.blue : Color.white, in: Capsule())
-                            }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
-                        }
-                    }
-                }.scrollIndicators(.hidden).padding(.bottom, 8)
-                StatusNotices()
-                ForEach(store.sections, id: \.section) { group in
-                    HStack(spacing: 6) {
-                        Text(group.section.title.uppercased()).font(.caption.weight(.semibold)).kerning(0.6)
-                        Text("\(group.posts.count)").font(.caption).opacity(0.7)
-                    }
-                    .foregroundStyle(group.section == .waiting ? CalmStyle.roseInk : CalmStyle.secondary)
-                    .padding(.top, 18).padding(.bottom, 6)
-                    .accessibilityAddTraits(.isHeader)
-                    ForEach(group.posts) { post in
-                        MailRow(post: post, section: group.section)
-                        Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
-                    }
+        List {
+            HomeHeader(onFiltered: { showingFiltered = true }).padding(.top, 8).padding(.bottom, 10)
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            FilterPills().padding(.bottom, 4)
+                .listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            StatusNotices()
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+
+            let context = store.triageContext
+            ForEach(store.sections, id: \.section) { group in
+                SectionTitle(section: group.section, count: group.posts.count)
+                    .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+                ForEach(group.posts) { post in
+                    MailRow(post: post, assessment: store.assessment(for: post, context: context), onNotWaiting: { notWaiting(post, wholeSender: $0) })
+                        .listRowInsets(rowInsets)
+                        .listRowBackground(CalmStyle.background)
+                        .listRowSeparatorTint(CalmStyle.divider)
                 }
+            }
+
+            Group {
                 if !store.isLoading, store.sections.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(store.posts.isEmpty ? "No mail loaded yet." : "Nothing here right now.")
-                            .font(.subheadline.weight(.medium))
-                        if store.mode == .gmail, store.posts.isEmpty, store.lastFetched != nil {
-                            Text("Gmail connected, but it returned no inbox mail (\(store.sentByMe.count) sent messages found). Pull down to refresh.")
-                                .font(.caption).foregroundStyle(CalmStyle.secondary)
-                        }
-                    }.padding(.vertical, 24)
+                    EmptyFeedNote()
                 }
                 if !store.isLoading, !store.posts.isEmpty {
-                    Text(store.mode == .sample ? "Fictional mail for the demo." : (store.inboxTruncated ? "Showing the most recent Primary inbox mail. Older mail stays in Gmail." : "That's all of your Primary inbox."))
-                        .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
+                    Text(store.mode == .sample ? "Fictional mail for the demo." : (store.inboxTruncated ? "Showing your most recent inbox mail. Older mail stays in Gmail." : "That's all of your inbox."))
+                        .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.vertical, 20)
                 }
-            }.padding(20)
+            }
+            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
+        .listStyle(.plain)
+        .environment(\.defaultMinListRowHeight, 0)
+        .scrollContentBackground(.hidden)
+        .background(CalmStyle.background)
+        .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
+        .overlay(alignment: .bottom) {
+            if let post = undoPost {
+                UndoBar(text: "Moved out of Waiting on you") {
+                    store.undoNotWaiting(post); undoPost = nil
+                }
+                .padding(.horizontal, 20).padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: undoPost?.id)
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
         .refreshable { await store.load() }
     }
+
+    private func notWaiting(_ post: Post, wholeSender: Bool) {
+        store.markNotWaiting(post, wholeSender: wholeSender)
+        undoPost = post
+        let id = post.id
+        Task { try? await Task.sleep(for: .seconds(5)); if undoPost?.id == id { undoPost = nil } }
+    }
 }
 
-/// Loading, errors and reconnect prompts, in one place above the feed.
+/// Filter pills. The row scrolls edge to edge so a partly visible pill reads as "more", not as clipping.
+struct FilterPills: View {
+    @Environment(FeedStore.self) private var store
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(FeedFilter.allCases) { f in
+                    let selected = store.filter == f
+                    Button { store.filter = f } label: {
+                        HStack(spacing: 6) {
+                            Text(f.title).lineLimit(1)
+                            if f == .waiting, store.waitingCount > 0 { Text("\(store.waitingCount)").opacity(0.8) }
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .fixedSize()
+                        .padding(.horizontal, 14).frame(minHeight: 36)
+                        .foregroundStyle(selected ? Color.white : CalmStyle.secondary)
+                        .background(selected ? CalmStyle.blue : Color.white, in: Capsule())
+                    }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }
+        .contentMargins(.horizontal, 20, for: .scrollContent)
+        .scrollIndicators(.hidden)
+    }
+}
+
+struct SectionTitle: View {
+    let section: FeedSection
+    let count: Int
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(section.title.uppercased()).font(.caption.weight(.semibold)).kerning(0.6)
+            Text("\(count)").font(.caption).opacity(0.7)
+        }
+        .foregroundStyle(section == .waiting ? CalmStyle.roseInk : CalmStyle.secondary)
+        .padding(.top, 18).padding(.bottom, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+struct EmptyFeedNote: View {
+    @Environment(FeedStore.self) private var store
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(store.posts.isEmpty ? "No mail loaded yet." : "Nothing here right now.")
+                .font(.subheadline.weight(.medium))
+            if store.mode == .gmail, store.posts.isEmpty, store.lastFetched != nil {
+                Text("Gmail connected, but it returned no inbox mail (\(store.sentByMe.count) sent messages found). Pull down to refresh.")
+                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+            } else if store.filter == .waiting {
+                Text("No one is waiting on a reply from you.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+        }.padding(.vertical, 24)
+    }
+}
+
+struct UndoBar: View {
+    let text: String
+    let undo: () -> Void
+    var body: some View {
+        HStack {
+            Text(text).font(.subheadline)
+            Spacer(minLength: 12)
+            Button("Undo", action: undo).font(.subheadline.weight(.semibold)).foregroundStyle(Color.white)
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.horizontal, 16)
+        .foregroundStyle(Color.white)
+        .background(CalmStyle.ink.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+/// Errors and reconnect prompts above the feed. Routine loading is shown in the header, not here.
 struct StatusNotices: View {
     @Environment(FeedStore.self) private var store
-    @Environment(Router.self) private var router
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if store.needsReconnect {
@@ -143,10 +223,11 @@ struct StatusNotices: View {
             if let error = store.rules.persistenceError {
                 Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(CalmStyle.secondary)
             }
-            if store.isLoading { ProgressView(store.posts.isEmpty ? "Loading mail…" : "Checking for new mail…").font(.caption) }
-            else if store.isSummarizing { Text("Writing summaries on this iPhone").font(.caption).foregroundStyle(CalmStyle.secondary) }
+            if store.isLoading, store.posts.isEmpty {
+                ProgressView("Loading mail…").font(.caption).frame(maxWidth: .infinity).padding(.vertical, 24)
+            }
         }
-        .padding(.top, store.needsReconnect || store.errorMessage != nil || store.isLoading || store.isSummarizing ? 6 : 0)
+        .padding(.top, store.needsReconnect || store.errorMessage != nil ? 6 : 0)
     }
 }
 
@@ -156,19 +237,20 @@ struct HomeHeader: View {
     var onFiltered: () -> Void = {}
     private var subtitle: String {
         if store.mode == .sample { return "Demo · fictional mail" }
-        var parts: [String] = []
-        if let account = store.account { parts.append(account) }
-        if let fetched = store.lastFetched { parts.append("updated " + MailTime.label(fetched).lowercased()) }
-        return parts.joined(separator: " · ")
+        if store.isLoading { return "Checking for new mail…" }
+        if store.isSummarizing { return "Writing summaries on this iPhone…" }
+        if let fetched = store.lastFetched { return "Updated " + MailTime.label(fetched).lowercased() }
+        return "Gmail, read-only"
     }
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
                 Wordmark().accessibilityAddTraits(.isHeader)
                 Text(subtitle).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 12)
             Menu {
+                if let account = store.account { Text(account) }
                 Button("Account and settings") { router.tab = .profile }
                 Button("Filtered senders", action: onFiltered)
                 if !store.hiddenPosts.isEmpty { Button("Show hidden mail (\(store.hiddenPosts.count))") { store.restoreAll() } }
@@ -179,59 +261,88 @@ struct HomeHeader: View {
     }
 }
 
-/// One message in the feed: a full-width row, not a card.
+/// One message in the feed: a full-width row, not a card. No buttons on the row; tap opens it,
+/// swipe or long-press for actions.
 struct MailRow: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     let post: Post
-    let section: FeedSection
+    let assessment: TriageAssessment
+    var onNotWaiting: (Bool) -> Void = { _ in }
+
+    private var section: FeedSection { assessment.section }
     private var sensitive: Bool { ConversationPresentation.isSensitive(post.email, summary: post.summary) }
-    private var showsPerson: Bool { !post.email.isAutomated }
+    private var fromPerson: Bool { FeedTriage.automatedReason(post.email) == nil }
+    private var waiting: Bool { section == .waiting }
+    private var preview: String {
+        if sensitive { return "Open to read." }
+        if waiting, let ask = assessment.ask { return "\u{201C}" + ask + "\u{201D}" }
+        return post.summary.blurb
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Button { store.markRead(post); router.open(.email(post.id)) } label: {
             HStack(alignment: .top, spacing: 12) {
-                CalmAvatar(person: post.email.from, size: 36, waiting: section == .waiting)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                CalmAvatar(person: post.email.from, size: 36, waiting: waiting)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(post.email.from.name).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
                         Spacer(minLength: 8)
-                        Text(MailTime.label(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text(MailTime.short(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
                         if post.email.isUnread { Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread") }
                     }
-                    Text(sensitive ? "Private message" : post.summary.headline).font(.headline).lineLimit(2)
-                    Text(sensitive ? "Open the source to read private details." : post.summary.blurb)
-                        .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(3)
+                    Text(sensitive ? "Private message" : post.summary.headline)
+                        .font(.subheadline.weight(.medium)).lineLimit(1)
+                    Text(preview)
+                        .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                    if !post.summary.dates.isEmpty, !sensitive {
+                    if waiting {
+                        Text(assessment.reason).font(.caption.weight(.medium)).foregroundStyle(CalmStyle.roseInk).lineLimit(1)
+                    } else if !post.summary.dates.isEmpty, !sensitive {
                         Label(post.summary.dates.prefix(2).joined(separator: " · "), systemImage: "calendar")
-                            .font(.caption).foregroundStyle(CalmStyle.secondary)
+                            .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                     }
                 }
             }
-            HStack(spacing: 8) {
-                if section == .waiting {
-                    Button { store.markRead(post); router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
-                        .buttonStyle(CalmActionStyle(prominent: true))
-                }
-                if showsPerson {
-                    Button { router.open(.thread(post.email.from)) } label: { Label("Conversation", systemImage: "bubble.left") }
-                        .buttonStyle(CalmActionStyle())
-                }
-                Spacer(minLength: 0)
-                Button { store.markRead(post); router.open(.email(post.id)) } label: {
-                    Text("Source").font(.caption).foregroundStyle(CalmStyle.secondary).frame(minWidth: 44, minHeight: 40)
-                }.buttonStyle(.plain)
-            }.padding(.leading, 48)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-        .onTapGesture { store.markRead(post); router.open(.email(post.id)) }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if fromPerson {
+                Button { store.markRead(post); router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+                    .tint(CalmStyle.blue)
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button { store.hide(post) } label: { Label("Hide", systemImage: "eye.slash") }.tint(CalmStyle.secondary)
+            if waiting {
+                Button { onNotWaiting(false) } label: { Label("Not waiting", systemImage: "checkmark.circle") }.tint(CalmStyle.roseInk)
+            }
+        }
         .contextMenu {
-            Button("Hide in Reelmail") { store.hide(post) }
-            Button("Move this sender to Reading") { store.setSenderRule(post.email.from.email, destination: .reading) }
-            Button("Filter this sender") { store.setSenderRule(post.email.from.email, destination: .filtered) }
-            Button("Remove sender rule") { store.setSenderRule(post.email.from.email, destination: nil) }
+            Section("Why it's here: " + assessment.reason) {
+                if fromPerson {
+                    Button { store.markRead(post); router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
+                    Button { router.open(.thread(post.email.from)) } label: { Label("Conversation with \(post.email.from.firstName)", systemImage: "bubble.left") }
+                }
+            }
+            Section {
+                if waiting {
+                    Button { onNotWaiting(false) } label: { Label("Not waiting on me", systemImage: "checkmark.circle") }
+                    Button { onNotWaiting(true) } label: { Label("Never put \(post.email.from.firstName) in Waiting", systemImage: "person.crop.circle.badge.checkmark") }
+                } else if store.isMarkedNotWaiting(post) {
+                    Button { store.undoNotWaiting(post) } label: { Label("Put back in Waiting", systemImage: "arrow.uturn.backward") }
+                }
+            }
+            Section {
+                Button { store.hide(post) } label: { Label("Hide in Lovely", systemImage: "eye.slash") }
+                Button { store.setSenderRule(post.email.from.email, destination: .reading) } label: { Label("Move sender to Reading", systemImage: "newspaper") }
+                Button { store.setSenderRule(post.email.from.email, destination: .filtered) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
+                Button { store.setSenderRule(post.email.from.email, destination: nil) } label: { Label("Remove sender rule", systemImage: "arrow.uturn.backward") }
+            }
         }
+        .accessibilityHint(waiting ? "Waiting on you. Swipe right to reply, swipe left to mark not waiting." : "")
     }
 }
 

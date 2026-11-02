@@ -25,8 +25,10 @@ struct SearchView: View {
                 } else if results.isEmpty {
                     Text("No matches in loaded mail.").font(.subheadline).foregroundStyle(CalmStyle.secondary).padding(.top, 8)
                 }
+                let context = store.triageContext
                 ForEach(results) { post in
-                    MailRow(post: post, section: store.section(for: post))
+                    MailRow(post: post, assessment: store.assessment(for: post, context: context),
+                            onNotWaiting: { store.markNotWaiting(post, wholeSender: $0) })
                     Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                 }
             }.padding(20)
