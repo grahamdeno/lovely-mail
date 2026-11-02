@@ -57,6 +57,8 @@ struct MyProfileView: View {
                     Button { store.restoreAll() } label: { Label("Show hidden mail (\(store.hiddenPosts.count))", systemImage: "eye").frame(maxWidth: .infinity) }
                         .buttonStyle(CalmActionStyle())
                 }
+                Button { router.open(.sortingReview) } label: { Label("Review sorting", systemImage: "checkmark.circle").frame(maxWidth: .infinity) }
+                    .buttonStyle(CalmActionStyle())
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
 

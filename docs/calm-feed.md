@@ -83,6 +83,23 @@ Next steps:
 - **Speed.** Tab switches were slow because every screen draw re-ran text rules over all messages. FeedStore now builds its derived data (triage, people, conversations) once per change.
 - **Pinned bars.** Home filter pills, People title and search, and Search title and field stay in place while the list scrolls. The wordmark was removed from Home.
 
+Shipped as build 1006 (merge ec68a78). Same-address self mail is also a note to self.
+
+## Sorting scorecard and tuning (after 1006)
+- **Corpus.** `App/ReelmailTests/Fixtures/sorting-corpus.json`: 105 fictional, labeled messages (79 tune, 26 holdout), each with the section it belongs in. `SortingScorecardTests` scores the rules and prints `SCORECARD` lines in the CI log (precision and recall per section, plus each miss with its reason). Floors: tune accuracy 95%; Waiting precision 95% and recall 85%; every other section 90% precision and recall (whole corpus). The holdout was written by the same author at the same time, so it checks overfitting but is not independent of the author's blind spots. Real-inbox review is the independent check.
+- **Baseline before tuning** (local mirror of the rules): tune 66/79, holdout 18/26.
+- **Rule changes**, each from a tune-set miss:
+  - Courtesy and rhetoric are not asks: "Let me know if you have any questions / need anything", "Feel free to…", "Don't hesitate…", "If anything comes up", "Can you believe…", "Who knew…".
+  - More polite asks count: "hoping you could", "was hoping you", "would love your", "would appreciate", "could use your".
+  - Mail you sent yourself is a note before any other check, so a newsletter or receipt you forwarded to yourself is a note.
+  - Booking systems are automated: "Reply C to confirm", "Reply Y to confirm or N to cancel". Codes ("verification code", "your code is") are automated.
+  - Automated mail that names a weekday, "tomorrow" or a numeric date (11/19) is Coming up, as month-day dates already were.
+  - Shipping and delivery notices stay in Updates even with a date. Bulk marketing ("shop now", "% off", "limited time", "promo code", "sitewide") goes to Reading.
+- **Known holdout misses, deliberately not tuned:** "Remind me what the wifi password is" (an imperative ask with no ask phrase), an "out for delivery" notice from a plain-looking tracking address, and a recipe newsletter whose only list signal is "You are receiving this email because you signed up".
+- **Review sorting** (Profile > Review sorting): the 60 newest messages, each with Right or "Belongs in…". Verdicts are stored per account on the phone (message ids and section numbers only) and never change sorting. Share summary sends counts and each miss's rule reason with the sender's name and address replaced; subjects are added only if the owner turns that on, and never for private messages.
+- **Live test mail.** Eleven tagged messages, subjects [LT-01] to [LT-11], were sent from the owner's Gmail to itself on 2026-11-02 with his approval. Because they come from his own address they test Notes to self only. They should be moved to Trash once he confirms the test is done.
+
 Next steps:
-- Real-inbox check of Notes to self, swipe-to-Trash and Reconnect on the owner's phone (nothing here is device-verified yet).
-- Labeled fictional corpus scored per category in CI, then tune each category's criteria from the misses.
+- Owner reviews 30 to 60 real messages in Review sorting and shares the summary; add each real miss as a fictional corpus case, then tune.
+- Real-inbox check of Notes to self, swipe-to-Trash and Reconnect on build 1006 (not device-verified yet).
+- Consider a "reply chips" pass and the Waiting resolution gap listed under Known limits.

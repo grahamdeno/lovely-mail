@@ -1,0 +1,1130 @@
+{
+ "me": "pat@lovely.example",
+ "name": "Pat Owner",
+ "otherAddresses": [
+  "pat.personal@icloud.example"
+ ],
+ "cases": [
+  {
+   "id": "w01",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Signed form",
+   "body": "Hi Pat,\nCan you send the signed form by Friday?\nThanks,\nDana",
+   "daysAgo": 1
+  },
+  {
+   "id": "w02",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Priya Nair",
+   "email": "priya@nairdesign.example",
+   "subject": "Budget",
+   "body": "Hi Pat,\nPlease send me the updated budget when you get a chance.\nPriya",
+   "daysAgo": 1
+  },
+  {
+   "id": "w03",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Marcus Cole",
+   "email": "mcole@mail.example",
+   "subject": "Draft review",
+   "body": "Hi Pat,\nIf you could look over the draft before Thursday, that would be a big help.\nMarcus",
+   "daysAgo": 1
+  },
+  {
+   "id": "w04",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Elena Ortiz",
+   "email": "elena.ortiz@mail.example",
+   "subject": "Notes from yesterday",
+   "body": "Hi Pat,\nThanks for the notes yesterday, they were very useful.\nOne more thing: please send me the schedule by Monday.\nElena",
+   "daysAgo": 1,
+   "why": "ask after a thank-you"
+  },
+  {
+   "id": "w05",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Ray Dunn",
+   "email": "ray@dunnbuilds.example",
+   "subject": "Deck repair",
+   "body": "Hi Pat, I can start the deck repair on the 14th. Does that work for you?\nRay",
+   "daysAgo": 1
+  },
+  {
+   "id": "w06",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Lisa Park",
+   "email": "lisa.park@mail.example",
+   "subject": "Next week",
+   "body": "Hey! Would you mind grabbing our mail while we're away next week? We leave Tuesday.",
+   "daysAgo": 1
+  },
+  {
+   "id": "w07",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Coach Rivera",
+   "email": "coach.rivera@mail.example",
+   "subject": "Saturday",
+   "body": "Hi Pat,\nAre you able to drive the kids to the game Saturday? We need one more car.\nCoach R",
+   "daysAgo": 1
+  },
+  {
+   "id": "w08",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Sam Whitaker",
+   "email": "sam.whitaker@work.example",
+   "subject": "Slides",
+   "body": "Quick question: which version of the slides should I present tomorrow?",
+   "daysAgo": 1
+  },
+  {
+   "id": "w09",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Jordan Lee",
+   "email": "jordan.lee@mail.example",
+   "subject": "Lunch",
+   "body": "Want to grab lunch Thursday?",
+   "daysAgo": 1
+  },
+  {
+   "id": "w10",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Karen Bell",
+   "email": "karen@bellproperties.example",
+   "subject": "Lease renewal",
+   "body": "Hi Pat,\nI need your signature on the lease renewal by the 30th.\nKaren Bell\nBell Properties",
+   "daysAgo": 1
+  },
+  {
+   "id": "w11",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Avery Stone",
+   "email": "avery.stone@work.example",
+   "subject": "Proposal",
+   "body": "Thoughts on the attached proposal? I'd like to send it Wednesday.",
+   "daysAgo": 1
+  },
+  {
+   "id": "w12",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Megan Owner",
+   "email": "megan.o@mail.example",
+   "subject": "Mom's birthday",
+   "body": "Mom's birthday is coming up. Can you call the restaurant and book a table for six?",
+   "daysAgo": 1
+  },
+  {
+   "id": "w13",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Tom Alvarez",
+   "email": "tom.alvarez@work.example",
+   "subject": "Vendor list",
+   "body": "Hi Pat,\nCould you send me the vendor list from last quarter?\nLet me know if you have any questions.\nTom",
+   "daysAgo": 1,
+   "why": "real ask plus courtesy closing"
+  },
+  {
+   "id": "w14",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Nina Shah",
+   "email": "nina.shah@mail.example",
+   "subject": "Re: Coffee",
+   "body": "Sounds good. What time works for you?\n\nOn Mon, Oct 26, 2026 at 9:00 AM Pat Owner <pat@lovely.example> wrote:\n> Thanks, coffee next week?",
+   "daysAgo": 2
+  },
+  {
+   "id": "w15",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Chris Morgan",
+   "email": "chris@talentbridge.example",
+   "subject": "Quick chat",
+   "body": "Hi Pat,\nDo you have 20 minutes this week to talk about the role?\nChris",
+   "daysAgo": 1
+  },
+  {
+   "id": "w16",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Ben Ito",
+   "email": "ben.ito@mail.example",
+   "subject": "Reunion",
+   "body": "Can you two settle on a date for the reunion?",
+   "daysAgo": 1,
+   "to": [
+    "pat@lovely.example",
+    "alex@mail.example"
+   ]
+  },
+  {
+   "id": "w17",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Leah Kim",
+   "email": "leah.kim@mail.example",
+   "subject": "flight",
+   "body": "hey can you text me when you land",
+   "daysAgo": 1
+  },
+  {
+   "id": "w18",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Omar Haddad",
+   "email": "omar@haddadlaw.example",
+   "subject": "Meeting day",
+   "body": "Let me know which day works best for you: Tuesday or Wednesday.",
+   "daysAgo": 1
+  },
+  {
+   "id": "w19",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Grace Liu",
+   "email": "grace.liu@mail.example",
+   "subject": "Cabin",
+   "body": "Is the cabin still free the weekend of the 21st?",
+   "daysAgo": 13,
+   "why": "13 days old, still inside two weeks"
+  },
+  {
+   "id": "w20",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Victor Cruz",
+   "email": "victor@cruzpartners.example",
+   "subject": "Contract",
+   "body": "Hi Pat,\nPlease review the attached contract and sign by Friday.\nVictor",
+   "daysAgo": 1
+  },
+  {
+   "id": "w21",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Hannah Fox",
+   "email": "hannah@foxstudio.example",
+   "subject": "Invoice",
+   "body": "Hi Pat, any update on the invoice I sent last week?",
+   "daysAgo": 1
+  },
+  {
+   "id": "w22",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Aunt Ruth",
+   "email": "ruth.m@mail.example",
+   "subject": "Holiday cards",
+   "body": "Could you send me your new address for the holiday card list?",
+   "daysAgo": 1,
+   "to": [
+    "pat@oldwork.example"
+   ],
+   "why": "arrived through a forwarding address"
+  },
+  {
+   "id": "w23",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Dev Patel",
+   "email": "dev.patel@mail.example",
+   "subject": "Move",
+   "body": "Is Saturday still good for the move?",
+   "daysAgo": 1
+  },
+  {
+   "id": "w24",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Maria Gomez",
+   "email": "maria.gomez@mail.example",
+   "subject": "Resume",
+   "body": "Hi Pat,\nI was hoping you could take a look at my resume before I submit it.\nMaria",
+   "daysAgo": 1,
+   "why": "polite ask with no question mark"
+  },
+  {
+   "id": "w25",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Eli Brooks",
+   "email": "eli.brooks@mail.example",
+   "subject": "Wifi",
+   "body": "Remind me what the wifi password is at the cabin.",
+   "daysAgo": 1
+  },
+  {
+   "id": "w26",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Rosa Diaz",
+   "email": "rosa.diaz@work.example",
+   "subject": "Headcount",
+   "body": "Hi Pat,\nWould appreciate your sign-off on the headcount plan before Friday.\nRosa",
+   "daysAgo": 1
+  },
+  {
+   "id": "w27",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Ian Wright",
+   "email": "ian.wright@mail.example",
+   "subject": "Saturday",
+   "body": "Hi Pat,\nWould love your input on the garden plan before I order plants.\nIan",
+   "daysAgo": 1
+  },
+  {
+   "id": "n01",
+   "split": "tune",
+   "expect": "notes",
+   "name": "Pat Owner",
+   "email": "pat@lovely.example",
+   "subject": "Groceries",
+   "body": "eggs, coffee, foil, dish soap",
+   "daysAgo": 1
+  },
+  {
+   "id": "n02",
+   "split": "tune",
+   "expect": "notes",
+   "name": "Pat",
+   "email": "pat.personal@icloud.example",
+   "subject": "Cabin link",
+   "body": "For later:\nhttps://rentals.example/cabin/2231",
+   "daysAgo": 1
+  },
+  {
+   "id": "n03",
+   "split": "tune",
+   "expect": "notes",
+   "name": "Pat Owner",
+   "email": "pat.personal@icloud.example",
+   "subject": "Car",
+   "body": "Can you remember to renew the car registration?",
+   "daysAgo": 1,
+   "why": "an ask, but from your own other address"
+  },
+  {
+   "id": "n04",
+   "split": "tune",
+   "expect": "notes",
+   "name": "Pat Owner",
+   "email": "pat@lovely.example",
+   "subject": "Fwd: Boarding pass",
+   "body": "---------- Forwarded message ---------\nFrom: Skyway <flights@skyway.example>\nYour flight to Denver on Nov 14 departs at 7:05 AM.",
+   "daysAgo": 1
+  },
+  {
+   "id": "n05",
+   "split": "tune",
+   "expect": "notes",
+   "name": "Pat Owner",
+   "email": "pat@lovely.example",
+   "subject": "Fwd: This week in gardening",
+   "body": "---------- Forwarded message ---------\nFive tips for spring planting.\nTo unsubscribe, visit your account settings.",
+   "daysAgo": 1,
+   "why": "newsletter you forwarded to yourself"
+  },
+  {
+   "id": "n06",
+   "split": "tune",
+   "expect": "notes",
+   "name": "P",
+   "email": "pat.personal@icloud.example",
+   "subject": "receipt",
+   "body": "Fwd: Your receipt for $42.18. Please do not reply to this email.",
+   "daysAgo": 1
+  },
+  {
+   "id": "n07",
+   "split": "holdout",
+   "expect": "notes",
+   "name": "Pat Owner",
+   "email": "pat@lovely.example",
+   "subject": "Dentist",
+   "body": "Reminder: dentist Nov 12 at 3pm",
+   "daysAgo": 1
+  },
+  {
+   "id": "n08",
+   "split": "holdout",
+   "expect": "notes",
+   "name": "Pat Owner",
+   "email": "pat.personal@icloud.example",
+   "subject": "Idea",
+   "body": "Could the app sort mail by who is waiting? Think about it.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p01",
+   "split": "tune",
+   "expect": "people",
+   "name": "Sam Whitaker",
+   "email": "sam.whitaker@work.example",
+   "subject": "Got it",
+   "body": "Hi Pat,\nThanks, I got the file. No action needed on your end.\nSam",
+   "daysAgo": 1
+  },
+  {
+   "id": "p02",
+   "split": "tune",
+   "expect": "people",
+   "name": "Sam Whitaker",
+   "email": "sam.whitaker@work.example",
+   "subject": "Great meeting",
+   "body": "Hi Pat,\nGreat meeting today. Let me know if you have any questions.\nSam",
+   "daysAgo": 1,
+   "why": "courtesy closing, not an ask"
+  },
+  {
+   "id": "p03",
+   "split": "tune",
+   "expect": "people",
+   "name": "Jordan Lee",
+   "email": "jordan.lee@mail.example",
+   "subject": "Weekend",
+   "body": "Hi Pat,\nHope you had a good weekend.\nJordan",
+   "daysAgo": 1
+  },
+  {
+   "id": "p04",
+   "split": "tune",
+   "expect": "people",
+   "name": "Maya Chen",
+   "email": "maya@mail.example",
+   "subject": "Weather",
+   "body": "Can you believe this weather. Unreal.",
+   "daysAgo": 1,
+   "why": "rhetorical"
+  },
+  {
+   "id": "p05",
+   "split": "tune",
+   "expect": "people",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Form",
+   "body": "Can you send the form by Friday?",
+   "daysAgo": 3,
+   "repliedDaysAgo": 2,
+   "why": "you replied after the ask"
+  },
+  {
+   "id": "p06",
+   "split": "tune",
+   "expect": "people",
+   "name": "Lee Grant",
+   "email": "lee.grant@mail.example",
+   "subject": "Tuesday",
+   "body": "Can you all make Tuesday?",
+   "daysAgo": 1,
+   "to": [
+    "kim@mail.example"
+   ],
+   "cc": [
+    "pat@lovely.example"
+   ],
+   "why": "you were copied"
+  },
+  {
+   "id": "p07",
+   "split": "tune",
+   "expect": "people",
+   "name": "Maya Chen",
+   "email": "maya@mail.example",
+   "subject": "Potluck",
+   "body": "Can everyone bring a dish?",
+   "daysAgo": 1,
+   "to": [
+    "pat@lovely.example",
+    "friend1@mail.example",
+    "friend2@mail.example",
+    "friend3@mail.example",
+    "friend4@mail.example",
+    "friend5@mail.example",
+    "friend6@mail.example",
+    "friend7@mail.example",
+    "friend8@mail.example"
+   ],
+   "why": "group of nine"
+  },
+  {
+   "id": "p08",
+   "split": "tune",
+   "expect": "people",
+   "name": "Grace Liu",
+   "email": "grace.liu@mail.example",
+   "subject": "Old ask",
+   "body": "Are you free Sunday?",
+   "daysAgo": 20,
+   "why": "older than two weeks"
+  },
+  {
+   "id": "p09",
+   "split": "tune",
+   "expect": "people",
+   "name": "Avery Stone",
+   "email": "avery.stone@work.example",
+   "subject": "Moved",
+   "body": "FYI, the meeting moved to 3pm. No need to reply.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p10",
+   "split": "tune",
+   "expect": "people",
+   "name": "Lisa Park",
+   "email": "lisa.park@mail.example",
+   "subject": "Photos",
+   "body": "Here are the photos from Saturday. Enjoy!",
+   "daysAgo": 1
+  },
+  {
+   "id": "p11",
+   "split": "tune",
+   "expect": "people",
+   "name": "Nina Shah",
+   "email": "nina.shah@mail.example",
+   "subject": "Re: File",
+   "body": "Done, sent it over.\n\nOn Tue, Oct 27, 2026 at 8:00 AM Pat Owner <pat@lovely.example> wrote:\n> Can you send me the file?",
+   "daysAgo": 1,
+   "why": "question is only in quoted text"
+  },
+  {
+   "id": "p12",
+   "split": "tune",
+   "expect": "people",
+   "name": "Ben Ito",
+   "email": "ben.ito@mail.example",
+   "subject": "Drive",
+   "body": "Who knew the drive would take four hours? Home now.",
+   "daysAgo": 1,
+   "why": "rhetorical question"
+  },
+  {
+   "id": "p13",
+   "split": "tune",
+   "expect": "people",
+   "name": "Megan Owner",
+   "email": "megan.o@mail.example",
+   "subject": "Congrats",
+   "body": "Congrats on the new job! So happy for you.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p14",
+   "split": "tune",
+   "expect": "people",
+   "name": "Omar Haddad",
+   "email": "omar@haddadlaw.example",
+   "subject": "Dinner",
+   "body": "Thanks so much for dinner last night.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p15",
+   "split": "tune",
+   "expect": "people",
+   "name": "Karen Bell",
+   "email": "karen@bellproperties.example",
+   "subject": "Payment",
+   "body": "Just confirming I received your payment. Thanks!",
+   "daysAgo": 1
+  },
+  {
+   "id": "p16",
+   "split": "tune",
+   "expect": "people",
+   "name": "Marcus Cole",
+   "email": "mcole@mail.example",
+   "subject": "Draft",
+   "body": "I'll send the revised draft by Friday.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p17",
+   "split": "tune",
+   "expect": "people",
+   "name": "Tom Alvarez",
+   "email": "tom.alvarez@work.example",
+   "subject": "Files",
+   "body": "Attached are the files.\nLet me know if you need anything else.\n\nSent from my iPhone",
+   "daysAgo": 1,
+   "why": "courtesy closing"
+  },
+  {
+   "id": "p18",
+   "split": "tune",
+   "expect": "people",
+   "name": "Hannah Fox",
+   "email": "hannah@foxstudio.example",
+   "subject": "No rush",
+   "body": "No worries at all, take your time.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p19",
+   "split": "tune",
+   "expect": "people",
+   "name": "Jordan Lee",
+   "email": "jordan.lee@mail.example",
+   "subject": "Sunday",
+   "body": "See you Sunday!",
+   "daysAgo": 1
+  },
+  {
+   "id": "p20",
+   "split": "tune",
+   "expect": "people",
+   "name": "Chris Morgan",
+   "email": "chris@talentbridge.example",
+   "subject": "Time",
+   "body": "Does 2pm work?",
+   "daysAgo": 2,
+   "repliedDaysAgo": 1
+  },
+  {
+   "id": "p21",
+   "split": "tune",
+   "expect": "people",
+   "name": "Ray Dunn",
+   "email": "ray@dunnbuilds.example",
+   "subject": "Done",
+   "body": "Deck is finished. Feel free to call me if anything comes up.",
+   "daysAgo": 1,
+   "why": "courtesy offer"
+  },
+  {
+   "id": "p22",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Elena Ortiz",
+   "email": "elena.ortiz@mail.example",
+   "subject": "Anytime",
+   "body": "Happy to help anytime. Just let me know if you need anything.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p23",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Victor Cruz",
+   "email": "victor@cruzpartners.example",
+   "subject": "Signed",
+   "body": "Got the signed copy, thanks. Don't hesitate to reach out if you have questions.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p24",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Dev Patel",
+   "email": "dev.patel@mail.example",
+   "subject": "Move",
+   "body": "Thanks again for helping with the move. We owe you one.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p25",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Leah Kim",
+   "email": "leah.kim@mail.example",
+   "subject": "Landed",
+   "body": "Landed safe. Talk soon.",
+   "daysAgo": 1
+  },
+  {
+   "id": "p26",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Rosa Diaz",
+   "email": "rosa.diaz@work.example",
+   "subject": "Update",
+   "body": "Quick update: the vendor signed, so we are on track for launch.",
+   "daysAgo": 1
+  },
+  {
+   "id": "d01",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Riverside Dental",
+   "email": "reminders@riversidedental.example",
+   "subject": "Appointment reminder",
+   "body": "Reminder: you have an appointment on Tuesday at 3:00 PM. Reply C to confirm or call the office to reschedule.\nRiverside Dental",
+   "daysAgo": 1,
+   "why": "booking system from a plain-looking address"
+  },
+  {
+   "id": "d02",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Skyway Air",
+   "email": "flights@skyway.example",
+   "subject": "Your trip to Denver",
+   "body": "Your flight to Denver on Nov 14 departs at 7:05 AM. Check-in opens 24 hours before.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "d03",
+   "split": "tune",
+   "expect": "dated",
+   "name": "County Schools",
+   "email": "attendance@county-schools.example",
+   "subject": "Early release",
+   "body": "This is an automated message. Early release on Friday, Nov 20 at 12:30 PM.",
+   "daysAgo": 1
+  },
+  {
+   "id": "d04",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Harbor HOA",
+   "email": "board@harborhoa.example",
+   "subject": "Pool closing",
+   "body": "The pool closes for the season on Oct 31. Please do not reply to this email.",
+   "daysAgo": 1
+  },
+  {
+   "id": "d05",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Harbor Inn",
+   "email": "stay@harborinn.example",
+   "subject": "Reservation confirmed",
+   "body": "Your reservation at Harbor Inn is confirmed for Dec 3 to Dec 5.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "d06",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Google Calendar",
+   "email": "calendar-notification@google.example",
+   "subject": "Invitation: Sprint review",
+   "body": "Invitation: Sprint review @ Thu Nov 12, 2026 10am - 11am",
+   "daysAgo": 1
+  },
+  {
+   "id": "d07",
+   "split": "tune",
+   "expect": "dated",
+   "name": "City Power",
+   "email": "billing@citypower.example",
+   "subject": "Your bill",
+   "body": "Your bill of $84.12 is due Nov 18.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "d08",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Box Office",
+   "email": "tickets@boxoffice.example",
+   "subject": "Your tickets",
+   "body": "Your tickets for Saturday, Nov 21 at 7:30 PM are attached.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "d09",
+   "split": "tune",
+   "expect": "dated",
+   "name": "Pine Vet",
+   "email": "appointments@pinevet.example",
+   "subject": "Appointment",
+   "body": "Biscuit is due for a checkup. Your appointment is tomorrow at 9:15 AM. Reply Y to confirm.",
+   "daysAgo": 1
+  },
+  {
+   "id": "d10",
+   "split": "holdout",
+   "expect": "dated",
+   "name": "Westside Elementary",
+   "email": "news@westside.example",
+   "subject": "Picture day",
+   "body": "Picture day is Thursday, November 12. Order forms go home today.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "d11",
+   "split": "holdout",
+   "expect": "dated",
+   "name": "Coastal Motors",
+   "email": "service@coastalmotors.example",
+   "subject": "Service reminder",
+   "body": "Reminder: your car is due for service on 11/19. Call us to book.",
+   "daysAgo": 1
+  },
+  {
+   "id": "d12",
+   "split": "holdout",
+   "expect": "dated",
+   "name": "SmileCare",
+   "email": "appointments@smilecare.example",
+   "subject": "See you soon",
+   "body": "Your cleaning is scheduled for Monday at 8:00 AM. Reply Y to confirm or N to cancel.",
+   "daysAgo": 1
+  },
+  {
+   "id": "d13",
+   "split": "holdout",
+   "expect": "dated",
+   "name": "Library",
+   "email": "holds@library.example",
+   "subject": "Hold ready",
+   "body": "Your hold is ready. Pick it up by Nov 9. This is an automated message.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u01",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Fabrikam Store",
+   "email": "orders@fabrikam.example",
+   "subject": "Your order has shipped",
+   "body": "Your order #77120 has shipped and should arrive in 3 to 5 days. This is an automated message. Replies are not monitored.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u02",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Streamly",
+   "email": "billing@streamly.example",
+   "subject": "Receipt",
+   "body": "Receipt for your payment of $12.99. Thanks for subscribing.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "u03",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Northwind",
+   "email": "security@northwind.example",
+   "subject": "Password changed",
+   "body": "Your password was changed. If this wasn't you, contact support.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "u04",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Northwind Support Team",
+   "email": "help@northwind.example",
+   "subject": "Request received",
+   "body": "Your request #48213 has been received. Please do not reply to this message. To respond, sign in to the support portal.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u05",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Coastal Pediatrics",
+   "email": "portal@coastalpeds.example",
+   "subject": "New message",
+   "body": "You have a new message from Coastal Pediatrics. Log in to view it.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u06",
+   "split": "tune",
+   "expect": "updates",
+   "name": "First Harbor Bank",
+   "email": "statements@firstharbor.example",
+   "subject": "Statement ready",
+   "body": "Your monthly statement is ready to view.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "u07",
+   "split": "tune",
+   "expect": "updates",
+   "name": "ShipCo",
+   "email": "updates@shipco.example",
+   "subject": "Arriving Nov 6",
+   "body": "Your package is arriving Nov 6. Track it in the app.",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "shipping, not something you attend"
+  },
+  {
+   "id": "u08",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Northwind",
+   "email": "verify@northwind.example",
+   "subject": "Your code",
+   "body": "Your verification code is 482913. It expires in 10 minutes.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u09",
+   "split": "tune",
+   "expect": "updates",
+   "name": "PayPal-like",
+   "email": "service@paylane.example",
+   "subject": "You got paid",
+   "body": "Jordan paid you $20.00 for pizza.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "u10",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Code Host",
+   "email": "notifications@codehost.example",
+   "subject": "PR merged",
+   "body": "Your pull request #42 was merged.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "u11",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Fabrikam Store",
+   "email": "auto-confirm@fabrikam.example",
+   "subject": "Delivered",
+   "body": "Delivered: your package was left at the front door.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u12",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Fabrikam Store",
+   "email": "returns@fabrikam.example",
+   "subject": "Refund issued",
+   "body": "Your return has been processed. Refund of $34.00 is on the way.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "u13",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Harbor HOA",
+   "email": "messages@harborhoa.example",
+   "subject": "You have a new private message",
+   "body": "You have a new private message. Log in to view it. Questions? Call the office.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u14",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "RideCo",
+   "email": "receipts@rideco.example",
+   "subject": "Your ride receipt",
+   "body": "Thanks for riding. Total $18.40.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u15",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Northwind",
+   "email": "alerts@northwind.example",
+   "subject": "New sign-in",
+   "body": "New sign-in from a Mac in Wilmington. If this was you, no action is needed.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u16",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Corner Pharmacy",
+   "email": "rx@cornerpharmacy.example",
+   "subject": "Ready for pickup",
+   "body": "Your order is ready for pickup at the Main St store. This mailbox is not monitored.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u17",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "ShipCo",
+   "email": "tracking@shipco.example",
+   "subject": "Out for delivery",
+   "body": "Your package is out for delivery today.",
+   "daysAgo": 1
+  },
+  {
+   "id": "u18",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Cloud Drive",
+   "email": "no-reply@clouddrive.example",
+   "subject": "Storage",
+   "body": "You are using 80% of your storage.",
+   "daysAgo": 1
+  },
+  {
+   "id": "r01",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Garden Weekly",
+   "email": "editor@gardenweekly.example",
+   "subject": "This week in gardening",
+   "body": "Five tips for spring planting, the best soil for tomatoes, and a reader question about herbs. You are receiving this newsletter because you subscribed. To unsubscribe, use the link in your account settings.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r02",
+   "split": "tune",
+   "expect": "reading",
+   "name": "The Long Read",
+   "email": "longread@letters.example",
+   "subject": "Issue 42",
+   "body": "In this issue: how cities plan for heat, and a short history of maps.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r03",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Outfitters",
+   "email": "deals@outfitters.example",
+   "subject": "40% off this weekend",
+   "body": "Everything is 40% off through Sunday. Shop now.\nUnsubscribe",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r04",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Outfitters",
+   "email": "deals@outfitters.example",
+   "subject": "New arrivals",
+   "body": "Fresh fall layers just landed. Shop now before they're gone.",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "marketing with no unsubscribe word in the text"
+  },
+  {
+   "id": "r05",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Sarah's Kitchen",
+   "email": "sarah@sarahskitchen.example",
+   "subject": "Soup season",
+   "body": "View this email in your browser\nThree soups for cold nights.\nUnsubscribe | Update preferences",
+   "daysAgo": 1
+  },
+  {
+   "id": "r06",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Grace Community",
+   "email": "office@gracecommunity.example",
+   "subject": "This week at Grace",
+   "body": "Newsletter: the food drive, choir practice and a note from the pastor.\nTo unsubscribe reply STOP.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r07",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Night Shift Podcast",
+   "email": "hello@nightshift.example",
+   "subject": "New episode",
+   "body": "Episode 88 is out: the science of sleep. Listen on any app. Unsubscribe anytime.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r08",
+   "split": "tune",
+   "expect": "reading",
+   "name": "DataConf",
+   "email": "events@dataconf.example",
+   "subject": "Webinar: AI in practice",
+   "body": "Register now for our free webinar on Nov 19. Unsubscribe",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "marketing that mentions a date"
+  },
+  {
+   "id": "r09",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Gadget Co",
+   "email": "news@gadgetco.example",
+   "subject": "Introducing Gadget 5",
+   "body": "Introducing our newest gadget. Learn more on our site.\nTo unsubscribe, click here.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r10",
+   "split": "holdout",
+   "expect": "reading",
+   "name": "Town Digest",
+   "email": "digest@towndigest.example",
+   "subject": "Weekly digest",
+   "body": "Top stories this week. Unsubscribe from this list.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r11",
+   "split": "holdout",
+   "expect": "reading",
+   "name": "Outfitters",
+   "email": "deals@outfitters.example",
+   "subject": "Early access",
+   "body": "Black Friday early access: 30% off sitewide. Limited time.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r12",
+   "split": "holdout",
+   "expect": "reading",
+   "name": "State Alumni",
+   "email": "alumni@state.example",
+   "subject": "Alumni news",
+   "body": "In this issue: homecoming photos and class notes.",
+   "daysAgo": 1,
+   "bulk": true
+  },
+  {
+   "id": "r13",
+   "split": "holdout",
+   "expect": "reading",
+   "name": "Weeknight Recipes",
+   "email": "recipes@weeknight.example",
+   "subject": "This week's recipes",
+   "body": "Five dinners in 30 minutes. You are receiving this email because you signed up at weeknight.example.",
+   "daysAgo": 1,
+   "bulk": true
+  }
+ ]
+}

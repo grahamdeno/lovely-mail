@@ -134,12 +134,17 @@ enum FeedTriage {
                        notWaiting: Bool = false, context: TriageContext) -> TriageAssessment {
         let email = post.email
         if route == .reading { return TriageAssessment(section: .reading, reason: routeReason) }
+        // Mail you sent yourself, from this address or one you declared, is a note even when it is a forwarded
+        // newsletter or receipt.
+        if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
         if post.summary.category == .newsletter { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
-        // Mail you sent yourself from this same address (a note to self, not a person waiting on you).
-        if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if let why = automatedReason(email) {
-            let dated = !post.summary.dates.isEmpty || [.school, .travel, .events].contains(post.summary.category)
+            let text = email.subject + "\n" + email.body
+            if MailKind.isMarketing(text) { return TriageAssessment(section: .reading, reason: "Promotion or marketing mail") }
+            if MailKind.isShipping(text) { return TriageAssessment(section: .updates, reason: why + "; shipping or delivery") }
+            let dated = !post.summary.dates.isEmpty || MailKind.mentionsDay(text)
+                || [.school, .travel, .events].contains(post.summary.category)
             return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)
         }
         let first = email.from.firstName
@@ -191,6 +196,21 @@ enum FeedTriage {
     }
 }
 
+/// Keyword signals for automated mail. Only used after a message is already known to be automated.
+enum MailKind {
+    private static let marketing = ["shop now", "% off", "limited time", "promo code", "use code", "new arrivals", "sitewide"]
+    private static let shipping = ["shipped", "arriving", "out for delivery", "delivered", "tracking", "track it", "your package"]
+    /// A weekday, "tomorrow", or a numeric date like 11/19. Month names are covered by the summary's dates.
+    private static let dayPattern = #"\b(mon|tues|wednes|thurs|fri|satur|sun)day\b|\btomorrow\b|\b\d{1,2}/\d{1,2}\b"#
+
+    static func isMarketing(_ text: String) -> Bool { let l = text.lowercased(); return marketing.contains { l.contains($0) } }
+    /// Shipping and delivery notices carry dates, but nothing you need to show up for.
+    static func isShipping(_ text: String) -> Bool { let l = text.lowercased(); return shipping.contains { l.contains($0) } }
+    static func mentionsDay(_ text: String) -> Bool {
+        text.lowercased().range(of: dayPattern, options: .regularExpression) != nil
+    }
+}
+
 /// Reply detection that ignores the parts of an email no one is asking you about.
 enum ReplySignals {
     private static let asks = ["let me know", "can you", "could you", "would you", "please confirm", "rsvp",
@@ -201,7 +221,21 @@ enum ReplySignals {
                                "write back", "reply to me", "call me", "text me", "give me a call", "send me",
                                "i need you", "i need your", "need your help", "need some help", "help me",
                                "some help", "can we", "could we", "when can", "when are you", "please send",
-                               "please let", "please call", "please review", "please sign", "please respond"]
+                               "please let", "please call", "please review", "please sign", "please respond",
+                               "hoping you could", "hoping you can", "was hoping you", "would love your",
+                               "would appreciate", "could use your"]
+
+    /// Sentences that sound like asks but are courtesy or rhetoric: "Let me know if you have any questions",
+    /// "Feel free to call me", "Can you believe this weather".
+    private static let courtesy = [#"let me know if you (have any questions|need anything|need any)"#,
+                                   #"let me know if (there is|there's) anything"#, #"if you have any questions"#,
+                                   #"feel free to"#, #"(don't|do not) hesitate"#, #"if anything comes up"#,
+                                   #"can you believe"#, #"would you believe"#, #"who knew"#, #"guess what"#]
+
+    static func isCourtesy(_ sentence: String) -> Bool {
+        let lower = sentence.lowercased()
+        return courtesy.contains { lower.range(of: $0, options: .regularExpression) != nil }
+    }
 
     /// The author's own words: no quoted earlier mail, no signature block, no link-heavy footer lines.
     static func authoredText(_ body: String) -> String {
@@ -228,11 +262,14 @@ enum ReplySignals {
         "log in to view", "login to view", "sign in to view", "click here to view", "view this message",
         "to view the message", "view it online", "reply above this line", "you are receiving this",
         "you received this email because", "manage your notification", "notification settings",
+        "verification code", "security code", "one-time code", "your code is", "passcode",
     ]
+    /// Booking systems: "Reply C to confirm", "Reply Y to confirm or N to cancel".
+    private static let replyCode = #"\breply [a-z]{1,3} to (confirm|cancel)"#
 
     static func isMachineText(subject: String, body: String) -> Bool {
         let lower = (subject + "\n" + authoredText(body)).lowercased()
-        return machinePhrases.contains { lower.contains($0) }
+        return machinePhrases.contains { lower.contains($0) } || lower.range(of: replyCode, options: .regularExpression) != nil
     }
 
     /// The first sentence in the author's own words that asks you something, trimmed for display.
@@ -252,7 +289,7 @@ enum ReplySignals {
         }
         for raw in candidates {
             let sentence = raw.trimmingCharacters(in: .whitespaces)
-            guard sentence.count >= 6 else { continue }
+            guard sentence.count >= 6, !isCourtesy(sentence) else { continue }
             let lower = sentence.lowercased()
             let asks = sentence.hasSuffix("?") && sentence.range(of: #"[A-Za-z][^.!?]{2,}\?$"#, options: .regularExpression) != nil
             if asks || Self.asks.contains(where: { lower.contains($0) }) {

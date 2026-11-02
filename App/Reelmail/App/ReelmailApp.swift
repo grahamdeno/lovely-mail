@@ -20,6 +20,7 @@ enum Route: Hashable {
     case email(String)
     case thread(Person)
     case summaryLab
+    case sortingReview
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

@@ -25,6 +25,9 @@ final class FeedStore {
     let demoRules: LocalTriageRules
     /// Rules for the signed-in account. Created when the account is known.
     private(set) var accountRules: LocalTriageRules?
+    /// Your right/wrong verdicts on sorting, for the demo and for the signed-in account.
+    let demoReview: SortingReview
+    private(set) var accountReview: SortingReview?
     private let summarizeOnDevice: Bool
     private let triageDefaults: UserDefaults
     private let cacheStore: MailCacheStore?
@@ -38,7 +41,11 @@ final class FeedStore {
         self.triageDefaults = triageDefaults
         self.cacheStore = cacheStore
         demoRules = LocalTriageRules(accountID: "demo-home-v1", defaults: triageDefaults)
+        demoReview = SortingReview(accountID: "demo-home-v1", defaults: triageDefaults)
     }
+
+    /// Review verdicts for what is on screen now. Nil in live mode until the account is known.
+    var review: SortingReview? { mode == .gmail ? accountReview : demoReview }
 
     var gmailConfigured: Bool { gmail.config.isConfigured }
 
@@ -134,6 +141,7 @@ final class FeedStore {
         if account != address {
             account = address
             accountRules = LocalTriageRules(accountID: "gmail-" + MailCache.accountKey(address), defaults: triageDefaults)
+            accountReview = SortingReview(accountID: "gmail-" + MailCache.accountKey(address), defaults: triageDefaults)
         }
     }
 

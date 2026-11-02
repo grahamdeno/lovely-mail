@@ -29,6 +29,18 @@ final class DesignScreenshotTests: XCTestCase {
         let person = try XCTUnwrap(store.people.first)
         try await capture(NavigationStack { ThreadView(person: person) }.environment(store).environment(router).dynamicTypeSize(.accessibility2), name: "06-Timeline-larger-text")
     }
+    func testReviewSortingScreenshot() async throws {
+        let store = await demoStore()
+        store.demoReview.reset()
+        defer { store.demoReview.reset() }
+        let recent = store.activePosts.sorted { $0.email.date > $1.email.date }
+        if let first = recent.first { store.demoReview.mark(first.id, shown: store.section(for: first), correct: store.section(for: first)) }
+        if recent.count > 1 {
+            let second = recent[1]
+            store.demoReview.mark(second.id, shown: store.section(for: second), correct: store.section(for: second) == .people ? .waiting : .people)
+        }
+        try await capture(NavigationStack { SortingReviewView() }.environment(store).environment(Router()), name: "07-Review-sorting")
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()
