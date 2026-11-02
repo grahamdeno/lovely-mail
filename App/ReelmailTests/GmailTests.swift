@@ -152,15 +152,15 @@ final class GmailTests: XCTestCase {
         let school = post(email("school", from: shop, date: 500, body: "Permission form due Nov 8 for the field trip.", bulk: true))
         let letter = post(email("letter", from: shop, date: 600, body: "In this issue: three ideas. Unsubscribe anytime.", bulk: true))
         let reply = Email(id: "r", threadId: "t-answered", from: Person(id: me, name: "You", email: me, hue: 0), to: [maya.email], subject: "Re", date: Date(timeIntervalSince1970: 60), body: "Salad it is.", isFromMe: true)
-        let replies = FeedTriage.latestReplies(in: [reply])
-        func section(_ p: Post) -> FeedSection { FeedTriage.section(for: p, route: .inbox, replies: replies) }
+        let context = TriageContext(account: me, sent: [reply], now: Date(timeIntervalSince1970: 1000))
+        func section(_ p: Post) -> FeedSection { FeedTriage.section(for: p, route: .inbox, context: context) }
         XCTAssertEqual(section(ask), .waiting)
         XCTAssertEqual(section(answered), .people, "A newer reply from you clears the wait")
         XCTAssertEqual(section(note), .people)
         XCTAssertEqual(section(receipt), .updates)
         XCTAssertEqual(section(school), .dated)
         XCTAssertEqual(section(letter), .reading)
-        XCTAssertEqual(FeedTriage.section(for: note, route: .reading, replies: replies), .reading, "Your rule wins")
+        XCTAssertEqual(FeedTriage.section(for: note, route: .reading, context: context), .reading, "Your rule wins")
         XCTAssertEqual(FeedSection.allCases, [.waiting, .people, .dated, .updates, .reading])
     }
 

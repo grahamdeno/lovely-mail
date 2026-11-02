@@ -23,8 +23,8 @@ final class SampleDataTests: XCTestCase {
     func testSampleMixFeedsEverySection() {
         let fallback = FallbackSummarizer()
         let posts = SampleData.emails.map { Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0))) }
-        let replies = FeedTriage.latestReplies(in: SampleData.sentByMe)
-        let sections = Set(posts.map { FeedTriage.section(for: $0, route: .inbox, replies: replies) })
+        let context = TriageContext(account: SampleData.me.email, sent: SampleData.sentByMe, now: Date())
+        let sections = Set(posts.map { FeedTriage.section(for: $0, route: .inbox, context: context) })
         for section in FeedSection.allCases {
             XCTAssertTrue(sections.contains(section), "\(section) is empty")
         }

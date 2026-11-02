@@ -89,4 +89,16 @@ enum MailTime {
         if seconds < 86400 { return "\(Int(seconds / 3600)) hr ago" }
         return date.formatted(date: .abbreviated, time: .omitted)
     }
+
+    /// Compact time for a feed row: "3:42 PM", "Yesterday", "Tue", "Oct 26", "10/26/25".
+    static func short(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return date.formatted(date: .omitted, time: .shortened) }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+        if days == 1 { return "Yesterday" }
+        if days > 1, days < 7 { return date.formatted(.dateTime.weekday(.abbreviated)) }
+        if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
+            return date.formatted(.dateTime.month(.abbreviated).day())
+        }
+        return date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).year(.twoDigits))
+    }
 }
