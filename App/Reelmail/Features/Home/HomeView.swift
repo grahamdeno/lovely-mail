@@ -392,9 +392,9 @@ struct MailRow: View {
                 } else if store.isMarkedNotWaiting(post) {
                     Button { store.undoNotWaiting(post) } label: { Label("Put back in Waiting", systemImage: "arrow.uturn.backward") }
                 }
-                if section == .notes {
+                if section == .notes, store.otherAddresses.contains(post.email.from.email.lowercased()) {
                     Button { store.removeOtherAddress(post.email.from.email) } label: { Label("This isn't my address", systemImage: "person.crop.circle.badge.xmark") }
-                } else if fromPerson {
+                } else if fromPerson, section != .notes {
                     Button { store.addOtherAddress(post.email.from.email) } label: { Label("This is another address of mine", systemImage: "person.crop.circle.badge.checkmark") }
                 }
             }

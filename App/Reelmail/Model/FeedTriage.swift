@@ -136,7 +136,8 @@ enum FeedTriage {
         if route == .reading { return TriageAssessment(section: .reading, reason: routeReason) }
         if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
         if post.summary.category == .newsletter { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
-        if context.isMine(email) { return TriageAssessment(section: .people, reason: "Sent from this account's address") }
+        // Mail you sent yourself from this same address (a note to self, not a person waiting on you).
+        if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if let why = automatedReason(email) {
             let dated = !post.summary.dates.isEmpty || [.school, .travel, .events].contains(post.summary.category)
             return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)

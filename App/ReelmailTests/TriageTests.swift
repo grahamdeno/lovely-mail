@@ -50,10 +50,11 @@ final class TriageTests: XCTestCase {
         XCTAssertNotEqual(a.section, .waiting)
     }
 
-    func testMailFromThisAccountsOwnAddressIsNotWaiting() {
+    func testMailYouSentYourselfFromThisAddressIsANote() {
         let selfMail = person("Pat Owner", me)
         let a = assess(post("self", from: selfMail, body: "What is the expected timeline?"))
-        XCTAssertNotEqual(a.section, .waiting)
+        XCTAssertEqual(a.section, .notes)
+        XCTAssertEqual(a.reason, "You sent this to yourself")
     }
 
     /// A message you send yourself from another account is a person asking you for something.

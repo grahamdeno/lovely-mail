@@ -99,8 +99,10 @@ struct WhyItsHere: View {
                 Text(assessment.reason).font(.caption).foregroundStyle(CalmStyle.secondary)
             }
             if assessment.section == .notes {
-                Button("This isn't my address") { store.removeOtherAddress(post.email.from.email) }
-                    .buttonStyle(CalmActionStyle()).lineLimit(1).fixedSize()
+                if store.otherAddresses.contains(post.email.from.email.lowercased()) {
+                    Button("This isn't my address") { store.removeOtherAddress(post.email.from.email) }
+                        .buttonStyle(CalmActionStyle()).lineLimit(1).fixedSize()
+                }
             } else if looksLikeYou {
                 Text("This name matches yours. Is it another address of yours?").font(.caption).foregroundStyle(CalmStyle.secondary)
                 Button("Yes, \(post.email.from.email) is mine") { store.addOtherAddress(post.email.from.email) }
