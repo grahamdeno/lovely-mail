@@ -9,12 +9,12 @@ import UIKit
 @MainActor
 final class GmailService: NSObject {
     enum GmailError: LocalizedError {
-        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired, needsTrashPermission
+        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired, needsTrashPermission, mailAccessNotGranted, refused(Int, GmailAPIError)
 
         /// True when the only fix is signing in again.
         var needsReconnect: Bool {
             switch self {
-            case .sessionExpired, .notSignedIn, .needsTrashPermission: return true
+            case .sessionExpired, .notSignedIn, .needsTrashPermission, .mailAccessNotGranted: return true
             default: return false
             }
         }
@@ -28,9 +28,13 @@ final class GmailService: NSObject {
                 return "Google denied access. This Google account may not be on the app's test-user list."
             case .denied(let reason): return "Google declined sign-in (\(reason))."
             case .http(let code): return "Gmail returned HTTP \(code)."
+            case .refused(let code, let e):
+                return "Gmail refused the request (HTTP \(code), \(e.reason)). \(e.message)"
             case .notSignedIn: return "Not signed in to Gmail."
             case .sessionExpired: return "Google signed you out. Reconnect Gmail in Profile."
             case .needsTrashPermission: return "Lovely needs your OK to move mail to Trash. Reconnect Gmail in Profile and allow it."
+            case .mailAccessNotGranted:
+                return "Google didn't give Lovely access to your mail. Reconnect Gmail in Profile, and on Google's screen tick the Gmail box (or Select all) before Continue."
             }
         }
     }
@@ -89,6 +93,11 @@ final class GmailService: NSObject {
             "redirect_uri": config.redirectURI,
             "code_verifier": pkce.verifier,
         ], previousRefreshToken: nil)
+        // The Gmail box on Google's consent screen can be left unticked; then every read fails with 403.
+        guard GmailScope.canRead(granted: lastGrantedScope) else {
+            log.error("Sign-in granted no Gmail scope")
+            throw GmailError.mailAccessNotGranted
+        }
         store(tokens)
         log.info("Gmail sign-in complete")
     }
@@ -183,13 +192,15 @@ final class GmailService: NSObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer " + (try await accessToken()), forHTTPHeaderField: "Authorization")
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
-            log.error("Gmail \(action.rawValue, privacy: .public) failed with HTTP \(code, privacy: .public)")
+            let detail = GmailAPIError.parse(data)
+            log.error("Gmail \(action.rawValue, privacy: .public) failed with HTTP \(code, privacy: .public) \(detail?.reason ?? "", privacy: .public)")
             if code == 401 { keychain.delete(); throw GmailError.sessionExpired }
             // 403 on a sign-in made before Trash was approved: the token only holds the read-only scope.
-            if code == 403 { throw GmailError.needsTrashPermission }
+            if code == 403, detail?.isMissingScope ?? true { throw GmailError.needsTrashPermission }
+            if let detail { throw GmailError.refused(code, detail) }
             throw GmailError.http(code)
         }
         log.info("Gmail \(action.rawValue, privacy: .public) succeeded")
@@ -203,8 +214,13 @@ final class GmailService: NSObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
-            log.error("Gmail GET failed with HTTP \(code, privacy: .public)")
+            let detail = GmailAPIError.parse(data)
+            log.error("Gmail GET failed with HTTP \(code, privacy: .public) \(detail?.reason ?? "", privacy: .public)")
             if code == 401 { keychain.delete(); throw GmailError.sessionExpired }
+            // Reading is refused because the sign-in lacks Gmail access (box unticked, or access removed).
+            if code == 403, detail?.isMissingScope == true { keychain.delete(); throw GmailError.mailAccessNotGranted }
+            // Anything else (API turned off in Google Cloud, rate limit, policy): show Google's own reason.
+            if let detail { throw GmailError.refused(code, detail) }
             throw GmailError.http(code)
         }
         return try JSONDecoder().decode(T.self, from: data)
@@ -227,7 +243,11 @@ final class GmailService: NSObject {
         let access_token: String
         let expires_in: Double
         let refresh_token: String?
+        let scope: String?
     }
+
+    /// Scopes Google granted in the most recent token exchange.
+    private var lastGrantedScope: String?
 
     private func exchange(_ form: [String: String], previousRefreshToken: String?) async throws -> OAuthTokens {
         var request = URLRequest(url: Self.tokenURL)
@@ -247,6 +267,7 @@ final class GmailService: NSObject {
             throw GmailError.http(code)
         }
         let t = try JSONDecoder().decode(TokenResponse.self, from: data)
+        lastGrantedScope = t.scope
         return OAuthTokens(accessToken: t.access_token,
                            refreshToken: t.refresh_token ?? previousRefreshToken,
                            expiresAt: Date().addingTimeInterval(t.expires_in))

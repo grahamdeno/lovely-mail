@@ -287,7 +287,9 @@ struct StatusNotices: View {
     @Environment(FeedStore.self) private var store
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if store.needsReconnect {
+            if store.needsMailAccess {
+                notice("Google didn't give Lovely access to your mail. Tap Reconnect, and on Google's screen tick the Gmail box (or Select all) before Continue.", button: "Reconnect Gmail")
+            } else if store.needsReconnect {
                 notice("Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.", button: "Reconnect Gmail")
             } else if store.needsTrashPermission {
                 notice("Lovely needs your OK to move mail to Gmail's Trash. It can't send mail or delete anything for good. Reconnect and allow it.", button: "Reconnect Gmail")

@@ -190,4 +190,22 @@ final class GmailTests: XCTestCase {
         XCTAssertEqual(GmailCompose.replySubject("Hi"), "Re: Hi")
         XCTAssertEqual(GmailCompose.replySubject("Re: Hi"), "Re: Hi")
     }
+
+    func testUntickedGmailBoxIsDetected() {
+        XCTAssertTrue(GmailScope.canRead(granted: "https://www.googleapis.com/auth/gmail.modify"))
+        XCTAssertTrue(GmailScope.canRead(granted: "openid https://www.googleapis.com/auth/gmail.readonly"))
+        XCTAssertFalse(GmailScope.canRead(granted: "openid email"), "Gmail box unticked on Google's screen")
+        XCTAssertTrue(GmailScope.canRead(granted: nil), "Google did not report scopes")
+    }
+
+    func testGoogleErrorReasonIsReadable() throws {
+        let scope = #"{"error":{"code":403,"message":"Request had insufficient authentication scopes.","status":"PERMISSION_DENIED","errors":[{"reason":"insufficientPermissions"}],"details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"ACCESS_TOKEN_SCOPE_INSUFFICIENT"}]}}"#
+        let a = try XCTUnwrap(GmailAPIError.parse(Data(scope.utf8)))
+        XCTAssertTrue(a.isMissingScope)
+        let disabled = #"{"error":{"code":403,"message":"Gmail API has not been used in project 1 before or it is disabled.","status":"PERMISSION_DENIED","details":[{"reason":"SERVICE_DISABLED"}]}}"#
+        let b = try XCTUnwrap(GmailAPIError.parse(Data(disabled.utf8)))
+        XCTAssertEqual(b.reason, "SERVICE_DISABLED")
+        XCTAssertFalse(b.isMissingScope)
+        XCTAssertNil(GmailAPIError.parse(Data("not json".utf8)))
+    }
 }

@@ -86,7 +86,7 @@ final class FeedStoreTests: XCTestCase {
         let store = FeedStore(gmail: FakeInboxClient(), summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
         await store.load()
         XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
-        XCTAssertTrue(store.addOtherAddress("Sender@reelmail.example"))
+        XCTAssertEqual(store.addOtherAddress("Sender@reelmail.example"), .added)
         XCTAssertEqual(store.section(for: store.posts[0]), .notes)
         XCTAssertEqual(store.noteCount, 1)
         XCTAssertTrue(store.people.isEmpty, "Your own addresses are not people")
@@ -94,7 +94,29 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertEqual(store.demoRules.otherAddresses, [], "Live addresses must not leak into the demo namespace")
         store.removeOtherAddress("sender@reelmail.example")
         XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
-        XCTAssertFalse(store.addOtherAddress("not an address"))
+        XCTAssertEqual(store.addOtherAddress("not an address"), .invalid)
+        XCTAssertEqual(store.addOtherAddress("graham.denoyer@icloud.com"), .added, "A normal address is accepted")
+    }
+
+    /// Build 1006 on the owner's phone said "That doesn't look like an email address" for a valid address,
+    /// because the Gmail account was not known yet (first load still running or failed after reconnect).
+    func testAddressAddedBeforeAccountIsKnownWaitsAndIsSaved() async throws {
+        let suite = "reelmail.pending-tests." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let client = FakeInboxClient()
+        client.fails = true
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
+        await store.load()
+        XCTAssertEqual(store.mode, .gmail)
+        XCTAssertNil(store.account)
+        XCTAssertEqual(store.addOtherAddress("Sender@reelmail.example"), .pending)
+        XCTAssertEqual(store.pendingOtherAddresses, ["sender@reelmail.example"])
+        client.fails = false
+        await store.load()
+        XCTAssertEqual(store.otherAddresses, ["sender@reelmail.example"])
+        XCTAssertTrue(store.pendingOtherAddresses.isEmpty)
+        XCTAssertEqual(store.section(for: store.posts[0]), .notes)
     }
 
     func testExplicitDisconnectReturnsToLabeledSampleMode() async {
