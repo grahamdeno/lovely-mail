@@ -150,7 +150,15 @@ final class GmailService: NSObject {
         let account = try await accountAddress()
         let cache = known?.account == account ? known : nil
         let knownByID = Dictionary(((cache?.inbox ?? []) + (cache?.sent ?? [])).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let inboxList = try await listMessageIDs(query: "in:inbox category:primary", limit: limits.inboxMessages)
+        // Primary tab first. Accounts with inbox tabs turned off can return nothing for category:primary,
+        // so fall back to the inbox without the Promotions, Social, Updates and Forums tabs, then to the whole inbox.
+        var inboxList = try await listMessageIDs(query: "in:inbox category:primary", limit: limits.inboxMessages)
+        if inboxList.ids.isEmpty {
+            inboxList = try await listMessageIDs(query: "in:inbox -category:promotions -category:social -category:updates -category:forums", limit: limits.inboxMessages)
+        }
+        if inboxList.ids.isEmpty {
+            inboxList = try await listMessageIDs(query: "in:inbox", limit: limits.inboxMessages)
+        }
         let sentList = try await listMessageIDs(query: "in:sent newer_than:\(limits.sentWindowDays)d", limit: limits.sentMessages)
         let inbox = try await messages(ids: inboxList.ids, account: account, known: knownByID)
         let sent = try await messages(ids: sentList.ids, account: account, known: knownByID)

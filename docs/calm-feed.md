@@ -42,3 +42,9 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 
 ## Next implementation task
 After the client ID lands and a configured build is approved: verify on device sign-in, inbox and sent load, refresh, relaunch from cache, 7-day reconnect. Then: reply chips (short suggested answers), "remind me if no reply", and a review of real-mail bulk detection misses.
+
+## Empty Primary import (found on first real-device run, build 1003)
+- Symptom: sign-in worked and the import finished, but the feed showed "No mail loaded yet."
+- Likely cause: `in:inbox category:primary` returned nothing for this account (for example inbox tabs turned off). Not confirmed from device logs.
+- Change: the import now falls back to the inbox without Promotions/Social/Updates/Forums, then to the whole inbox. The empty state now says Gmail connected but returned no inbox mail, with the sent count.
+- Still unverified on a device until the next TestFlight build is installed.
