@@ -71,9 +71,7 @@ struct HomeView: View {
 
     var body: some View {
         List {
-            HomeHeader(onFiltered: { showingFiltered = true }).padding(.top, 8).padding(.bottom, 10)
-                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-            FilterPills().padding(.bottom, 4)
+            TopBar(onFiltered: { showingFiltered = true }).padding(.top, 4).padding(.bottom, 4)
                 .listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
             StatusNotices()
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -95,7 +93,7 @@ struct HomeView: View {
                     EmptyFeedNote()
                 }
                 if !store.isLoading, !store.posts.isEmpty {
-                    Text(store.mode == .sample ? "Fictional mail for the demo." : (store.inboxTruncated ? "Showing your most recent inbox mail. Older mail stays in Gmail." : "That's all of your inbox."))
+                    Text(footerText)
                         .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.vertical, 20)
                 }
             }
@@ -118,6 +116,15 @@ struct HomeView: View {
         .animation(.easeOut(duration: 0.2), value: undoPost?.id)
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
         .refreshable { await store.load() }
+    }
+
+    private var footerText: String {
+        if store.mode == .sample { return "Fictional mail for the demo." }
+        var parts: [String] = []
+        if let account = store.account { parts.append(account) }
+        if let fetched = store.lastFetched { parts.append("updated " + MailTime.label(fetched).lowercased()) }
+        parts.append(store.inboxTruncated ? "showing your most recent inbox mail; older mail stays in Gmail" : "that's all of your inbox")
+        return parts.joined(separator: " · ")
     }
 
     private func notWaiting(_ post: Post, wholeSender: Bool) {
@@ -231,32 +238,31 @@ struct StatusNotices: View {
     }
 }
 
-struct HomeHeader: View {
+/// The only thing above the feed: filter pills and the account menu. No title, no wordmark.
+/// Loading state is a thin bar under it; "updated" and the account address live at the end of the list.
+struct TopBar: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     var onFiltered: () -> Void = {}
-    private var subtitle: String {
-        if store.mode == .sample { return "Demo · fictional mail" }
-        if store.isLoading { return "Checking for new mail…" }
-        if store.isSummarizing { return "Writing summaries on this iPhone…" }
-        if let fetched = store.lastFetched { return "Updated " + MailTime.label(fetched).lowercased() }
-        return "Gmail, read-only"
-    }
     var body: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                Wordmark().accessibilityAddTraits(.isHeader)
-                Text(subtitle).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+        VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                FilterPills()
+                Menu {
+                    if let account = store.account { Text(account) }
+                    Button("Account and settings") { router.tab = .profile }
+                    Button("Filtered senders", action: onFiltered)
+                    if !store.hiddenPosts.isEmpty { Button("Show hidden mail (\(store.hiddenPosts.count))") { store.restoreAll() } }
+                } label: {
+                    CalmAvatar(person: store.me, size: 34).frame(minWidth: 44, minHeight: 44)
+                }
+                .padding(.trailing, 12)
+                .accessibilityLabel("Account and mail options")
             }
-            Spacer(minLength: 12)
-            Menu {
-                if let account = store.account { Text(account) }
-                Button("Account and settings") { router.tab = .profile }
-                Button("Filtered senders", action: onFiltered)
-                if !store.hiddenPosts.isEmpty { Button("Show hidden mail (\(store.hiddenPosts.count))") { store.restoreAll() } }
-            } label: {
-                CalmAvatar(person: store.me, size: 36).frame(minWidth: 44, minHeight: 44)
-            }.accessibilityLabel("Account and mail options")
+            if store.isLoading || store.isSummarizing {
+                ProgressView().progressViewStyle(.linear).tint(CalmStyle.blue).padding(.horizontal, 20)
+                    .accessibilityLabel(store.isLoading ? "Checking for new mail" : "Writing summaries on this iPhone")
+            }
         }
     }
 }

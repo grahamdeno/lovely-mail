@@ -59,28 +59,25 @@ struct TriageContext {
     static let maxDirectRecipients = 6
 
     var myAddresses: Set<String>
-    var myNames: Set<String>
     var replies: [String: Date]
     var now: Date
 
-    init(myAddresses: Set<String> = [], myNames: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
+    init(myAddresses: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
         self.myAddresses = Set(myAddresses.map { $0.lowercased() })
-        self.myNames = Set(myNames.map { $0.lowercased() }.filter { $0.count > 2 && $0 != "you" })
         self.replies = replies
         self.now = now
     }
 
-    /// Builds the context from the signed-in account and your sent mail (which carries your aliases and display name).
+    /// Builds the context from the signed-in account. Identity is the address only; a display name proves nothing,
+    /// and mail you send yourself from another account is a person asking you for something.
     init(account: String?, sent: [Email], now: Date) {
         var addresses = Set(sent.filter(\.isFromMe).map { $0.from.email.lowercased() })
         if let account, !account.isEmpty { addresses.insert(account.lowercased()) }
-        let names = Set(sent.filter(\.isFromMe).map(\.from.name))
-        self.init(myAddresses: addresses, myNames: names, replies: FeedTriage.latestReplies(in: sent), now: now)
+        self.init(myAddresses: addresses, replies: FeedTriage.latestReplies(in: sent), now: now)
     }
 
     func isMine(_ email: Email) -> Bool {
-        if email.isFromMe || myAddresses.contains(email.from.email.lowercased()) { return true }
-        return myNames.contains(email.from.name.lowercased())
+        email.isFromMe || myAddresses.contains(email.from.email.lowercased())
     }
 
     enum Addressing: Equatable { case direct, copied, group }
@@ -125,7 +122,7 @@ enum FeedTriage {
         let email = post.email
         if route == .reading { return TriageAssessment(section: .reading, reason: routeReason) }
         if post.summary.category == .newsletter { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
-        if context.isMine(email) { return TriageAssessment(section: .people, reason: "Sent from your own address") }
+        if context.isMine(email) { return TriageAssessment(section: .people, reason: "Sent from this account's address") }
         if let why = automatedReason(email) {
             let dated = !post.summary.dates.isEmpty || [.school, .travel, .events].contains(post.summary.category)
             return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)
@@ -183,7 +180,13 @@ enum FeedTriage {
 enum ReplySignals {
     private static let asks = ["let me know", "can you", "could you", "would you", "please confirm", "rsvp",
                                "are you free", "please reply", "your thoughts", "what do you think", "any word",
-                               "did you", "do you", "will you", "wondering if", "thoughts?"]
+                               "did you", "do you", "will you", "wondering if", "thoughts?",
+                               "if you could", "if you can", "if you're able", "if you are able", "are you available",
+                               "available next", "available on", "email me back", "email me", "get back to me",
+                               "write back", "reply to me", "call me", "text me", "give me a call", "send me",
+                               "i need you", "i need your", "need your help", "need some help", "help me",
+                               "some help", "can we", "could we", "when can", "when are you", "please send",
+                               "please let", "please call", "please review", "please sign", "please respond"]
 
     /// The author's own words: no quoted earlier mail, no signature block, no link-heavy footer lines.
     static func authoredText(_ body: String) -> String {

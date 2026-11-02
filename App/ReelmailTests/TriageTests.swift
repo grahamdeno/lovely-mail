@@ -50,11 +50,27 @@ final class TriageTests: XCTestCase {
         XCTAssertNotEqual(a.section, .waiting)
     }
 
-    func testMailFromYourOtherAddressIsNotWaiting() {
-        let otherMe = person("Pat Owner", "pat@work.example")
-        let a = assess(post("self", from: otherMe, body: "What is the expected timeline?"))
+    func testMailFromThisAccountsOwnAddressIsNotWaiting() {
+        let selfMail = person("Pat Owner", me)
+        let a = assess(post("self", from: selfMail, body: "What is the expected timeline?"))
         XCTAssertNotEqual(a.section, .waiting)
-        XCTAssertEqual(a.reason, "Sent from your own address")
+    }
+
+    /// A message you send yourself from another account is a person asking you for something.
+    /// Display names never decide identity, even when they match yours.
+    func testYourOtherAccountWithYourNameIsStillAPerson() {
+        let other = person("Pat Owner", "pat@icloud.example")
+        let a = assess(post("other", from: other, subject: "Looking for help",
+                            body: " hey man, if you could give me some help and email me back, I'm just trying to see if you're available next Wednesday"))
+        XCTAssertEqual(a.section, .waiting)
+        XCTAssertNotNil(a.ask)
+    }
+
+    func testPlainRequestsWithoutQuestionMarksCount() {
+        for body in ["Please send the signed form when you can.", "Call me tonight.", "I need your help with the budget.",
+                     "Can we move this to Thursday.", "Email me back when you see this."] {
+            XCTAssertEqual(assess(post("r", from: maya, body: body)).section, .waiting, body)
+        }
     }
 
     func testCopiedAndGroupMailAreNotWaiting() {
