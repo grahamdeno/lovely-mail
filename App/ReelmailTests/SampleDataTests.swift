@@ -25,7 +25,7 @@ final class SampleDataTests: XCTestCase {
         let posts = SampleData.emails.map { Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0))) }
         let context = TriageContext(account: SampleData.me.email, sent: SampleData.sentByMe, now: Date())
         let sections = Set(posts.map { FeedTriage.section(for: $0, route: .inbox, context: context) })
-        for section in FeedSection.allCases {
+        for section in FeedSection.allCases where section != .notes {
             XCTAssertTrue(sections.contains(section), "\(section) is empty")
         }
         XCTAssertGreaterThanOrEqual(posts.filter(\.summary.needsReply).count, 3)

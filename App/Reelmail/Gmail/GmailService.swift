@@ -3,18 +3,18 @@ import Foundation
 import os
 import UIKit
 
-/// Read-only Gmail client. Signs in with ASWebAuthenticationSession + PKCE (iOS OAuth client,
-/// no client secret), keeps tokens in the Keychain, and only lists and reads messages.
-/// There is deliberately no code path that sends, drafts or modifies mail.
+/// Gmail client. Signs in with ASWebAuthenticationSession + PKCE (iOS OAuth client,
+/// no client secret), keeps tokens in the Keychain, lists and reads messages, and can move one message
+/// to Trash (and back). There is deliberately no code path that sends, drafts, relabels or permanently deletes.
 @MainActor
 final class GmailService: NSObject {
     enum GmailError: LocalizedError {
-        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired
+        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired, needsTrashPermission
 
         /// True when the only fix is signing in again.
         var needsReconnect: Bool {
             switch self {
-            case .sessionExpired, .notSignedIn: return true
+            case .sessionExpired, .notSignedIn, .needsTrashPermission: return true
             default: return false
             }
         }
@@ -30,6 +30,7 @@ final class GmailService: NSObject {
             case .http(let code): return "Gmail returned HTTP \(code)."
             case .notSignedIn: return "Not signed in to Gmail."
             case .sessionExpired: return "Google signed you out. Reconnect Gmail in Profile."
+            case .needsTrashPermission: return "Lovely needs your OK to move mail to Trash. Reconnect Gmail in Profile and allow it."
             }
         }
     }
@@ -165,6 +166,33 @@ final class GmailService: NSObject {
             .map { var e = $0; e.isFromMe = true; e.bulk = false; return e }
         log.info("Mailbox import complete: \(inbox.count, privacy: .public) inbox, \(sent.count, privacy: .public) sent")
         return MailboxSnapshot(account: account, inbox: inbox, sent: sent, fetchedAt: Date(), inboxTruncated: inboxList.truncated)
+    }
+
+    // MARK: Trash (the only change Lovely ever makes to Gmail)
+
+    private enum MessageAction: String { case trash, untrash }
+
+    /// Moves one message to Gmail's Trash. Recoverable for 30 days. Never a permanent delete.
+    func trash(messageID: String) async throws { try await perform(.trash, messageID: messageID) }
+    /// Takes one message back out of Trash.
+    func untrash(messageID: String) async throws { try await perform(.untrash, messageID: messageID) }
+
+    private func perform(_ action: MessageAction, messageID: String) async throws {
+        guard let id = messageID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed), !id.isEmpty,
+              let url = URL(string: Self.api + "/messages/" + id + "/" + action.rawValue) else { throw GmailError.badCallback }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer " + (try await accessToken()), forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            log.error("Gmail \(action.rawValue, privacy: .public) failed with HTTP \(code, privacy: .public)")
+            if code == 401 { keychain.delete(); throw GmailError.sessionExpired }
+            // 403 on a sign-in made before Trash was approved: the token only holds the read-only scope.
+            if code == 403 { throw GmailError.needsTrashPermission }
+            throw GmailError.http(code)
+        }
+        log.info("Gmail \(action.rawValue, privacy: .public) succeeded")
     }
 
     // MARK: Plumbing

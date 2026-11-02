@@ -1,6 +1,6 @@
 import Foundation
 
-/// What one import of the account produced. Everything here is read-only data from Gmail.
+/// What one import of the account produced. Everything here is data read from Gmail.
 struct MailboxSnapshot: Codable, Equatable {
     /// The signed-in address from users/me/profile.
     var account: String
@@ -31,6 +31,9 @@ protocol GmailInboxClient: AnyObject {
     var isSignedIn: Bool { get }
     /// Imports the mailbox. `known` lets the client skip downloading messages it already has.
     func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot
+    /// Moves one message to Gmail's Trash. The only change the app makes to the mailbox.
+    func trash(messageID: String) async throws
+    func untrash(messageID: String) async throws
     func signIn() async throws
     func signOut()
 }

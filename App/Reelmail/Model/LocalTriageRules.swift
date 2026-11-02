@@ -22,6 +22,8 @@ final class LocalTriageRules {
         /// "Not waiting on me" corrections. Added after v1; older saved state decodes with these empty.
         var notWaitingMessages: Set<String> = []
         var notWaitingSenders: Set<String> = []
+        /// Your other addresses, declared by you. Mail from them is "Notes to self". Never inferred from names.
+        var otherAddresses: Set<String> = []
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -30,6 +32,7 @@ final class LocalTriageRules {
             senders = try c.decodeIfPresent([String: LocalMailDestination].self, forKey: .senders) ?? [:]
             notWaitingMessages = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingMessages) ?? []
             notWaitingSenders = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingSenders) ?? []
+            otherAddresses = try c.decodeIfPresent(Set<String>.self, forKey: .otherAddresses) ?? []
         }
     }
 
@@ -37,6 +40,8 @@ final class LocalTriageRules {
     private let defaults: UserDefaults
     private let key: String
     private(set) var persistenceError: String?
+    /// Bumped on every saved change so derived feed data knows to rebuild.
+    private(set) var revision = 0
 
     init(accountID: String, defaults: UserDefaults = .standard) {
         precondition(!accountID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -64,6 +69,18 @@ final class LocalTriageRules {
     }
 
     var notWaitingSenderCount: Int { state.notWaitingSenders.count }
+
+    /// Addresses you said are yours (besides the signed-in account).
+    var otherAddresses: [String] { state.otherAddresses.sorted() }
+
+    @discardableResult
+    func setOtherAddress(_ address: String, _ value: Bool) -> Bool {
+        let key = Self.normalize(address)
+        guard key.contains("@"), key.count > 3 else { return false }
+        var next = state
+        if value { next.otherAddresses.insert(key) } else { next.otherAddresses.remove(key) }
+        return save(next)
+    }
 
     @discardableResult
     func setNotWaiting(messageID: String, _ value: Bool) -> Bool {
@@ -105,6 +122,7 @@ final class LocalTriageRules {
             let data = try JSONEncoder().encode(next)
             defaults.set(data, forKey: key)
             state = next
+            revision += 1
             return true
         } catch {
             persistenceError = "Routing preferences could not be encoded. No decision was changed."

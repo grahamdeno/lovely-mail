@@ -100,5 +100,7 @@ private final class TopicDemoClient: GmailInboxClient {
     var isSignedIn: Bool { false }
     func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot { XCTFail("No Gmail fetching in topic demo tests"); return .empty }
     func signIn() async throws { XCTFail("No sign-in in topic demo tests") }
+    func trash(messageID: String) async throws { XCTFail("No Gmail changes in topic demo tests") }
+    func untrash(messageID: String) async throws { XCTFail("No Gmail changes in topic demo tests") }
     func signOut() {}
 }

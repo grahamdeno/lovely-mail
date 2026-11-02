@@ -23,7 +23,7 @@ struct MyProfileView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Profile").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader).padding(.bottom, 2)
 
-                ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail, read-only" : "Demo", detail: sourceDetail)
+                ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail" : "Demo", detail: sourceDetail)
 
                 if store.needsReconnect {
                     Text("Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
@@ -37,7 +37,7 @@ struct MyProfileView: View {
                         }.buttonStyle(CalmActionStyle())
                     } else {
                         Button { Task { await store.connectGmail() } } label: {
-                            Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail (read-only)", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
+                            Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
                         }.buttonStyle(CalmActionStyle(prominent: true))
                     }
                 }
@@ -47,6 +47,8 @@ struct MyProfileView: View {
 
                 let status = ModelStatus.current
                 ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
+
+                OtherAddressesCard()
 
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
@@ -58,7 +60,7 @@ struct MyProfileView: View {
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
 
-                Text("Lovely reads Gmail with read-only permission, writes summaries on this iPhone, and never sends, deletes or changes your mail. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+                Text("Lovely reads your Gmail and writes summaries on this iPhone. The one change it can make is moving a message to Gmail's Trash when you swipe it there, and you can undo that. It never sends mail, never deletes anything for good, and never changes labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
             }
             .padding(20)
@@ -70,6 +72,43 @@ struct MyProfileView: View {
     private var rulesSummary: String {
         let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
         return filtered == 0 ? "No senders filtered" : (filtered == 1 ? "1 sender filtered" : "\(filtered) senders filtered")
+    }
+}
+
+/// Other addresses of yours. Mail from them is "Notes to self". You declare them; Lovely never guesses from names.
+struct OtherAddressesCard: View {
+    @Environment(FeedStore.self) private var store
+    @State private var newAddress = ""
+    @State private var rejected = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Your other addresses").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("Mail you send yourself from these shows under Notes to self, not Waiting on you.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+            ForEach(store.otherAddresses, id: \.self) { address in
+                HStack {
+                    Text(address).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    Button("Remove") { store.removeOtherAddress(address) }
+                        .font(.subheadline).foregroundStyle(CalmStyle.blue).frame(minWidth: 44, minHeight: 44)
+                }
+            }
+            HStack(spacing: 8) {
+                TextField("name@example.com", text: $newAddress)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.emailAddress)
+                    .padding(10).background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 10))
+                    .submitLabel(.done).onSubmit(add)
+                Button("Add", action: add).buttonStyle(CalmActionStyle(prominent: true))
+                    .disabled(newAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if rejected { Text("That doesn't look like an email address.").font(.caption).foregroundStyle(CalmStyle.roseInk) }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+    }
+    private func add() {
+        rejected = !store.addOtherAddress(newAddress)
+        if !rejected { newAddress = "" }
     }
 }
 

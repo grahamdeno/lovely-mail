@@ -50,11 +50,40 @@ final class TriageTests: XCTestCase {
         XCTAssertNotEqual(a.section, .waiting)
     }
 
-    func testMailFromYourOtherAddressIsNotWaiting() {
-        let otherMe = person("Pat Owner", "pat@work.example")
-        let a = assess(post("self", from: otherMe, body: "What is the expected timeline?"))
-        XCTAssertNotEqual(a.section, .waiting)
-        XCTAssertEqual(a.reason, "Sent from your own address")
+    func testMailYouSentYourselfFromThisAddressIsANote() {
+        let selfMail = person("Pat Owner", me)
+        let a = assess(post("self", from: selfMail, body: "What is the expected timeline?"))
+        XCTAssertEqual(a.section, .notes)
+        XCTAssertEqual(a.reason, "You sent this to yourself")
+    }
+
+    /// A message you send yourself from another account is a person asking you for something.
+    /// Display names never decide identity, even when they match yours.
+    func testYourOtherAccountWithYourNameIsStillAPerson() {
+        let other = person("Pat Owner", "pat@icloud.example")
+        let a = assess(post("other", from: other, subject: "Looking for help",
+                            body: " hey man, if you could give me some help and email me back, I'm just trying to see if you're available next Wednesday"))
+        XCTAssertEqual(a.section, .waiting)
+        XCTAssertNotNil(a.ask)
+    }
+
+    func testPlainRequestsWithoutQuestionMarksCount() {
+        for body in ["Please send the signed form when you can.", "Call me tonight.", "I need your help with the budget.",
+                     "Can we move this to Thursday.", "Email me back when you see this."] {
+            XCTAssertEqual(assess(post("r", from: maya, body: body)).section, .waiting, body)
+        }
+    }
+
+    func testDeclaredOtherAddressIsANoteToSelfButANameAloneIsNot() {
+        let other = person("Pat Owner", "pat@icloud.example")
+        let ctx = TriageContext(account: me, sent: [mySent], otherAddresses: ["Pat@iCloud.example"], now: now)
+        let note = post("n", from: other, body: "Can you remember the wifi password?")
+        XCTAssertEqual(FeedTriage.assess(note, route: .inbox, context: ctx).section, .notes)
+        // Same display name from an address you did not declare: a person asking you something.
+        let stranger = person("Pat Owner", "pat@elsewhere.example")
+        XCTAssertEqual(FeedTriage.assess(post("s", from: stranger, body: "Can you call me?"), route: .inbox, context: ctx).section, .waiting)
+        // A note to self is never "waiting".
+        XCTAssertNotEqual(FeedTriage.assess(note, route: .inbox, context: ctx).section, .waiting)
     }
 
     func testCopiedAndGroupMailAreNotWaiting() {
@@ -106,6 +135,9 @@ final class TriageTests: XCTestCase {
         let reloaded = LocalTriageRules(accountID: "acct", defaults: defaults)
         XCTAssertTrue(reloaded.isNotWaiting(messageID: "other", sender: "maya@lovely.example"))
         XCTAssertTrue(reloaded.isNotWaiting(messageID: "m1", sender: "z@lovely.example"))
+        XCTAssertTrue(rules.setOtherAddress(" Me@Work.example ", true))
+        XCTAssertFalse(rules.setOtherAddress("no at sign", true))
+        XCTAssertEqual(LocalTriageRules(accountID: "acct", defaults: defaults).otherAddresses, ["me@work.example"])
         XCTAssertFalse(reloaded.isNotWaiting(messageID: "m2", sender: "z@lovely.example"))
     }
 

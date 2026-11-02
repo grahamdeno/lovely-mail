@@ -42,6 +42,61 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertNotNil(store.errorMessage)
     }
 
+    func testTrashLeavesTheFeedAtOnceCallsGmailAndCanBeUndone() async {
+        let client = FakeInboxClient()
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil)
+        await store.load()
+        let post = store.posts[0]
+        await store.moveToTrash(post)
+        XCTAssertEqual(client.trashed, ["fixture-live"])
+        XCTAssertTrue(store.activePosts.isEmpty)
+        await store.restoreFromTrash(post)
+        XCTAssertEqual(client.untrashed, ["fixture-live"])
+        XCTAssertEqual(store.activePosts.map(\.id), ["fixture-live"])
+    }
+
+    func testRefusedTrashBringsMailBackAndAsksForPermission() async {
+        let client = FakeInboxClient()
+        client.trashError = GmailService.GmailError.needsTrashPermission
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil)
+        await store.load()
+        await store.moveToTrash(store.posts[0])
+        XCTAssertEqual(store.activePosts.map(\.id), ["fixture-live"], "The message must not vanish when Gmail refuses")
+        XCTAssertTrue(store.needsTrashPermission)
+        XCTAssertFalse(store.needsReconnect, "A permission request is not a sign-out")
+        XCTAssertNotNil(store.errorMessage)
+    }
+
+    func testDemoTrashOnlyHidesFictionalMail() async {
+        let client = FakeInboxClient()
+        client.isSignedIn = false
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil)
+        await store.load()
+        XCTAssertEqual(store.mode, .sample)
+        let before = store.activePosts.count
+        await store.moveToTrash(store.posts[0])
+        XCTAssertEqual(store.activePosts.count, before - 1)
+        XCTAssertTrue(client.trashed.isEmpty)
+    }
+
+    func testOtherAddressMakesNotesToSelfAndIsAccountScoped() async throws {
+        let suite = "reelmail.notes-tests." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FeedStore(gmail: FakeInboxClient(), summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
+        await store.load()
+        XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
+        XCTAssertTrue(store.addOtherAddress("Sender@reelmail.example"))
+        XCTAssertEqual(store.section(for: store.posts[0]), .notes)
+        XCTAssertEqual(store.noteCount, 1)
+        XCTAssertTrue(store.people.isEmpty, "Your own addresses are not people")
+        XCTAssertEqual(store.sections.map { $0.section }, [.notes])
+        XCTAssertEqual(store.demoRules.otherAddresses, [], "Live addresses must not leak into the demo namespace")
+        store.removeOtherAddress("sender@reelmail.example")
+        XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
+        XCTAssertFalse(store.addOtherAddress("not an address"))
+    }
+
     func testExplicitDisconnectReturnsToLabeledSampleMode() async {
         let client = FakeInboxClient()
         let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil)
@@ -127,6 +182,14 @@ final class FakeInboxClient: GmailInboxClient {
                       date: Date(timeIntervalSince1970: 1700000000), body: "A deterministic fictional message. Can you call me?")]
         return MailboxSnapshot(account: "owner@reelmail.example", inbox: inbox, sent: [], fetchedAt: Date(timeIntervalSince1970: 1700000100))
     }
+    var trashed: [String] = []
+    var untrashed: [String] = []
+    var trashError: Error?
+    func trash(messageID: String) async throws {
+        if let trashError { throw trashError }
+        trashed.append(messageID)
+    }
+    func untrash(messageID: String) async throws { untrashed.append(messageID) }
     func signIn() async throws { isSignedIn = true }
     func signOut() { isSignedIn = false }
 }

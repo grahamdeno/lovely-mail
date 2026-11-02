@@ -8,7 +8,7 @@ import Foundation
 struct MailCache: Codable, Equatable {
     var snapshot: MailboxSnapshot
     var summaries: [String: EmailSummary] = [:]
-    /// Message ids hidden locally ("Hide in Reelmail"). Gmail is never changed.
+    /// Message ids hidden locally ("Hide in Lovely"). Hiding never changes Gmail.
     var hidden: Set<String> = []
     /// Message ids opened in the app. Gmail's own read state is not changed.
     var seen: Set<String> = []

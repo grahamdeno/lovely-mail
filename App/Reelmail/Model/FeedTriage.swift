@@ -4,6 +4,8 @@ import Foundation
 enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
     /// A person asked something and no reply from you is newer than the ask.
     case waiting
+    /// Mail you sent yourself from another address of yours, to move information around.
+    case notes
     /// Mail from people, with nothing open.
     case people
     /// Automated mail that carries a date: forms, appointments, travel, bills.
@@ -19,6 +21,7 @@ enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
     var title: String {
         switch self {
         case .waiting: return "Waiting on you"
+        case .notes: return "Notes to self"
         case .people: return "People"
         case .dated: return "Coming up"
         case .updates: return "Updates"
@@ -29,12 +32,13 @@ enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
 
 /// Home filter pills. `all` shows every section in priority order.
 enum FeedFilter: String, CaseIterable, Identifiable {
-    case all, waiting, people, updates, reading
+    case all, waiting, notes, people, updates, reading
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: return "All"
         case .waiting: return "Waiting on you"
+        case .notes: return "Notes to self"
         case .people: return "People"
         case .updates: return "Updates"
         case .reading: return "Reading"
@@ -44,6 +48,7 @@ enum FeedFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: return true
         case .waiting: return section == .waiting
+        case .notes: return section == .notes
         case .people: return section == .people || section == .waiting
         case .updates: return section == .updates || section == .dated
         case .reading: return section == .reading
@@ -59,28 +64,33 @@ struct TriageContext {
     static let maxDirectRecipients = 6
 
     var myAddresses: Set<String>
-    var myNames: Set<String>
+    /// Other addresses you declared as yours. Mail from them is a note to self.
+    var otherAddresses: Set<String>
     var replies: [String: Date]
     var now: Date
 
-    init(myAddresses: Set<String> = [], myNames: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
+    init(myAddresses: Set<String> = [], otherAddresses: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
         self.myAddresses = Set(myAddresses.map { $0.lowercased() })
-        self.myNames = Set(myNames.map { $0.lowercased() }.filter { $0.count > 2 && $0 != "you" })
+        self.otherAddresses = Set(otherAddresses.map { $0.lowercased() })
         self.replies = replies
         self.now = now
     }
 
-    /// Builds the context from the signed-in account and your sent mail (which carries your aliases and display name).
-    init(account: String?, sent: [Email], now: Date) {
+    /// Builds the context from the signed-in account. Identity is the address only; a display name proves nothing,
+    /// and mail you send yourself from another account is a person asking you for something.
+    init(account: String?, sent: [Email], otherAddresses: [String] = [], now: Date) {
         var addresses = Set(sent.filter(\.isFromMe).map { $0.from.email.lowercased() })
         if let account, !account.isEmpty { addresses.insert(account.lowercased()) }
-        let names = Set(sent.filter(\.isFromMe).map(\.from.name))
-        self.init(myAddresses: addresses, myNames: names, replies: FeedTriage.latestReplies(in: sent), now: now)
+        self.init(myAddresses: addresses, otherAddresses: Set(otherAddresses), replies: FeedTriage.latestReplies(in: sent), now: now)
     }
 
     func isMine(_ email: Email) -> Bool {
-        if email.isFromMe || myAddresses.contains(email.from.email.lowercased()) { return true }
-        return myNames.contains(email.from.name.lowercased())
+        email.isFromMe || myAddresses.contains(email.from.email.lowercased())
+    }
+
+    /// From another address you declared yours.
+    func isNoteToSelf(_ email: Email) -> Bool {
+        !isMine(email) && otherAddresses.contains(email.from.email.lowercased())
     }
 
     enum Addressing: Equatable { case direct, copied, group }
@@ -124,8 +134,10 @@ enum FeedTriage {
                        notWaiting: Bool = false, context: TriageContext) -> TriageAssessment {
         let email = post.email
         if route == .reading { return TriageAssessment(section: .reading, reason: routeReason) }
+        if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
         if post.summary.category == .newsletter { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
-        if context.isMine(email) { return TriageAssessment(section: .people, reason: "Sent from your own address") }
+        // Mail you sent yourself from this same address (a note to self, not a person waiting on you).
+        if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if let why = automatedReason(email) {
             let dated = !post.summary.dates.isEmpty || [.school, .travel, .events].contains(post.summary.category)
             return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)
@@ -183,7 +195,13 @@ enum FeedTriage {
 enum ReplySignals {
     private static let asks = ["let me know", "can you", "could you", "would you", "please confirm", "rsvp",
                                "are you free", "please reply", "your thoughts", "what do you think", "any word",
-                               "did you", "do you", "will you", "wondering if", "thoughts?"]
+                               "did you", "do you", "will you", "wondering if", "thoughts?",
+                               "if you could", "if you can", "if you're able", "if you are able", "are you available",
+                               "available next", "available on", "email me back", "email me", "get back to me",
+                               "write back", "reply to me", "call me", "text me", "give me a call", "send me",
+                               "i need you", "i need your", "need your help", "need some help", "help me",
+                               "some help", "can we", "could we", "when can", "when are you", "please send",
+                               "please let", "please call", "please review", "please sign", "please respond"]
 
     /// The author's own words: no quoted earlier mail, no signature block, no link-heavy footer lines.
     static func authoredText(_ body: String) -> String {

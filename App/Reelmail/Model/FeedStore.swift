@@ -11,6 +11,8 @@ final class FeedStore {
     private(set) var isSummarizing = false
     /// Set when Gmail needs a fresh sign-in. Loaded mail stays on screen.
     private(set) var needsReconnect = false
+    /// Set when a Trash request was refused because this sign-in predates the Trash permission.
+    private(set) var needsTrashPermission = false
     private(set) var account: String?
     private(set) var lastFetched: Date?
     private(set) var inboxTruncated = false
@@ -43,7 +45,7 @@ final class FeedStore {
     /// Rules that apply to what is on screen now.
     var rules: LocalTriageRules { mode == .gmail ? (accountRules ?? demoRulesPlaceholder) : demoRules }
     /// Until the account is known, live mode has no rules; this empty, unsaved set keeps views simple.
-    private var demoRulesPlaceholder: LocalTriageRules { LocalTriageRules(accountID: "unknown-account", defaults: UserDefaults(suiteName: "reelmail.transient") ?? .standard) }
+    private let demoRulesPlaceholder = LocalTriageRules(accountID: "unknown-account", defaults: UserDefaults(suiteName: "reelmail.transient") ?? .standard)
 
     var me: Person {
         if let account {
@@ -70,6 +72,7 @@ final class FeedStore {
     }
 
     private func loadSample() {
+        bump()
         mode = .sample; account = nil; accountRules = nil; needsReconnect = false
         sentByMe = SampleData.sentByMe
         let fallback = FallbackSummarizer()
@@ -111,6 +114,7 @@ final class FeedStore {
     }
 
     private func apply(_ cache: MailCache) {
+        bump()
         setAccount(cache.snapshot.account)
         summaries = cache.summaries
         hidden = cache.hidden
@@ -134,6 +138,7 @@ final class FeedStore {
     }
 
     private func persist() {
+        bump()
         guard mode == .gmail, let account, let cacheStore else { return }
         let snapshot = MailboxSnapshot(account: account, inbox: posts.map(\.email), sent: sentByMe,
                                        fetchedAt: lastFetched ?? Date(), inboxTruncated: inboxTruncated)
@@ -142,12 +147,12 @@ final class FeedStore {
     }
 
     func connectGmail() async {
-        do { try await gmail.signIn(); needsReconnect = false; await load() }
+        do { try await gmail.signIn(); needsReconnect = false; needsTrashPermission = false; await load() }
         catch { errorMessage = error.localizedDescription }
     }
 
     func disconnectGmail() async {
-        revision += 1; gmail.signOut(); cacheStore?.removeAll()
+        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll()
         posts = []; sentByMe = []; hidden.removeAll(); seen.removeAll(); summaries = [:]
         filter = .all; mode = .sample; account = nil; accountRules = nil; needsReconnect = false
         lastFetched = nil; inboxTruncated = false
@@ -172,6 +177,7 @@ final class FeedStore {
                 posts[index].summary = summary
                 summaries[post.id] = summary
                 changed = true
+                bump()
             }
         }
         if changed { persist() }
@@ -179,40 +185,113 @@ final class FeedStore {
 
     // MARK: Reading the feed
 
-    /// Who you are and what you replied to, measured against the last refresh (or now, before one).
-    var triageContext: TriageContext {
-        TriageContext(account: mode == .gmail ? account : SampleData.me.email,
-                      sent: sentByMe, now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    /// Everything the screens need, worked out once per change instead of once per screen draw.
+    /// (Sorting 120 messages with text rules on every draw is what made switching tabs lag.)
+    private struct Derived {
+        var context: TriageContext
+        var assessments: [String: TriageAssessment] = [:]
+        var automated: Set<String> = []
+        var postsByID: [String: Post] = [:]
+        var active: [Post] = []
+        var people: [Person] = []
+        var waitingPeople: Set<String> = []
+        var unreadPeople: Set<String> = []
+        var duplicateNames: Set<String> = []
+        var theirs: [String: [Email]] = [:]
+        var sentTo: [String: [Email]] = [:]
+        var lastContact: [String: Date] = [:]
+        var noteCount = 0
+    }
+    @ObservationIgnored private var derivedCache: Derived?
+    @ObservationIgnored private var derivedKey = ""
+    @ObservationIgnored private var dataVersion = 0
+    private func bump() { dataVersion &+= 1 }
+
+    private var derived: Derived {
+        // Reading these registers the dependencies, so views refresh when any of them change.
+        let rules = self.rules
+        let key = "\(dataVersion)|\(ObjectIdentifier(rules).hashValue)|\(rules.revision)|\(posts.count)|\(sentByMe.count)|\(hidden.count)|\(mode.rawValue)|\(account ?? "")|\(lastFetched?.timeIntervalSince1970 ?? 0)"
+        if let cache = derivedCache, key == derivedKey { return cache }
+        let built = buildDerived(rules: rules)
+        derivedCache = built
+        derivedKey = key
+        return built
     }
 
-    func assessment(for post: Post, context: TriageContext? = nil) -> TriageAssessment {
+    private func buildDerived(rules: LocalTriageRules) -> Derived {
+        let context = TriageContext(account: mode == .gmail ? account : SampleData.me.email, sent: sentByMe,
+                                    otherAddresses: rules.otherAddresses,
+                                    now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+        var d = Derived(context: context)
+        for post in posts {
+            let decision = rules.decision(messageID: post.id, sender: post.email.from.email)
+            let a = FeedTriage.assess(post, route: decision.destination, routeReason: decision.reason,
+                                      notWaiting: rules.isNotWaiting(messageID: post.id, sender: post.email.from.email),
+                                      context: context)
+            d.assessments[post.id] = a
+            d.postsByID[post.id] = post
+            if FeedTriage.automatedReason(post.email) != nil { d.automated.insert(post.id) }
+            d.theirs[post.email.from.id, default: []].append(post.email)
+            guard !hidden.contains(post.id), decision.destination != .filtered else { continue }
+            d.active.append(post)
+            if a.section == .notes { d.noteCount += 1 }
+            if post.email.isUnread { d.unreadPeople.insert(post.email.from.id) }
+            if a.section == .waiting { d.waitingPeople.insert(post.email.from.id) }
+        }
+        for mail in sentByMe { for address in Set(mail.recipients) { d.sentTo[address, default: []].append(mail) } }
+
+        var seenIDs = Set<String>()
+        var waiting: [Person] = []; var rest: [Person] = []
+        for post in d.active where !d.automated.contains(post.id) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
+            let p = post.email.from
+            guard seenIDs.insert(p.id).inserted else { continue }
+            if d.waitingPeople.contains(p.id) { waiting.append(p) } else { rest.append(p) }
+        }
+        d.people = waiting + rest
+        var names: [String: Int] = [:]
+        for p in d.people { names[p.name, default: 0] += 1; d.lastContact[p.id] = Self.thread(for: p, in: d).last?.date }
+        d.duplicateNames = Set(names.filter { $0.value > 1 }.keys)
+        return d
+    }
+
+    private static func thread(for person: Person, in d: Derived) -> [Email] {
+        ((d.theirs[person.id] ?? []) + (d.sentTo[person.email] ?? [])).sorted { $0.date < $1.date }
+    }
+
+    /// Who you are and what you replied to, measured against the last refresh (or now, before one).
+    var triageContext: TriageContext { derived.context }
+
+    func assessment(for post: Post) -> TriageAssessment {
+        let d = derived
+        if let known = d.assessments[post.id] { return known }
         let decision = rules.decision(messageID: post.id, sender: post.email.from.email)
         return FeedTriage.assess(post, route: decision.destination, routeReason: decision.reason,
-                                 notWaiting: rules.isNotWaiting(messageID: post.id, sender: post.email.from.email),
-                                 context: context ?? triageContext)
+                                 notWaiting: rules.isNotWaiting(messageID: post.id, sender: post.email.from.email), context: d.context)
     }
 
-    func section(for post: Post, context: TriageContext? = nil) -> FeedSection {
-        assessment(for: post, context: context).section
-    }
+    func section(for post: Post) -> FeedSection { assessment(for: post).section }
+    /// True when a system, list or notice sent it (not a person).
+    func isAutomated(_ post: Post) -> Bool { derived.automated.contains(post.id) }
 
     /// Everything not hidden and not filtered by a rule.
-    var activePosts: [Post] {
-        posts.filter { !hidden.contains($0.id) && rules.decision(messageID: $0.id, sender: $0.email.from.email).destination != .filtered }
-    }
+    var activePosts: [Post] { derived.active }
 
     /// The feed in priority order: sections top to bottom, newest first within each.
     var sections: [(section: FeedSection, posts: [Post])] {
-        let context = triageContext
-        let grouped = Dictionary(grouping: activePosts.filter { filter.includes(section(for: $0, context: context)) },
-                                 by: { section(for: $0, context: context) })
+        let d = derived
+        var grouped: [FeedSection: [Post]] = [:]
+        for post in d.active {
+            let section = d.assessments[post.id]?.section ?? .people
+            if filter.includes(section) { grouped[section, default: []].append(post) }
+        }
         return FeedSection.allCases.compactMap { s in
             guard let items = grouped[s], !items.isEmpty else { return nil }
             return (s, items.sorted { $0.email.date > $1.email.date })
         }
     }
 
-    var waitingCount: Int { let context = triageContext; return activePosts.filter { section(for: $0, context: context) == .waiting }.count }
+    var waitingCount: Int { derived.active.filter { derived.assessments[$0.id]?.section == .waiting }.count }
+    var noteCount: Int { derived.noteCount }
     var topics: [MailTopic] { MailTopic.make(posts: activePosts, sent: sentByMe) }
 
     /// Messages a saved rule keeps out of the feed, for review and undo.
@@ -222,31 +301,16 @@ final class FeedStore {
     var filteredDemoPosts: [Post] { mode == .sample ? filteredPosts : [] }
     var hiddenPosts: [Post] { posts.filter { hidden.contains($0.id) } }
     var unreadCount: Int { activePosts.filter(\.email.isUnread).count }
-    var needsReplyPosts: [Post] { let context = triageContext; return activePosts.filter { section(for: $0, context: context) == .waiting } }
+    var needsReplyPosts: [Post] { activePosts.filter { derived.assessments[$0.id]?.section == .waiting } }
 
-    var people: [Person] {
-        var seenIDs = Set<String>()
-        var waiting: [Person] = []; var rest: [Person] = []
-        let context = triageContext
-        let waitingIDs = Set(activePosts.filter { section(for: $0, context: context) == .waiting }.map(\.email.from.id))
-        for post in activePosts where FeedTriage.automatedReason(post.email) == nil && !context.isMine(post.email) {
-            let p = post.email.from
-            guard seenIDs.insert(p.id).inserted else { continue }
-            if waitingIDs.contains(p.id) { waiting.append(p) } else { rest.append(p) }
-        }
-        return waiting + rest
-    }
-    func needsReply(_ person: Person) -> Bool {
-        let context = triageContext
-        return activePosts.contains { $0.email.from.id == person.id && section(for: $0, context: context) == .waiting }
-    }
+    var people: [Person] { derived.people }
+    func needsReply(_ person: Person) -> Bool { derived.waitingPeople.contains(person.id) }
+    func hasUnread(_ person: Person) -> Bool { derived.unreadPeople.contains(person.id) }
+    func sharesName(_ person: Person) -> Bool { derived.duplicateNames.contains(person.name) }
+    func lastContact(_ person: Person) -> Date { derived.lastContact[person.id] ?? .distantPast }
     func posts(from person: Person) -> [Post] { posts.filter { $0.email.from.id == person.id } }
-    func conversation(with person: Person) -> [Email] {
-        let theirs = posts.filter { $0.email.from.id == person.id }.map(\.email)
-        let mine = sentByMe.filter { $0.recipients.contains(person.email) }
-        return (theirs + mine).sorted { $0.date < $1.date }
-    }
-    func post(for email: Email) -> Post? { posts.first { $0.id == email.id } }
+    func conversation(with person: Person) -> [Email] { Self.thread(for: person, in: derived) }
+    func post(for email: Email) -> Post? { derived.postsByID[email.id] }
     func search(_ query: String) -> [Post] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return [] }
@@ -256,12 +320,59 @@ final class FeedStore {
         }.sorted { $0.email.date > $1.email.date }
     }
 
-    // MARK: Local actions (Gmail is never changed)
+    // MARK: Trash (the only change Lovely makes to Gmail, and only when you ask)
+
+    /// Moves a message to Gmail's Trash (recoverable for 30 days). It leaves Lovely at once; if Gmail refuses,
+    /// it comes back and the reason is shown. In demo mode this only hides the fictional message.
+    func moveToTrash(_ post: Post) async {
+        hidden.insert(post.id); persist()
+        guard mode == .gmail else { return }
+        do { try await gmail.trash(messageID: post.id) }
+        catch { trashFailed(post, error) }
+    }
+
+    /// Undo for `moveToTrash`.
+    func restoreFromTrash(_ post: Post) async {
+        if mode == .gmail {
+            do { try await gmail.untrash(messageID: post.id) }
+            catch { errorMessage = "Gmail could not take that message out of Trash. Open Trash in Gmail to restore it. \(error.localizedDescription)"; return }
+        }
+        hidden.remove(post.id); persist()
+    }
+
+    private func trashFailed(_ post: Post, _ error: Error) {
+        hidden.remove(post.id); persist()
+        if let e = error as? GmailService.GmailError {
+            switch e {
+            case .needsTrashPermission: needsTrashPermission = true
+            case .sessionExpired, .notSignedIn: needsReconnect = true
+            default: break
+            }
+        }
+        errorMessage = "That message was not moved to Trash. \(error.localizedDescription)"
+    }
+
+    // MARK: Your other addresses
+
+    /// Addresses you said are yours. Mail from them is "Notes to self". Saved on this phone, per account.
+    var otherAddresses: [String] { rules.otherAddresses }
+    @discardableResult
+    func addOtherAddress(_ address: String) -> Bool {
+        guard mode == .sample || accountRules != nil else { return false }
+        return rules.setOtherAddress(address, true)
+    }
+    func removeOtherAddress(_ address: String) {
+        guard mode == .sample || accountRules != nil else { return }
+        rules.setOtherAddress(address, false)
+    }
+
+    // MARK: Local actions
 
     func hide(_ post: Post) { hidden.insert(post.id); persist() }
     func unhide(_ post: Post) { hidden.remove(post.id); persist() }
     func restoreAll() { hidden.removeAll(); persist() }
     func markRead(_ post: Post) {
+        bump()
         if let i = posts.firstIndex(where: { $0.id == post.id }) { posts[i].email.isUnread = false }
         if seen.insert(post.id).inserted { persist() }
     }
