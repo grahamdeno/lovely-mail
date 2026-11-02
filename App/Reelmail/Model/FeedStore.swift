@@ -13,6 +13,8 @@ final class FeedStore {
     private(set) var needsReconnect = false
     /// Set when a Trash request was refused because this sign-in predates the Trash permission.
     private(set) var needsTrashPermission = false
+    /// Set when Google's consent left out Gmail access (the Gmail box unticked), so nothing can be read.
+    private(set) var needsMailAccess = false
     private(set) var account: String?
     private(set) var lastFetched: Date?
     private(set) var inboxTruncated = false
@@ -101,11 +103,12 @@ final class FeedStore {
         catch {
             guard current == revision else { return }
             if let e = error as? GmailService.GmailError, e.needsReconnect { needsReconnect = true }
+            if case GmailService.GmailError.mailAccessNotGranted = error { needsMailAccess = true }
             errorMessage = "Gmail could not refresh. Previously loaded mail, if any, is unchanged. \(error.localizedDescription)"
             return
         }
         guard current == revision else { return }
-        needsReconnect = false
+        needsReconnect = false; needsMailAccess = false
         setAccount(snapshot.account)
         sentByMe = snapshot.sent
         lastFetched = snapshot.fetchedAt
@@ -157,8 +160,11 @@ final class FeedStore {
     }
 
     func connectGmail() async {
-        do { try await gmail.signIn(); needsReconnect = false; needsTrashPermission = false; await load() }
-        catch { errorMessage = error.localizedDescription }
+        do { try await gmail.signIn(); needsReconnect = false; needsTrashPermission = false; needsMailAccess = false; await load() }
+        catch {
+            if case GmailService.GmailError.mailAccessNotGranted = error { needsMailAccess = true; needsReconnect = true }
+            errorMessage = error.localizedDescription
+        }
     }
 
     func disconnectGmail() async {

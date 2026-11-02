@@ -190,4 +190,11 @@ final class GmailTests: XCTestCase {
         XCTAssertEqual(GmailCompose.replySubject("Hi"), "Re: Hi")
         XCTAssertEqual(GmailCompose.replySubject("Re: Hi"), "Re: Hi")
     }
+
+    func testUntickedGmailBoxIsDetected() {
+        XCTAssertTrue(GmailScope.canRead(granted: "https://www.googleapis.com/auth/gmail.modify"))
+        XCTAssertTrue(GmailScope.canRead(granted: "openid https://www.googleapis.com/auth/gmail.readonly"))
+        XCTAssertFalse(GmailScope.canRead(granted: "openid email"), "Gmail box unticked on Google's screen")
+        XCTAssertTrue(GmailScope.canRead(granted: nil), "Google did not report scopes")
+    }
 }

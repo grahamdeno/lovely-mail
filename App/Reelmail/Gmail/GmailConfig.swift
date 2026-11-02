@@ -8,6 +8,14 @@ enum GmailScope {
     static let readOnly = "https://www.googleapis.com/auth/gmail.readonly"
     static let modify = "https://www.googleapis.com/auth/gmail.modify"
     static let requested: [String] = [modify]
+
+    /// Google lets you untick permissions on its consent screen. True when the granted scopes (the token
+    /// response's space-separated `scope`) still let Lovely read mail. Nil or empty means Google did not say.
+    static func canRead(granted: String?) -> Bool {
+        guard let granted, !granted.isEmpty else { return true }
+        let scopes = Set(granted.split(separator: " ").map(String.init))
+        return scopes.contains(modify) || scopes.contains(readOnly)
+    }
 }
 
 /// Client configuration from the xcconfig via Info.plist. No secrets live in the repo.

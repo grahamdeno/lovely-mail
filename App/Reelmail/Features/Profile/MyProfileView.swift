@@ -26,7 +26,9 @@ struct MyProfileView: View {
                 ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail" : "Demo", detail: sourceDetail)
 
                 if store.needsReconnect {
-                    Text("Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
+                    Text(store.needsMailAccess
+                         ? "Google didn't give Lovely access to your mail. Tap Reconnect, and on Google's screen tick the Gmail box (or Select all) before Continue."
+                         : "Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
                         .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
                 }
