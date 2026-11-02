@@ -18,6 +18,35 @@ enum GmailScope {
     }
 }
 
+/// Google's JSON error body: a short machine reason and a sentence. Never contains mail content.
+struct GmailAPIError: Equatable {
+    let reason: String
+    let message: String
+
+    /// True when the token lacks the scope the request needs (Gmail box unticked, or an older, narrower sign-in).
+    var isMissingScope: Bool {
+        ["insufficientPermissions", "ACCESS_TOKEN_SCOPE_INSUFFICIENT"].contains(reason)
+    }
+
+    static func parse(_ data: Data) -> GmailAPIError? {
+        struct Body: Decodable {
+            struct Inner: Decodable {
+                struct Item: Decodable { let reason: String? }
+                let message: String?
+                let status: String?
+                let errors: [Item]?
+                let details: [Item]?
+            }
+            let error: Inner
+        }
+        guard let body = try? JSONDecoder().decode(Body.self, from: data) else { return nil }
+        let e = body.error
+        // details[].reason is the most specific (ACCESS_TOKEN_SCOPE_INSUFFICIENT, SERVICE_DISABLED); then errors[].reason.
+        let reason = e.details?.compactMap(\.reason).first ?? e.errors?.compactMap(\.reason).first ?? e.status ?? "unknown"
+        return GmailAPIError(reason: reason, message: String((e.message ?? "").prefix(240)))
+    }
+}
+
 /// Client configuration from the xcconfig via Info.plist. No secrets live in the repo.
 struct GmailConfig: Equatable {
     let clientID: String
