@@ -74,7 +74,6 @@ final class LocalTriageRules {
     var otherAddresses: [String] { state.otherAddresses.sorted() }
 
     @discardableResult
-    @discardableResult
     func setOtherAddress(_ address: String, _ value: Bool) -> Bool {
         let key = Self.normalize(address)
         guard Self.looksLikeAddress(key) else { return false }
