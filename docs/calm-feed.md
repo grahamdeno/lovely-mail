@@ -103,3 +103,8 @@ Next steps:
 - Owner reviews 30 to 60 real messages in Review sorting and shares the summary; add each real miss as a fictional corpus case, then tune.
 - Real-inbox check of Notes to self, swipe-to-Trash and Reconnect on build 1006 (not device-verified yet).
 - Consider a "reply chips" pass and the Waiting resolution gap listed under Known limits.
+
+## Gmail per-user rate limit (found on build 1008, Nov 2, 2026)
+- The 403 after reconnecting was never a permission problem. Build 1008 showed Google's reason: RATE_LIMIT_EXCEEDED, "Units per minute per user". The project's per-user quota is now 6,000 units a minute (Google lists the previous value as 15,000). A fresh load with no cache (about 180 messages) went over it, and one refused message discarded the whole load, so Home showed nothing.
+- Fix: a refused request waits 20 s, then 40 s, and retries; messages download 4 at a time; a message still refused is skipped and fetched on the next refresh, so everything that loaded is kept and cached.
+- Next: if first loads stay slow, fetch sent mail with format=metadata, or raise the quota in Google Cloud (Gmail API > Quotas & System Limits).

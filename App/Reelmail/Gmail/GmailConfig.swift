@@ -28,6 +28,11 @@ struct GmailAPIError: Equatable {
         ["insufficientPermissions", "ACCESS_TOKEN_SCOPE_INSUFFICIENT"].contains(reason)
     }
 
+    /// Google's per-user, per-minute quota (6,000 units a minute per user on this project in Nov 2026).
+    var isRateLimit: Bool {
+        ["RATE_LIMIT_EXCEEDED", "rateLimitExceeded", "userRateLimitExceeded", "RESOURCE_EXHAUSTED"].contains(reason)
+    }
+
     static func parse(_ data: Data) -> GmailAPIError? {
         struct Body: Decodable {
             struct Inner: Decodable {
