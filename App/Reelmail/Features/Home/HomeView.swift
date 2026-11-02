@@ -100,8 +100,14 @@ struct HomeView: View {
                     }
                 }
                 if !store.isLoading, store.sections.isEmpty {
-                    Text(store.posts.isEmpty ? "No mail loaded yet." : "Nothing here right now.")
-                        .font(.subheadline.weight(.medium)).padding(.vertical, 24)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(store.posts.isEmpty ? "No mail loaded yet." : "Nothing here right now.")
+                            .font(.subheadline.weight(.medium))
+                        if store.mode == .gmail, store.posts.isEmpty, store.lastFetched != nil {
+                            Text("Gmail connected, but it returned no inbox mail (\(store.sentByMe.count) sent messages found). Pull down to refresh.")
+                                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                        }
+                    }.padding(.vertical, 24)
                 }
                 if !store.isLoading, !store.posts.isEmpty {
                     Text(store.mode == .sample ? "Fictional mail for the demo." : (store.inboxTruncated ? "Showing the most recent Primary inbox mail. Older mail stays in Gmail." : "That's all of your Primary inbox."))
