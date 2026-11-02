@@ -220,13 +220,18 @@ enum ReplySignals {
     /// The first sentence in the author's own words that asks you something, trimmed for display.
     static func askSentence(in body: String) -> String? {
         let text = authoredText(body)
-        var current = ""
+        // Line breaks end sentences too, and a greeting line ("Hi Pat,") is never the ask.
         var candidates: [String] = []
-        for ch in text.replacingOccurrences(of: "\n", with: " ") {
-            current.append(ch)
-            if ".!?".contains(ch) { candidates.append(current); current = "" }
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || FallbackSummarizer.isGreeting(trimmed) { continue }
+            var current = ""
+            for ch in trimmed {
+                current.append(ch)
+                if ".!?".contains(ch) { candidates.append(current); current = "" }
+            }
+            if !current.trimmingCharacters(in: .whitespaces).isEmpty { candidates.append(current) }
         }
-        if !current.trimmingCharacters(in: .whitespaces).isEmpty { candidates.append(current) }
         for raw in candidates {
             let sentence = raw.trimmingCharacters(in: .whitespaces)
             guard sentence.count >= 6 else { continue }
