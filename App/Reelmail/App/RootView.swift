@@ -28,6 +28,7 @@ struct RootView: View {
                     case .email(let id): OpenEmailView(postID: id)
                     case .thread(let p): ThreadView(person: p)
                     case .summaryLab: SummaryLabView()
+                    case .sortingReview: SortingReviewView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)
