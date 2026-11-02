@@ -94,6 +94,22 @@ def verify_app(app, mode, expected=None):
           f"redirect {redirect_scheme(value)}:/oauthredirect")
 
 
+def verify_icon(app):
+    """The compiled app must carry the AppIcon from AppIcon.icon and the Dear display name."""
+    app = Path(app)
+    with (app / "Info.plist").open("rb") as f:
+        info = plistlib.load(f)
+    primary = info.get("CFBundleIcons", {}).get("CFBundlePrimaryIcon", {})
+    name = primary.get("CFBundleIconName") if isinstance(primary, dict) else None
+    if name != "AppIcon":
+        fail(f"Built app has no AppIcon (CFBundleIconName={name!r}); the Liquid Glass icon did not compile.")
+    if not (app / "Assets.car").exists():
+        fail("Built app has no Assets.car; the icon was not compiled.")
+    if info.get("CFBundleDisplayName") != "Dear":
+        fail(f"Display name is {info.get('CFBundleDisplayName')!r}, expected 'Dear'.")
+    print("Verified: AppIcon compiled into Assets.car; display name Dear")
+
+
 def selftest():
     swift = SWIFT_CONFIG.read_text()
     m = re.search(r'clientIDPattern = #"(.+?)"#', swift)
@@ -117,11 +133,15 @@ def main():
     p = sub.add_parser("prepare"); p.add_argument("--mode", choices=["gmail", "demo"], required=True)
     v = sub.add_parser("verify-app"); v.add_argument("app"); v.add_argument("--mode", choices=["gmail", "demo"], required=True)
     sub.add_parser("selftest")
+    i = sub.add_parser("verify-icon"); i.add_argument("app")
     args = parser.parse_args()
     if args.command == "prepare":
         prepare(args.mode)
     elif args.command == "verify-app":
         verify_app(args.app, args.mode)
+        verify_icon(args.app)
+    elif args.command == "verify-icon":
+        verify_icon(args.app)
     else:
         selftest()
 

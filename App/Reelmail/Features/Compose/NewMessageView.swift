@@ -8,7 +8,7 @@ struct NewMessageView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("New").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader)
             Text("Write it in Gmail").font(.headline)
-            Text("Reelmail reads your mail and drafts replies, but it never sends. New emails open in Gmail so you stay in control.")
+            Text("Dear reads your mail and drafts replies, but it never sends. New emails open in Gmail so you stay in control.")
                 .font(.subheadline).foregroundStyle(CalmStyle.secondary)
             Button {
                 if let app = GmailCompose.appURL(to: "", subject: "", body: "") {

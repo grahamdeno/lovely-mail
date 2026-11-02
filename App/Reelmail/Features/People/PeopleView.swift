@@ -39,7 +39,7 @@ struct PeopleView: View {
                     let latest = store.conversation(with: person).last
                     Button { router.open(.thread(person)) } label: {
                         HStack(alignment: .top, spacing: 12) {
-                            CalmAvatar(person: person, size: 44)
+                            CalmAvatar(person: person, size: 44, waiting: store.needsReply(person))
                             VStack(alignment: .leading, spacing: 5) {
                                 ViewThatFits(in: .horizontal) {
                                     HStack { Text(person.name).font(.headline); Spacer(minLength: 8); time(latest) }

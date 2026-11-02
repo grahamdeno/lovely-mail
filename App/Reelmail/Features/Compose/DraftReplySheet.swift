@@ -43,7 +43,7 @@ struct DraftReplySheet: View {
                 Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                     .buttonStyle(CalmActionStyle(prominent: true))
             }
-            Text("Reelmail never sends email. Review and send it yourself in Gmail.")
+            Text("Dear never sends email. Review and send it yourself in Gmail.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
         .padding(20)

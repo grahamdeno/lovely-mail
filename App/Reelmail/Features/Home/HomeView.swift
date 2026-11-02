@@ -1,25 +1,48 @@
 import SwiftUI
 
+/// Dear's Airmail palette. Source of truth: Design/Brand/README.md.
 enum CalmStyle {
-    static let background = Color(hex: 0xF7F6F2)
-    static let ink = Color(hex: 0x202827)
-    static let secondary = Color(hex: 0x626C69)
-    static let blue = Color(hex: 0x245FCC)
-    static let divider = Color(hex: 0xE4E8E3)
+    /// Letter paper.
+    static let background = Color(hex: 0xFBF8F4)
+    static let ink = Color(hex: 0x25222A)
+    static let secondary = Color(hex: 0x6D6870)
+    /// Airmail blue: everything you can tap.
+    static let blue = Color(hex: 0x2E58C8)
+    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots).
+    static let rose = Color(hex: 0xD2546E)
+    /// Postmark rose for text; passes 4.5:1 on letter paper.
+    static let roseInk = Color(hex: 0xB8405A)
+    static let divider = Color(hex: 0xECE6E2)
     static let field = Color.white
-    static let bubble = Color(hex: 0xECEEEA)
+    static let bubble = Color(hex: 0xEFEBE8)
     static let warning = Color(hex: 0xFFF4E6)
     static let warningInk = Color(hex: 0x7A4A10)
+}
+
+/// The italic "dear" wordmark. Apple's serif (New York) so nothing extra ships with the app.
+struct DearWordmark: View {
+    var size: CGFloat = 30
+    var body: some View {
+        Text("dear").font(.system(size: size, weight: .regular, design: .serif)).italic()
+            .foregroundStyle(CalmStyle.blue)
+            .accessibilityLabel("Dear")
+    }
 }
 
 struct CalmAvatar: View {
     let person: Person
     var size: CGFloat = 40
+    /// Rose ring: this person is waiting on you. The only place besides labels that uses rose.
+    var waiting = false
     var body: some View {
         Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
             .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(CalmStyle.blue)
             .frame(width: size, height: size)
             .background(CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
+            .padding(waiting ? 3 : 0)
+            .overlay {
+                if waiting { RoundedRectangle(cornerRadius: size * 0.3 + 3).strokeBorder(CalmStyle.rose, lineWidth: 1.75) }
+            }
             .accessibilityHidden(true)
     }
 }
@@ -68,7 +91,7 @@ struct HomeView: View {
                         Text(group.section.title.uppercased()).font(.caption.weight(.semibold)).kerning(0.6)
                         Text("\(group.posts.count)").font(.caption).opacity(0.7)
                     }
-                    .foregroundStyle(group.section == .waiting ? CalmStyle.blue : CalmStyle.secondary)
+                    .foregroundStyle(group.section == .waiting ? CalmStyle.roseInk : CalmStyle.secondary)
                     .padding(.top, 18).padding(.bottom, 6)
                     .accessibilityAddTraits(.isHeader)
                     ForEach(group.posts) { post in
@@ -100,7 +123,7 @@ struct StatusNotices: View {
         VStack(alignment: .leading, spacing: 10) {
             if store.needsReconnect {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Google signed you out. While Reelmail is in testing this happens every 7 days. Your loaded mail is still here.")
+                    Text("Google signed you out. While Dear is in testing this happens every 7 days. Your loaded mail is still here.")
                         .font(.subheadline)
                     Button("Reconnect Gmail") { Task { await store.connectGmail() } }.buttonStyle(CalmActionStyle(prominent: true))
                 }
@@ -135,7 +158,7 @@ struct HomeHeader: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("reelmail").font(.title2.weight(.bold)).accessibilityAddTraits(.isHeader)
+                DearWordmark().accessibilityAddTraits(.isHeader)
                 Text(subtitle).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
             }
             Spacer()
@@ -161,7 +184,7 @@ struct MailRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                CalmAvatar(person: post.email.from, size: 36)
+                CalmAvatar(person: post.email.from, size: 36, waiting: section == .waiting)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
@@ -214,7 +237,7 @@ struct FilteredMailReview: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Saved rules change what Reelmail shows. Gmail is never changed.").font(.subheadline)
+                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Saved rules change what Dear shows. Gmail is never changed.").font(.subheadline)
                     if let error = store.rules.persistenceError { Text(error).font(.subheadline) }
                     if store.filteredPosts.isEmpty { Text("Nothing is filtered.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
                     ForEach(store.filteredPosts) { post in

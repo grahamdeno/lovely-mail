@@ -97,7 +97,7 @@ private struct ConversationBubble: View {
             }
             .foregroundStyle(email.isFromMe ? Color.white : CalmStyle.ink)
             .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 4)
-            .background(email.isFromMe ? CalmStyle.blue : Color(hex: 0xECEEEA), in: RoundedRectangle(cornerRadius: 20))
+            .background(email.isFromMe ? CalmStyle.blue : CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 20))
             .accessibilityElement(children: .contain)
             .accessibilityLabel(email.isFromMe ? "Your email" : "Email from \(email.from.name)")
             if !email.isFromMe { Spacer(minLength: 36) }
