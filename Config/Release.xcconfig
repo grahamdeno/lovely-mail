@@ -1,0 +1,5 @@
+// Google iOS OAuth client used by TestFlight builds (bundle com.grahamdeno.reelmail).
+// iOS client IDs are public by design: they ship inside the app. Never put a client secret here.
+// Not included in local builds. The testflight workflow copies this value into Config/Local.xcconfig,
+// refuses to upload while it is empty, and checks the archived app's Info.plist before upload.
+GOOGLE_IOS_CLIENT_ID = 456735134102-u7o4i3ctjfdabk60qihn621o085sj5jv.apps.googleusercontent.com

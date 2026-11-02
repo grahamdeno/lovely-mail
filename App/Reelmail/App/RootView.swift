@@ -26,14 +26,13 @@ struct RootView: View {
                 Group {
                     switch route {
                     case .email(let id): OpenEmailView(postID: id)
-                    case .person(let p): ConnectionProfileView(person: p)
                     case .thread(let p): ThreadView(person: p)
                     case .summaryLab: SummaryLabView()
                     }
                 }
-                .toolbarBackground(route.isCalmTimeline ? CalmStyle.background : RM.Palette.sheet, for: .navigationBar)
+                .toolbarBackground(CalmStyle.background, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(route.isCalmTimeline ? .light : .dark, for: .navigationBar)
+                .toolbarColorScheme(.light, for: .navigationBar)
             }
         }
         .tint(CalmStyle.blue)
@@ -41,30 +40,5 @@ struct RootView: View {
             get: { router.draftPostID.flatMap { id in store.posts.first { $0.id == id } } },
             set: { router.draftPostID = $0?.id }
         )) { post in DraftReplySheet(post: post) }
-    }
-}
-
-private extension Route {
-    var isCalmTimeline: Bool {
-        if case .thread = self { return true }
-        return false
-    }
-}
-
-struct ChipRow: View {
-    @Environment(FeedStore.self) private var store
-    var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: RM.Space.s) {
-                ForEach(FeedChip.allCases) { chip in
-                    let selected = store.chip == chip
-                    Button { store.chip = chip } label: {
-                        Text(chip.title).font(RM.Typo.caption).padding(.horizontal, 12).frame(height: 44)
-                            .foregroundStyle(selected ? RM.Palette.ink : RM.Palette.secondary)
-                            .background(selected ? Color.white : RM.Palette.surface).rmCorner(RM.Radius.button)
-                    }.accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }.padding(.horizontal, RM.Space.l)
-        }.scrollIndicators(.hidden)
     }
 }

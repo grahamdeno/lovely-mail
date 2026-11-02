@@ -6,8 +6,8 @@ struct SummaryLabView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: RM.Space.m) {
-                InfoCard(title: "Model", value: model.status.title, detail: model.status.detail)
+            VStack(alignment: .leading, spacing: 12) {
+                ProfileCard(title: "Model", value: model.status.title, detail: model.status.detail)
 
                 Picker("Engine", selection: $model.choice) {
                     ForEach(LabEngineChoice.allCases) { Text($0.rawValue).tag($0) }
@@ -21,41 +21,37 @@ struct SummaryLabView: View {
                           systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(RMButtonStyle(kind: .ghostLight))
-                .background(Color.white)
-                .rmCorner(RM.Radius.button)
+                .buttonStyle(CalmActionStyle(prominent: true))
                 .disabled(model.running)
 
                 if !model.results.isEmpty { stats }
 
                 ForEach(model.results) { LabResultCard(result: $0) }
 
-                Text("Paste an email").font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
-                    .padding(.top, RM.Space.s)
+                Text("Paste an email").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .padding(.top, 8)
                 TextEditor(text: $model.pasted)
                     .scrollContentBackground(.hidden)
                     .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(.white)
                     .frame(minHeight: 160)
-                    .padding(RM.Space.s)
-                    .background(RM.Palette.surface)
-                    .rmCorner(RM.Radius.card)
+                    .padding(8)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
                 Button {
                     Task { await model.runPasted() }
                 } label: {
                     Label("Summarize pasted text", systemImage: "text.badge.checkmark").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(RMButtonStyle(kind: .ghostDark))
+                .buttonStyle(CalmActionStyle())
                 .disabled(model.running || model.pasted.isEmpty)
                 if let r = model.pastedResult { LabResultCard(result: r) }
 
                 Text("Everything here runs on this iPhone. Nothing is sent anywhere, and email text is never logged.")
-                    .font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+                    .font(.caption2).foregroundStyle(CalmStyle.secondary)
             }
-            .padding(RM.Space.l)
+            .padding(16)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(RM.Palette.sheet)
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Summary Lab")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -63,20 +59,20 @@ struct SummaryLabView: View {
     private var stats: some View {
         let f = { (x: Double?) in x.map { String(format: "%.0f", $0) } ?? "–" }
         let w = { (x: Double?) in x.map { String(format: "%.1f", $0) } ?? "–" }
-        return VStack(spacing: RM.Space.s) {
-            HStack(spacing: RM.Space.s) {
+        return VStack(spacing: 8) {
+            HStack(spacing: 8) {
                 StatTile(value: f(model.averageMs) + " ms", label: "average")
                 StatTile(value: f(model.medianMs) + " ms", label: "median")
                 StatTile(value: f(model.maxMs) + " ms", label: "slowest")
             }
-            HStack(spacing: RM.Space.s) {
+            HStack(spacing: 8) {
                 StatTile(value: w(model.averageHeadlineWords), label: "headline words")
                 StatTile(value: w(model.averageBlurbWords), label: "blurb words")
                 StatTile(value: "\(model.needsReplyCount)", label: "need reply", highlight: model.needsReplyCount > 0)
             }
             if model.successes.count < model.results.count {
                 Text("\(model.results.count - model.successes.count) failed")
-                    .font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
+                    .font(.caption).foregroundStyle(CalmStyle.secondary)
             }
         }
     }
@@ -88,31 +84,31 @@ struct LabResultCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(result.label).font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+                Text(result.label).font(.caption2).foregroundStyle(CalmStyle.secondary)
                 Spacer()
                 Text(String(format: "%.0f ms", result.milliseconds))
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(RM.Palette.secondary)
+                    .foregroundStyle(CalmStyle.secondary)
             }
             if let s = result.summary {
-                Text(s.headline).font(RM.Typo.callout.weight(.semibold)).foregroundStyle(.white)
-                Text(s.blurb).font(RM.Typo.caption).foregroundStyle(.white.opacity(0.8))
+                Text(s.headline).font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.ink)
+                Text(s.blurb).font(.caption).foregroundStyle(CalmStyle.secondary)
                 HStack(spacing: 6) {
                     Tag(s.engine == .appleIntelligence ? "AI" : "fallback")
                     Tag(s.category.label)
-                    if s.needsReply { NeedsReplyTag(onLight: false) }
+                    if s.needsReply { Tag("needs reply") }
                     if s.sensitive { Tag("sensitive") }
                 }
                 Text("photo: \(s.imageQuery)" + (s.dates.isEmpty ? "" : " · dates: " + s.dates.joined(separator: ", ")))
-                    .font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+                    .font(.caption2).foregroundStyle(CalmStyle.secondary)
             } else if let e = result.error {
-                Text(e).font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
+                Text(e).font(.caption).foregroundStyle(CalmStyle.secondary)
             }
         }
-        .padding(RM.Space.m)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RM.Palette.surface)
-        .rmCorner(RM.Radius.card)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -122,11 +118,25 @@ private struct Tag: View {
 
     var body: some View {
         Text(text)
-            .font(RM.Typo.micro)
-            .foregroundStyle(RM.Palette.secondary)
+            .font(.caption2)
+            .foregroundStyle(CalmStyle.secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .overlay(RoundedRectangle(cornerRadius: RM.Radius.button, style: .continuous)
-                .strokeBorder(RM.Palette.hairline))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(CalmStyle.divider))
+    }
+}
+
+struct StatTile: View {
+    let value: String
+    let label: String
+    var highlight = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.headline).foregroundStyle(highlight ? CalmStyle.blue : CalmStyle.ink).lineLimit(1)
+            Text(label).font(.caption2).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
     }
 }

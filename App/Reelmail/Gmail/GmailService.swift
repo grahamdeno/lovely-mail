@@ -9,15 +9,27 @@ import UIKit
 @MainActor
 final class GmailService: NSObject {
     enum GmailError: LocalizedError {
-        case notConfigured, cancelled, badCallback, http(Int), notSignedIn
+        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired
+
+        /// True when the only fix is signing in again.
+        var needsReconnect: Bool {
+            switch self {
+            case .sessionExpired, .notSignedIn: return true
+            default: return false
+            }
+        }
 
         var errorDescription: String? {
             switch self {
             case .notConfigured: return "Gmail isn't set up yet. Add a Google iOS client ID to Config/Local.xcconfig."
             case .cancelled: return "Sign-in was cancelled."
             case .badCallback: return "Google returned an unexpected sign-in response."
+            case .denied(let reason) where reason == "access_denied":
+                return "Google denied access. This Google account may not be on the app's test-user list."
+            case .denied(let reason): return "Google declined sign-in (\(reason))."
             case .http(let code): return "Gmail returned HTTP \(code)."
             case .notSignedIn: return "Not signed in to Gmail."
+            case .sessionExpired: return "Google signed you out. Reconnect Gmail in Profile."
             }
         }
     }
@@ -60,9 +72,14 @@ final class GmailService: NSObject {
         }
         authSession = nil
 
-        let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        guard items.first(where: { $0.name == "state" })?.value == state,
-              let code = items.first(where: { $0.name == "code" })?.value else { throw GmailError.badCallback }
+        let code: String
+        switch config.authorizationCode(from: callback, expectedState: state) {
+        case .success(let value): code = value
+        case .failure(.denied(let reason)):
+            log.error("Google declined sign-in: \(reason, privacy: .public)")
+            throw GmailError.denied(reason)
+        case .failure(.invalid): throw GmailError.badCallback
+        }
 
         let tokens = try await exchange([
             "grant_type": "authorization_code",
@@ -82,30 +99,64 @@ final class GmailService: NSObject {
 
     // MARK: Read
 
-    /// Message ids in the inbox, newest first.
-    func listMessageIDs(maxResults: Int = 30, query: String = "in:inbox") async throws -> [String] {
-        var c = URLComponents(string: Self.api + "/messages")!
-        c.queryItems = [URLQueryItem(name: "maxResults", value: String(maxResults)),
-                        URLQueryItem(name: "q", value: query)]
-        let list: GmailListResponse = try await get(c.url!)
-        log.info("Listed \(list.messages?.count ?? 0, privacy: .public) messages")
-        return list.messages?.map(\.id) ?? []
+    /// The signed-in address. Used to mark outgoing mail; never inferred from display names.
+    func accountAddress() async throws -> String {
+        let profile: GmailProfile = try await get(URL(string: Self.api + "/profile")!)
+        return profile.emailAddress.lowercased()
+    }
+
+    /// Message ids matching a Gmail search, newest first, following pages up to `limit`.
+    func listMessageIDs(query: String, limit: Int) async throws -> (ids: [String], truncated: Bool) {
+        var ids: [String] = []
+        var pageToken: String?
+        repeat {
+            var c = URLComponents(string: Self.api + "/messages")!
+            c.queryItems = [URLQueryItem(name: "maxResults", value: String(min(100, limit - ids.count))),
+                            URLQueryItem(name: "q", value: query)]
+            if let pageToken { c.queryItems?.append(URLQueryItem(name: "pageToken", value: pageToken)) }
+            let list: GmailListResponse = try await get(c.url!)
+            ids += list.messages?.map(\.id) ?? []
+            pageToken = list.nextPageToken
+        } while pageToken != nil && ids.count < limit
+        log.info("Listed \(ids.count, privacy: .public) messages")
+        return (Array(ids.prefix(limit)), pageToken != nil)
     }
 
     /// One message with its full payload, parsed to plain text.
-    func getMessage(id: String) async throws -> Email {
+    func getMessage(id: String, account: String?) async throws -> Email {
         var c = URLComponents(string: Self.api + "/messages/" + id)!
         c.queryItems = [URLQueryItem(name: "format", value: "full")]
         let message: GmailMessage = try await get(c.url!)
-        return GmailMessageParser.email(from: message)
+        return GmailMessageParser.email(from: message, account: account)
     }
 
-    func fetchInbox(maxResults: Int = 30) async throws -> [Email] {
-        var emails: [Email] = []
-        for id in try await listMessageIDs(maxResults: maxResults) {
-            emails.append(try await getMessage(id: id))
+    /// Downloads only messages not already in `known`; a few at a time so an inbox loads in seconds.
+    private func messages(ids: [String], account: String, known: [String: Email]) async throws -> [Email] {
+        var out: [Email] = []
+        var pending: [String] = []
+        for id in ids {
+            if let cached = known[id] { out.append(cached) } else { pending.append(id) }
         }
-        return emails.sorted { $0.date > $1.date }
+        for batch in stride(from: 0, to: pending.count, by: 6).map({ Array(pending[$0..<min($0 + 6, pending.count)]) }) {
+            try await withThrowingTaskGroup(of: Email.self) { group in
+                for id in batch { group.addTask { try await self.getMessage(id: id, account: account) } }
+                for try await email in group { out.append(email) }
+            }
+        }
+        return out.sorted { $0.date > $1.date }
+    }
+
+    func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits = .standard) async throws -> MailboxSnapshot {
+        let account = try await accountAddress()
+        let cache = known?.account == account ? known : nil
+        let knownByID = Dictionary(((cache?.inbox ?? []) + (cache?.sent ?? [])).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let inboxList = try await listMessageIDs(query: "in:inbox category:primary", limit: limits.inboxMessages)
+        let sentList = try await listMessageIDs(query: "in:sent newer_than:\(limits.sentWindowDays)d", limit: limits.sentMessages)
+        let inbox = try await messages(ids: inboxList.ids, account: account, known: knownByID)
+        let sent = try await messages(ids: sentList.ids, account: account, known: knownByID)
+            .map { var e = $0; e.isFromMe = true; e.bulk = false; return e }
+        log.info("Mailbox import complete: \(inbox.count, privacy: .public) inbox, \(sent.count, privacy: .public) sent")
+        return MailboxSnapshot(account: account, inbox: inbox, sent: sent, fetchedAt: Date(), inboxTruncated: inboxList.truncated)
     }
 
     // MARK: Plumbing
@@ -117,6 +168,7 @@ final class GmailService: NSObject {
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
             log.error("Gmail GET failed with HTTP \(code, privacy: .public)")
+            if code == 401 { keychain.delete(); throw GmailError.sessionExpired }
             throw GmailError.http(code)
         }
         return try JSONDecoder().decode(T.self, from: data)
@@ -154,6 +206,8 @@ final class GmailService: NSObject {
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
             log.error("Token exchange failed with HTTP \(code, privacy: .public)")
+            // A refresh token Google no longer honors (expired test-user grant, revoked access).
+            if previousRefreshToken != nil, code == 400 || code == 401 { keychain.delete(); throw GmailError.sessionExpired }
             throw GmailError.http(code)
         }
         let t = try JSONDecoder().decode(TokenResponse.self, from: data)

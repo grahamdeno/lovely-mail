@@ -22,12 +22,23 @@ Implement Home, person timeline, and Filtered review using deterministic fiction
 ## Milestone B: trustworthy live triage
 Verify personal Gmail sign-in in a distributed build. Add persistent real-message storage, bounded paginated import with coverage status, incoming/sent history, and persistent reversible filtering corrections. Explicit sender rules may use feedback initially; do not claim trained personalization before it exists. Separate action-needed from reply-needed. Never silently fall back to fictional mail.
 
-## Current status
-- Read-only static audit completed in conversation; no local compile or runtime verification performed.
-- Redesign branch created from testflight at 44ede596bba75a3ea477125882207ff0eadba0db.
-- App source subtree hashes matched scaffold at audit time.
-- Existing live retrieval is limited to a default 30 inbox messages; complete sent/archived history and learned junk reduction are not implemented in the inspected pipeline.
-- Design slice not yet implemented.
+## Current status (Nov 1, 2026)
+- Approved compact design is on testflight (merge d0f86da); uploaded as build 1002, which runs in sample mode (no client ID).
+- Branch fix/gmail-release-config (PR #3), awaiting the Google iOS client ID for com.grahamdeno.reelmail:
+  - TestFlight workflow injects the client ID from Config/Release.xcconfig, refuses unconfigured uploads unless demo_build is requested, and verifies the archived Info.plist.
+  - Live import: account address from users/me/profile; Primary-tab inbox only (up to 120, paginated); sent mail from the last 90 days (up to 60); outgoing marked by address, never by display name; incremental refresh skips known messages.
+  - Bulk detection from Gmail category labels, List-Unsubscribe/List-Id, Precedence and address shape. Reply detection ignores quoted text, signatures and link footers.
+  - Feed priority: Waiting on you, People, Coming up, Updates, Reading. A reply from you newer than the ask moves it from Waiting to People; it is never hidden. Rules (Reading, Filtered) win over everything.
+  - On-device cache per account (Application Support, complete file protection, excluded from backup): mail, summaries, hidden and seen state. Relaunch is instant; summaries no longer change between launches. Cleared on disconnect.
+  - Session expiry (401, or refresh rejected) shows a Reconnect prompt; loaded mail stays.
+  - UI: Home rows are full width; Draft reply on rows, source and conversation; Hide (local) replaces Archive/Snooze; Source, Search, Profile, Draft reply, New and Summary Lab use the calm palette. Old dark screens removed.
+
+## Known limits
+- Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
+- Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
+- "Waiting on you" relies on reply detection; a reply that only promises a follow-up clears the wait. Resolution tracking beyond that is not implemented.
+- Read state is local; Gmail unread labels are not changed.
+- Hidden mail and rules are per phone, not synced.
 
 ## Next implementation task
-Inspect existing design tokens, router, root navigation, sample data, and dependent views. Implement the design slice in a scoped PR with tests, without changing Gmail scopes or triggering TestFlight distribution. Report actual build results and unresolved limitations.
+After the client ID lands and a configured build is approved: verify on device sign-in, inbox and sent load, refresh, relaunch from cache, 7-day reconnect. Then: reply chips (short suggested answers), "remind me if no reply", and a review of real-mail bulk detection misses.

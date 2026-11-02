@@ -13,8 +13,8 @@ People, Money, Catch up later), and a vertical reel of posts written on device b
 - **Never sends.** "Draft reply" offers **Copy** and **Open in Gmail** only. You press Send in Gmail.
 - **No secrets in the repo.** The Google client ID comes from `Config/Local.xcconfig`, which is
   gitignored. OAuth tokens live in the Keychain, this device only. Email bodies are never logged.
-- **Archive and Snooze are local for now** (they hide posts in the app). Doing them in Gmail would
-  need `gmail.modify`, which is intentionally not requested yet.
+- **Hide is local.** Hiding a message only affects the app. Changing Gmail would need `gmail.modify`,
+  which is intentionally not requested.
 
 ## What's here
 
@@ -57,24 +57,29 @@ with its latency in ms, plus average, median and slowest. Switch Engine to compa
 against the fallback. Requires an iPhone 15 Pro or newer with Apple Intelligence turned on; the
 simulator and older phones fall back to the heuristic summarizer.
 
-### Connecting Gmail (later)
+### Connecting Gmail
 
 1. Create an **iOS** OAuth client in Google Cloud Console for bundle id `com.grahamdeno.reelmail`
-   with the Gmail API enabled and only the `gmail.readonly` scope on the consent screen.
-2. `cp Config/Local.xcconfig.example Config/Local.xcconfig` and paste the client ID.
-3. Profile → Connect Gmail.
+   with the Gmail API enabled. While the consent screen is in Testing, your Gmail address must be a
+   test user, and Google expires the sign-in after 7 days (reconnect in Profile).
+2. Local builds: `cp Config/Local.xcconfig.example Config/Local.xcconfig` and paste the client ID.
+3. TestFlight builds: put the same client ID in `Config/Release.xcconfig` (tracked; iOS client IDs are
+   public by design). The workflow copies it into the build, refuses to upload if it is empty or
+   malformed, and checks the archived app's Info.plist before upload.
+4. Profile → Connect Gmail.
 
 ## What Graham needs to do
 
 - [ ] App ID + App Store Connect app record for `com.grahamdeno.reelmail` (done for TestFlight, if the
       `testflight` workflow is green).
 - [ ] Repo secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` for the TestFlight workflow.
-- [ ] Create a Google **iOS** OAuth client (read-only scope) and put its ID in `Config/Local.xcconfig`
-      locally. For TestFlight builds it will need to be supplied to CI too (a later change).
+- [ ] Create a Google **iOS** OAuth client for `com.grahamdeno.reelmail`; its ID goes in
+      `Config/Release.xcconfig` (TestFlight) and optionally `Config/Local.xcconfig` (local builds).
 - [ ] Test on an **iPhone 15 Pro or newer with Apple Intelligence on**, then run the Summary Lab.
 
 ## TestFlight
 
 `testflight.yml` archives with automatic signing via the App Store Connect API key, numbers the build
 `1000 + run number`, and uploads it. It runs on every push to the `testflight` branch (and manually once
-it's on `main`). It never submits for review.
+it's on `main`). It never submits for review. Gmail must be configured (see above); a sample-mail demo
+build is only possible as a manual run with `demo_build` checked.

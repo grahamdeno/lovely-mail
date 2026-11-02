@@ -25,6 +25,11 @@ struct GmailListResponse: Decodable {
     let nextPageToken: String?
 }
 
+/// users/me/profile. Only the address is used, to tell outgoing mail from incoming.
+struct GmailProfile: Decodable {
+    let emailAddress: String
+}
+
 enum GmailMessageParser {
     static func header(_ name: String, in message: GmailMessage) -> String? {
         message.payload?.headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
@@ -53,12 +58,12 @@ enum GmailMessageParser {
     }
 
     static func stripHTML(_ html: String) -> String {
-        var s = html.replacingOccurrences(of: #"(?is)<(script|style)[^>]*>.*?</\1>"#, with: "", options: .regularExpression)
-        s = s.replacingOccurrences(of: #"(?i)<br\s*/?>|</p>|</div>"#, with: "\n", options: .regularExpression)
+        var s = html.replacingOccurrences(of: #"(?is)<(script|style|head)[^>]*>.*?</\1>"#, with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"(?i)<br\s*/?>|</p>|</div>|</tr>|</li>|</h[1-6]>"#, with: "\n", options: .regularExpression)
         s = s.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        let entities = ["&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'"]
+        let entities = ["&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'", "&#8217;": "’", "&rsquo;": "’", "&zwnj;": "", "&zwj;": ""]
         for (k, v) in entities { s = s.replacingOccurrences(of: k, with: v) }
-        s = s.replacingOccurrences(of: #"[ \t]+"#, with: " ", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"[ \t\u{00A0}]+"#, with: " ", options: .regularExpression)
         s = s.replacingOccurrences(of: #"\n\s*\n+"#, with: "\n\n", options: .regularExpression)
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -73,21 +78,49 @@ enum GmailMessageParser {
         }
         address = address.trimmingCharacters(in: .whitespaces).lowercased()
         if name.isEmpty || name == value { name = address.split(separator: "@").first.map(String.init) ?? address }
-        let hue = Double(abs(address.hashValue % 1000)) / 1000
-        return Person(id: address, name: name, email: address, hue: hue)
+        return Person(id: address, name: name, email: address, hue: stableHue(address))
     }
 
-    static func email(from message: GmailMessage) -> Email {
+    /// Deterministic across launches (Swift's hashValue is randomized per process).
+    static func stableHue(_ text: String) -> Double {
+        var h: UInt32 = 2166136261
+        for b in text.utf8 { h = (h ^ UInt32(b)) &* 16777619 }
+        return Double(h % 1000) / 1000
+    }
+
+    /// Address list header -> lowercase addresses only.
+    static func addresses(in headerValue: String?) -> [String] {
+        guard let headerValue, !headerValue.isEmpty else { return [] }
+        return headerValue.components(separatedBy: ",").compactMap { part in
+            let p = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !p.isEmpty else { return nil }
+            if let lt = p.firstIndex(of: "<"), let gt = p.firstIndex(of: ">"), lt < gt {
+                return String(p[p.index(after: lt)..<gt]).lowercased()
+            }
+            return p.lowercased()
+        }
+    }
+
+    /// `account` is the signed-in address from users/me/profile; never inferred from display names.
+    static func email(from message: GmailMessage, account: String? = nil) -> Email {
         let millis = Double(message.internalDate ?? "") ?? 0
+        let from = person(fromHeader: header("From", in: message) ?? "Unknown")
+        let labels = message.labelIds ?? []
+        let hasList = header("List-Unsubscribe", in: message) != nil || header("List-Id", in: message) != nil
+        let mine = account.map { $0.lowercased() == from.email } ?? false
         return Email(
             id: message.id,
             threadId: message.threadId,
-            from: person(fromHeader: header("From", in: message) ?? "Unknown"),
-            to: (header("To", in: message) ?? "").components(separatedBy: ","),
+            from: from,
+            to: addresses(in: header("To", in: message)),
+            cc: addresses(in: header("Cc", in: message)),
             subject: header("Subject", in: message) ?? "(no subject)",
             date: Date(timeIntervalSince1970: millis / 1000),
             body: plainText(of: message),
-            isUnread: message.labelIds?.contains("UNREAD") ?? false
+            isUnread: labels.contains("UNREAD"),
+            isFromMe: mine,
+            bulk: !mine && SenderSignals.isBulk(labelIds: labels, hasListHeaders: hasList,
+                                                precedence: header("Precedence", in: message), address: from.email)
         )
     }
 }

@@ -1,80 +1,86 @@
 import SwiftUI
 
-/// Full email with the on-device summary on top and a bottom action bar in thumb reach.
+/// The original email: full headers and untouched text, with the summary above it for context.
 struct OpenEmailView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
     let postID: String
 
     var body: some View {
         if let post = store.posts.first(where: { $0.id == postID }) {
+            let email = post.email
             ScrollView {
-                VStack(alignment: .leading, spacing: RM.Space.l) {
-                    Button { router.open(.person(post.email.from)) } label: {
-                        HStack(spacing: RM.Space.m) {
-                            AvatarView(person: post.email.from, size: 44, needsReply: post.summary.needsReply)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(post.email.from.name).font(RM.Typo.title).foregroundStyle(.white)
-                                Text(post.email.from.email).font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
-                            }
-                            Spacer()
-                            Text(post.email.date.formatted(date: .abbreviated, time: .shortened))
-                                .font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 12) {
+                        CalmAvatar(person: email.from, size: 44)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(email.from.name).font(.headline)
+                            Text(email.from.email).font(.caption).foregroundStyle(CalmStyle.secondary).textSelection(.enabled)
                         }
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
-
-                    Text(post.email.subject).font(RM.Typo.headline).foregroundStyle(.white)
-
-                    SummaryBox(summary: post.summary)
-
-                    Text(post.email.body)
-                        .font(RM.Typo.body)
-                        .foregroundStyle(.white.opacity(0.9))
-                        .textSelection(.enabled)
+                    Text(email.subject.isEmpty ? "(no subject)" : email.subject).font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HeaderLine(key: "To", value: email.to.joined(separator: ", "))
+                        if !email.cc.isEmpty { HeaderLine(key: "Cc", value: email.cc.joined(separator: ", ")) }
+                        HeaderLine(key: "Date", value: email.date.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    if !ConversationPresentation.isSensitive(email, summary: post.summary) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(post.summary.engine == .appleIntelligence ? "Summary" : "Excerpt")
+                                .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                            Text(post.summary.blurb).font(.subheadline)
+                        }
+                        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CalmStyle.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    Text(email.body.isEmpty ? "No readable text was imported." : email.body)
+                        .font(.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                    HStack(spacing: 8) {
+                        if !email.isAutomated {
+                            Button { router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
+                                .buttonStyle(CalmActionStyle(prominent: true))
+                        }
+                        Button { openInGmail(email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
+                            .buttonStyle(CalmActionStyle())
+                        Spacer(minLength: 0)
+                        Button { store.hide(post); router.path.removeLast() } label: {
+                            Text("Hide").font(.subheadline).foregroundStyle(CalmStyle.secondary).frame(minWidth: 44, minHeight: 40)
+                        }.buttonStyle(.plain).accessibilityLabel("Hide in Reelmail")
+                    }
+                    Text("Hiding only affects this app. Your Gmail is unchanged.")
+                        .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
-                .padding(RM.Space.l)
+                .padding(20)
             }
-            .background(RM.Palette.sheet)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom) {
-                PostActionRow(post: post, onLight: false, showBack: true)
-                    .padding(RM.Radius.cardPadding)
-                    .background(RM.Palette.surface)
-                    .rmCorner(RM.Radius.card)
-                    .padding(.horizontal, RM.Space.l)
-                    .padding(.bottom, RM.Space.s)
-            }
+            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+            .navigationTitle("Source email").navigationBarTitleDisplayMode(.inline)
         } else {
-            ContentUnavailableView("Email not found", systemImage: "envelope")
-                .background(RM.Palette.sheet)
+            ContentUnavailableView("Email not found", systemImage: "envelope").background(CalmStyle.background)
+        }
+    }
+
+    private func openInGmail(_ email: Email) {
+        // Reply context only; nothing is sent. The user presses Send in Gmail.
+        let subject = GmailCompose.replySubject(email.subject)
+        guard let app = GmailCompose.appURL(to: email.from.email, subject: subject, body: "") else { return }
+        openURL(app) { ok in
+            if !ok, let web = GmailCompose.webURL(to: email.from.email, subject: subject, body: "") { openURL(web) }
         }
     }
 }
 
-struct SummaryBox: View {
-    let summary: EmailSummary
-
+struct HeaderLine: View {
+    let key: String
+    let value: String
     var body: some View {
-        VStack(alignment: .leading, spacing: RM.Space.s) {
-            HStack(spacing: 6) {
-                Image(systemName: summary.engine == .appleIntelligence ? "sparkles" : "text.alignleft")
-                Text(summary.engine == .appleIntelligence ? "Summary · on device" : "Quick summary")
-                Spacer()
-                if summary.needsReply { NeedsReplyTag(onLight: false) }
-            }
-            .font(RM.Typo.micro)
-            .foregroundStyle(RM.Palette.secondary)
-            Text(summary.headline).font(RM.Typo.title).foregroundStyle(.white)
-            Text(summary.blurb).font(RM.Typo.callout).foregroundStyle(.white.opacity(0.8))
-            if !summary.dates.isEmpty {
-                Text(summary.dates.joined(separator: " · "))
-                    .font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary)
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(key).font(.caption).foregroundStyle(CalmStyle.secondary).frame(width: 36, alignment: .leading)
+            Text(value).font(.caption).textSelection(.enabled)
         }
-        .padding(RM.Space.m)
-        .background(RM.Palette.surface)
-        .rmCorner(RM.Radius.card)
     }
 }

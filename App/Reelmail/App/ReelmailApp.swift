@@ -18,7 +18,6 @@ struct ReelmailApp: App {
 
 enum Route: Hashable {
     case email(String)
-    case person(Person)
     case thread(Person)
     case summaryLab
 }

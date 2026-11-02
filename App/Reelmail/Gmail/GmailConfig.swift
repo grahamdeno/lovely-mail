@@ -16,10 +16,14 @@ struct GmailConfig: Equatable {
         return GmailConfig(clientID: raw.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    /// Empty or unexpanded values mean "not set up yet": the app stays in sample mode.
+    /// Shape of a Google OAuth client ID: project number, hyphen, key, Google suffix.
+    /// Must stay in step with scripts/gmail_release_config.py, which gates TestFlight uploads.
+    static let clientIDPattern = #"^[0-9]+-[A-Za-z0-9_]+\.apps\.googleusercontent\.com$"#
+
+    /// Empty, unexpanded, placeholder or malformed values mean "not set up": the app stays in sample mode.
     var isConfigured: Bool {
-        !clientID.isEmpty && !clientID.contains("$(") && !clientID.hasPrefix("YOUR_")
-            && clientID.hasSuffix(".apps.googleusercontent.com")
+        !clientID.hasPrefix("YOUR_")
+            && clientID.range(of: Self.clientIDPattern, options: .regularExpression) != nil
     }
 
     /// iOS OAuth clients redirect to the reversed client ID.
@@ -28,6 +32,24 @@ struct GmailConfig: Equatable {
     }
 
     var redirectURI: String { redirectScheme + ":/oauthredirect" }
+
+    enum CallbackError: Error, Equatable {
+        /// Google refused, e.g. "access_denied" when the account isn't a test user or consent was declined.
+        case denied(String)
+        /// Wrong scheme, missing code, or a state that doesn't match this sign-in attempt.
+        case invalid
+    }
+
+    /// Extracts the authorization code from Google's redirect, checking scheme and state first.
+    func authorizationCode(from callback: URL, expectedState: String) -> Result<String, CallbackError> {
+        guard callback.scheme?.lowercased() == redirectScheme.lowercased() else { return .failure(.invalid) }
+        let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(_ name: String) -> String? { items.first(where: { $0.name == name })?.value }
+        guard value("state") == expectedState else { return .failure(.invalid) }
+        if let error = value("error") { return .failure(.denied(error)) }
+        guard let code = value("code"), !code.isEmpty else { return .failure(.invalid) }
+        return .success(code)
+    }
 
     func authorizationURL(pkce: PKCE, state: String) -> URL? {
         var c = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")

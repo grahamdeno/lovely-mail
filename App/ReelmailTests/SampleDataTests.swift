@@ -20,11 +20,13 @@ final class SampleDataTests: XCTestCase {
         XCTAssertEqual(dates, dates.sorted(by: >))
     }
 
-    func testSampleMixFeedsEveryLens() {
+    func testSampleMixFeedsEverySection() {
         let fallback = FallbackSummarizer()
         let posts = SampleData.emails.map { Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0))) }
-        for lens in Lens.allCases {
-            XCTAssertFalse(posts.filter(lens.includes).isEmpty, "\(lens) is empty")
+        let replies = FeedTriage.latestReplies(in: SampleData.sentByMe)
+        let sections = Set(posts.map { FeedTriage.section(for: $0, route: .inbox, replies: replies) })
+        for section in FeedSection.allCases {
+            XCTAssertTrue(sections.contains(section), "\(section) is empty")
         }
         XCTAssertGreaterThanOrEqual(posts.filter(\.summary.needsReply).count, 3)
     }

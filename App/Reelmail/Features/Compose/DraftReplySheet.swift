@@ -14,58 +14,59 @@ struct DraftReplySheet: View {
     @State private var copied = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: RM.Space.m) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Draft reply").font(RM.Typo.title).foregroundStyle(.white)
+                Text("Draft reply").font(.title3.weight(.semibold))
                 Spacer()
-                Text(engine == .appleIntelligence ? "Written on device" : "Template")
-                    .font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+                Text(engine == .appleIntelligence ? "Written on this iPhone" : "Starter text")
+                    .font(.caption).foregroundStyle(CalmStyle.secondary)
             }
             Text("To \(post.email.from.name) · \(GmailCompose.replySubject(post.email.subject))")
-                .font(RM.Typo.caption).foregroundStyle(RM.Palette.secondary).lineLimit(1)
+                .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
 
             ZStack {
                 TextEditor(text: $draft)
                     .scrollContentBackground(.hidden)
-                    .font(RM.Typo.body)
-                    .foregroundStyle(.white)
-                    .padding(RM.Space.s)
-                    .background(RM.Palette.surface)
-                    .rmCorner(RM.Radius.card)
-                if loading { ProgressView().tint(.white) }
+                    .font(.body)
+                    .padding(8)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+                if loading { ProgressView() }
             }
 
-            HStack(spacing: RM.Space.s) {
+            HStack(spacing: 8) {
                 Button {
                     UIPasteboard.general.string = draft
                     copied = true
                 } label: { Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") }
-                    .buttonStyle(RMButtonStyle(kind: .ghostDark))
+                    .buttonStyle(CalmActionStyle())
                 Spacer()
                 Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
-                    .buttonStyle(RMButtonStyle(kind: .ghostLight))
-                    .background(Color.white)
-                    .rmCorner(RM.Radius.button)
+                    .buttonStyle(CalmActionStyle(prominent: true))
             }
-            Text("Reelmail never sends email. You review and send it yourself in Gmail.")
-                .font(RM.Typo.micro).foregroundStyle(RM.Palette.secondary)
+            Text("Lovely never sends email. Review and send it yourself in Gmail.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
-        .padding(RM.Space.l)
+        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(RM.Palette.sheet)
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .presentationDetents([.medium, .large])
-        .presentationCornerRadius(RM.Radius.sheet)
+        .presentationCornerRadius(24)
+        .preferredColorScheme(.light)
         .task { await makeDraft() }
+    }
+
+    private var myName: String {
+        store.mode == .gmail ? "" : store.me.firstName
     }
 
     private func makeDraft() async {
         let drafter = ReplyDrafterFactory.best()
         let fallback = TemplateReplyDrafter()
         do {
-            draft = try await drafter.draft(replyTo: post.email, myName: store.me.firstName)
+            draft = try await drafter.draft(replyTo: post.email, myName: myName)
             engine = drafter.engine
         } catch {
-            draft = (try? await fallback.draft(replyTo: post.email, myName: store.me.firstName)) ?? ""
+            draft = (try? await fallback.draft(replyTo: post.email, myName: myName)) ?? ""
             engine = .fallback
         }
         loading = false
