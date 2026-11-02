@@ -140,20 +140,29 @@ final class GmailService: NSObject {
         return GmailMessageParser.email(from: message, account: account)
     }
 
-    /// Downloads only messages not already in `known`; a few at a time so an inbox loads in seconds.
-    private func messages(ids: [String], account: String, known: [String: Email]) async throws -> [Email] {
+    /// Downloads only messages not already in `known`, a few at a time. If Google's per-minute quota still
+    /// refuses a message after waiting, that message is skipped (and fetched on the next refresh) instead of
+    /// discarding everything that did load. Returns the emails and how many were skipped.
+    private func messages(ids: [String], account: String, known: [String: Email]) async throws -> (emails: [Email], skipped: Int) {
         var out: [Email] = []
         var pending: [String] = []
+        var skipped = 0
         for id in ids {
             if let cached = known[id] { out.append(cached) } else { pending.append(id) }
         }
-        for batch in stride(from: 0, to: pending.count, by: 6).map({ Array(pending[$0..<min($0 + 6, pending.count)]) }) {
-            try await withThrowingTaskGroup(of: Email.self) { group in
-                for id in batch { group.addTask { try await self.getMessage(id: id, account: account) } }
-                for try await email in group { out.append(email) }
+        for batch in stride(from: 0, to: pending.count, by: 4).map({ Array(pending[$0..<min($0 + 4, pending.count)]) }) {
+            try await withThrowingTaskGroup(of: Email?.self) { group in
+                for id in batch {
+                    group.addTask {
+                        do { return try await self.getMessage(id: id, account: account) }
+                        catch GmailError.refused(let code, let detail) where code == 429 || detail.isRateLimit { return nil }
+                    }
+                }
+                for try await email in group { if let email { out.append(email) } else { skipped += 1 } }
             }
         }
-        return out.sorted { $0.date > $1.date }
+        if skipped > 0 { log.info("Skipped \(skipped, privacy: .public) messages for the rate limit") }
+        return (out.sorted { $0.date > $1.date }, skipped)
     }
 
     func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits = .standard) async throws -> MailboxSnapshot {
@@ -170,11 +179,14 @@ final class GmailService: NSObject {
             inboxList = try await listMessageIDs(query: "in:inbox", limit: limits.inboxMessages)
         }
         let sentList = try await listMessageIDs(query: "in:sent newer_than:\(limits.sentWindowDays)d", limit: limits.sentMessages)
-        let inbox = try await messages(ids: inboxList.ids, account: account, known: knownByID)
-        let sent = try await messages(ids: sentList.ids, account: account, known: knownByID)
-            .map { var e = $0; e.isFromMe = true; e.bulk = false; return e }
+        let inboxResult = try await messages(ids: inboxList.ids, account: account, known: knownByID)
+        let sentResult = try await messages(ids: sentList.ids, account: account, known: knownByID)
+        let inbox = inboxResult.emails
+        let sent = sentResult.emails.map { var e = $0; e.isFromMe = true; e.bulk = false; return e }
         log.info("Mailbox import complete: \(inbox.count, privacy: .public) inbox, \(sent.count, privacy: .public) sent")
-        return MailboxSnapshot(account: account, inbox: inbox, sent: sent, fetchedAt: Date(), inboxTruncated: inboxList.truncated)
+        // Skipped messages make the inbox incomplete for now; the next refresh fetches only what is missing.
+        return MailboxSnapshot(account: account, inbox: inbox, sent: sent, fetchedAt: Date(),
+                               inboxTruncated: inboxList.truncated || inboxResult.skipped > 0)
     }
 
     // MARK: Trash (the only change Lovely ever makes to Gmail)
@@ -208,7 +220,22 @@ final class GmailService: NSObject {
 
     // MARK: Plumbing
 
+    /// Waits before retrying a request Google refused for the per-minute quota. The quota refills each minute.
+    static let rateLimitWaits: [UInt64] = [20, 40]
+
     private func get<T: Decodable>(_ url: URL) async throws -> T {
+        var attempt = 0
+        while true {
+            do { return try await getOnce(url) }
+            catch GmailError.refused(let code, let detail) where (code == 429 || detail.isRateLimit) && attempt < Self.rateLimitWaits.count {
+                log.info("Gmail rate limit; waiting \(Self.rateLimitWaits[attempt], privacy: .public)s")
+                try await Task.sleep(nanoseconds: Self.rateLimitWaits[attempt] * 1_000_000_000)
+                attempt += 1
+            }
+        }
+    }
+
+    private func getOnce<T: Decodable>(_ url: URL) async throws -> T {
         var request = URLRequest(url: url)
         request.setValue("Bearer " + (try await accessToken()), forHTTPHeaderField: "Authorization")
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -221,6 +248,7 @@ final class GmailService: NSObject {
             if code == 403, detail?.isMissingScope == true { keychain.delete(); throw GmailError.mailAccessNotGranted }
             // Anything else (API turned off in Google Cloud, rate limit, policy): show Google's own reason.
             if let detail { throw GmailError.refused(code, detail) }
+            if code == 429 { throw GmailError.refused(429, GmailAPIError(reason: "RATE_LIMIT_EXCEEDED", message: "Too many requests.")) }
             throw GmailError.http(code)
         }
         return try JSONDecoder().decode(T.self, from: data)

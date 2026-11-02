@@ -208,4 +208,11 @@ final class GmailTests: XCTestCase {
         XCTAssertFalse(b.isMissingScope)
         XCTAssertNil(GmailAPIError.parse(Data("not json".utf8)))
     }
+
+    func testRateLimitIsRecognized() throws {
+        let body = #"{"error":{"code":403,"message":"Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user'","status":"PERMISSION_DENIED","details":[{"reason":"RATE_LIMIT_EXCEEDED"}]}}"#
+        let e = try XCTUnwrap(GmailAPIError.parse(Data(body.utf8)))
+        XCTAssertTrue(e.isRateLimit)
+        XCTAssertFalse(e.isMissingScope)
+    }
 }
