@@ -81,7 +81,7 @@ struct MyProfileView: View {
 struct OtherAddressesCard: View {
     @Environment(FeedStore.self) private var store
     @State private var newAddress = ""
-    @State private var rejected = false
+    @State private var problem: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your other addresses").font(.caption).foregroundStyle(CalmStyle.secondary)
@@ -103,14 +103,20 @@ struct OtherAddressesCard: View {
                 Button("Add", action: add).buttonStyle(CalmActionStyle(prominent: true))
                     .disabled(newAddress.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            if rejected { Text("That doesn't look like an email address.").font(.caption).foregroundStyle(CalmStyle.roseInk) }
+            ForEach(store.pendingOtherAddresses.sorted(), id: \.self) { address in
+                Text("\(address) will be saved when your Gmail finishes loading.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            if let problem { Text(problem).font(.caption).foregroundStyle(CalmStyle.roseInk) }
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
     }
     private func add() {
-        rejected = !store.addOtherAddress(newAddress)
-        if !rejected { newAddress = "" }
+        switch store.addOtherAddress(newAddress) {
+        case .added, .pending: problem = nil; newAddress = ""
+        case .invalid: problem = "That doesn't look like an email address."
+        case .notSaved(let reason): problem = reason
+        }
     }
 }
 

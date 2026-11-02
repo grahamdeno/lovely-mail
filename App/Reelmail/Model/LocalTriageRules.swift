@@ -74,9 +74,10 @@ final class LocalTriageRules {
     var otherAddresses: [String] { state.otherAddresses.sorted() }
 
     @discardableResult
+    @discardableResult
     func setOtherAddress(_ address: String, _ value: Bool) -> Bool {
         let key = Self.normalize(address)
-        guard key.contains("@"), key.count > 3 else { return false }
+        guard Self.looksLikeAddress(key) else { return false }
         var next = state
         if value { next.otherAddresses.insert(key) } else { next.otherAddresses.remove(key) }
         return save(next)
@@ -128,6 +129,13 @@ final class LocalTriageRules {
             persistenceError = "Routing preferences could not be encoded. No decision was changed."
             return false
         }
+    }
+
+    /// Something before and after one "@", and a dot in the domain.
+    static func looksLikeAddress(_ value: String) -> Bool {
+        let parts = value.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "@", omittingEmptySubsequences: false)
+        return parts.count == 2 && !parts[0].isEmpty && parts[1].contains(".") && !parts[1].hasPrefix(".") && !parts[1].hasSuffix(".")
+            && !value.contains(" ")
     }
 
     private static func normalize(_ sender: String) -> String {

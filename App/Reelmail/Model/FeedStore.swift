@@ -141,6 +141,8 @@ final class FeedStore {
         if account != address {
             account = address
             accountRules = LocalTriageRules(accountID: "gmail-" + MailCache.accountKey(address), defaults: triageDefaults)
+            for pending in pendingOtherAddresses { accountRules?.setOtherAddress(pending, true) }
+            pendingOtherAddresses = []
             accountReview = SortingReview(accountID: "gmail-" + MailCache.accountKey(address), defaults: triageDefaults)
         }
     }
@@ -364,11 +366,23 @@ final class FeedStore {
 
     /// Addresses you said are yours. Mail from them is "Notes to self". Saved on this phone, per account.
     var otherAddresses: [String] { rules.otherAddresses }
+    enum AddAddressResult: Equatable { case added, pending, invalid, notSaved(String) }
+
+    /// Adds another address of yours. Before the Gmail account is known (first load still running or failed),
+    /// the address waits and is saved to that account's rules as soon as the account is known.
     @discardableResult
-    func addOtherAddress(_ address: String) -> Bool {
-        guard mode == .sample || accountRules != nil else { return false }
-        return rules.setOtherAddress(address, true)
+    func addOtherAddress(_ address: String) -> AddAddressResult {
+        let key = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard LocalTriageRules.looksLikeAddress(key) else { return .invalid }
+        guard mode == .sample || accountRules != nil else {
+            pendingOtherAddresses.insert(key)
+            return .pending
+        }
+        if let error = rules.persistenceError { return .notSaved(error) }
+        return rules.setOtherAddress(key, true) ? .added : .notSaved("Lovely could not save that address on this phone.")
     }
+    /// Addresses added before the account was known.
+    private(set) var pendingOtherAddresses: Set<String> = []
     func removeOtherAddress(_ address: String) {
         guard mode == .sample || accountRules != nil else { return }
         rules.setOtherAddress(address, false)
