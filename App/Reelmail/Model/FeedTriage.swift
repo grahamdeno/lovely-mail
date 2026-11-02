@@ -4,6 +4,8 @@ import Foundation
 enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
     /// A person asked something and no reply from you is newer than the ask.
     case waiting
+    /// Mail you sent yourself from another address of yours, to move information around.
+    case notes
     /// Mail from people, with nothing open.
     case people
     /// Automated mail that carries a date: forms, appointments, travel, bills.
@@ -19,6 +21,7 @@ enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
     var title: String {
         switch self {
         case .waiting: return "Waiting on you"
+        case .notes: return "Notes to self"
         case .people: return "People"
         case .dated: return "Coming up"
         case .updates: return "Updates"
@@ -29,12 +32,13 @@ enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
 
 /// Home filter pills. `all` shows every section in priority order.
 enum FeedFilter: String, CaseIterable, Identifiable {
-    case all, waiting, people, updates, reading
+    case all, waiting, notes, people, updates, reading
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: return "All"
         case .waiting: return "Waiting on you"
+        case .notes: return "Notes to self"
         case .people: return "People"
         case .updates: return "Updates"
         case .reading: return "Reading"
@@ -44,6 +48,7 @@ enum FeedFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: return true
         case .waiting: return section == .waiting
+        case .notes: return section == .notes
         case .people: return section == .people || section == .waiting
         case .updates: return section == .updates || section == .dated
         case .reading: return section == .reading
@@ -59,25 +64,33 @@ struct TriageContext {
     static let maxDirectRecipients = 6
 
     var myAddresses: Set<String>
+    /// Other addresses you declared as yours. Mail from them is a note to self.
+    var otherAddresses: Set<String>
     var replies: [String: Date]
     var now: Date
 
-    init(myAddresses: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
+    init(myAddresses: Set<String> = [], otherAddresses: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
         self.myAddresses = Set(myAddresses.map { $0.lowercased() })
+        self.otherAddresses = Set(otherAddresses.map { $0.lowercased() })
         self.replies = replies
         self.now = now
     }
 
     /// Builds the context from the signed-in account. Identity is the address only; a display name proves nothing,
     /// and mail you send yourself from another account is a person asking you for something.
-    init(account: String?, sent: [Email], now: Date) {
+    init(account: String?, sent: [Email], otherAddresses: [String] = [], now: Date) {
         var addresses = Set(sent.filter(\.isFromMe).map { $0.from.email.lowercased() })
         if let account, !account.isEmpty { addresses.insert(account.lowercased()) }
-        self.init(myAddresses: addresses, replies: FeedTriage.latestReplies(in: sent), now: now)
+        self.init(myAddresses: addresses, otherAddresses: Set(otherAddresses), replies: FeedTriage.latestReplies(in: sent), now: now)
     }
 
     func isMine(_ email: Email) -> Bool {
         email.isFromMe || myAddresses.contains(email.from.email.lowercased())
+    }
+
+    /// From another address you declared yours.
+    func isNoteToSelf(_ email: Email) -> Bool {
+        !isMine(email) && otherAddresses.contains(email.from.email.lowercased())
     }
 
     enum Addressing: Equatable { case direct, copied, group }
@@ -121,6 +134,7 @@ enum FeedTriage {
                        notWaiting: Bool = false, context: TriageContext) -> TriageAssessment {
         let email = post.email
         if route == .reading { return TriageAssessment(section: .reading, reason: routeReason) }
+        if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
         if post.summary.category == .newsletter { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
         if context.isMine(email) { return TriageAssessment(section: .people, reason: "Sent from this account's address") }
         if let why = automatedReason(email) {

@@ -1,10 +1,13 @@
 import Foundation
 
-/// OAuth scopes. Read-only, on purpose. Reelmail never asks for permission to send.
+/// OAuth scopes. Approved by the owner on 2026-11-01: read mail and move a message to Trash when asked.
+/// `gmail.modify` cannot send mail, and Lovely has no code path that sends, drafts, relabels or permanently deletes.
+/// The CI privacy guard enforces that. Do not add scopes without a review of the privacy stance.
 enum GmailScope {
+    /// Previous read-only scope. Old sign-ins still hold it; they can read but must reconnect before Trash works.
     static let readOnly = "https://www.googleapis.com/auth/gmail.readonly"
-    /// Everything the app requests. Do not add more without a review of the privacy stance.
-    static let requested: [String] = [readOnly]
+    static let modify = "https://www.googleapis.com/auth/gmail.modify"
+    static let requested: [String] = [modify]
 }
 
 /// Client configuration from the xcconfig via Info.plist. No secrets live in the repo.

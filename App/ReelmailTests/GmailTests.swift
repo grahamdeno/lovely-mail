@@ -2,12 +2,13 @@ import XCTest
 @testable import Reelmail
 
 final class GmailTests: XCTestCase {
-    func testOnlyReadOnlyScopeIsRequested() {
-        XCTAssertEqual(GmailScope.requested, ["https://www.googleapis.com/auth/gmail.readonly"])
+    /// Approved 2026-11-01: read mail and move a message to Trash. Nothing that sends or composes.
+    func testOnlyTheApprovedScopeIsRequested() {
+        XCTAssertEqual(GmailScope.requested, ["https://www.googleapis.com/auth/gmail.modify"])
         for scope in GmailScope.requested {
             XCTAssertFalse(scope.contains("send"))
             XCTAssertFalse(scope.contains("compose"))
-            XCTAssertFalse(scope.contains("modify"))
+            XCTAssertFalse(scope.contains("mail.google.com"), "The full-access scope allows permanent deletion")
         }
     }
 
@@ -65,12 +66,12 @@ final class GmailTests: XCTestCase {
         XCTAssertEqual(config.redirectScheme, "com.googleusercontent.apps.123-abc")
         XCTAssertEqual(config.redirectURI, "com.googleusercontent.apps.123-abc:/oauthredirect")
         let url = config.authorizationURL(pkce: PKCE(verifier: "v"), state: "s")?.absoluteString ?? ""
-        XCTAssertTrue(url.contains("gmail.readonly"))
+        XCTAssertTrue(url.contains("gmail.modify"))
         XCTAssertTrue(url.contains("code_challenge_method=S256"))
         let items = URLComponents(string: url)?.queryItems ?? []
         XCTAssertEqual(items.first(where: { $0.name == "redirect_uri" })?.value, config.redirectURI)
         XCTAssertEqual(items.first(where: { $0.name == "client_id" })?.value, config.clientID)
-        XCTAssertEqual(items.first(where: { $0.name == "scope" })?.value, GmailScope.readOnly)
+        XCTAssertEqual(items.first(where: { $0.name == "scope" })?.value, GmailScope.modify)
     }
 
     func testPKCEMatchesRFC7636Example() {
@@ -161,7 +162,7 @@ final class GmailTests: XCTestCase {
         XCTAssertEqual(section(school), .dated)
         XCTAssertEqual(section(letter), .reading)
         XCTAssertEqual(FeedTriage.section(for: note, route: .reading, context: context), .reading, "Your rule wins")
-        XCTAssertEqual(FeedSection.allCases, [.waiting, .people, .dated, .updates, .reading])
+        XCTAssertEqual(FeedSection.allCases, [.waiting, .notes, .people, .dated, .updates, .reading])
     }
 
     func testCacheKeyHidesAddressAndRoundTrips() throws {

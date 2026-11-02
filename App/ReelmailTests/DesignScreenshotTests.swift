@@ -75,5 +75,7 @@ private final class ScreenshotInboxClient: GmailInboxClient {
     var isSignedIn: Bool { false }
     func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot { XCTFail("Screenshot capture must never fetch Gmail"); return .empty }
     func signIn() async throws { XCTFail("Screenshot capture must never sign in") }
+    func trash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
+    func untrash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
     func signOut() {}
 }

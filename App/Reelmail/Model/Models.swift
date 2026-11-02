@@ -114,7 +114,7 @@ struct Post: Identifiable, Hashable {
     var id: String { email.id }
 }
 
-enum DataMode: String { case sample = "Sample mode", gmail = "Gmail (read-only)" }
+enum DataMode: String { case sample = "Sample mode", gmail = "Gmail" }
 
 /// Signals that a sender is a system, list or company rather than a person.
 enum SenderSignals {

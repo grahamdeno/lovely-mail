@@ -21,8 +21,13 @@ jobs:
 
       - name: Privacy guard
         run: |
-          if grep -rnE 'gmail\.send|gmail\.compose|gmail\.modify|mail\.google\.com/"|messages/send|drafts/send|/send\?|\.send\(' App/Reelmail; then
-            echo '::error::Reelmail must stay read-only.'
+          # Approved 2026-11-01: gmail.modify, used only to move one message to Trash and back.
+          if grep -rnE 'gmail\.send|gmail\.compose|mail\.google\.com/"|messages/send|drafts/send|/send\?|\.send\(|batchDelete|batchModify|"DELETE"|/modify\b|/labels' App/Reelmail; then
+            echo '::error::Lovely may only read mail and move a message to Trash. No sending, composing, relabeling or permanent delete.'
+            exit 1
+          fi
+          if grep -rn 'gmail\.modify' App/Reelmail | grep -v 'App/Reelmail/Gmail/GmailConfig.swift'; then
+            echo '::error::The gmail.modify scope may be named only in GmailConfig.swift.'
             exit 1
           fi
 

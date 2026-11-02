@@ -10,7 +10,7 @@ struct ThreadView: View {
         let latestIncoming = messages.last { !$0.isFromMe }.flatMap { store.post(for: $0) }
         ScrollView {
             LazyVStack(spacing: 10) {
-                Text(store.mode == .sample ? "Demo · fictional conversation" : "Recent mail with \(person.firstName) · read-only")
+                Text(store.mode == .sample ? "Demo · fictional conversation" : "Recent mail with \(person.firstName)")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.bottom, 4)
                 if messages.isEmpty { Text("No loaded messages with this person.").padding(.vertical, 24) }
                 ForEach(Array(messages.enumerated()), id: \.element.id) { index, email in

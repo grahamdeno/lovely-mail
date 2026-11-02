@@ -1,20 +1,21 @@
-# Reelmail
+# Lovely (repo: reelmail)
 
-**Email, reeled.** A native iPhone app that turns your Gmail inbox into a calm, social-style feed:
-a white header with the people waiting on you, a lens carousel (Today's brief, Needs you, Coming up,
-People, Money, Catch up later), and a vertical reel of posts written on device by Apple Intelligence.
+A native iPhone app that turns your Gmail inbox into a calm, sorted feed. People who are waiting on you come
+first; notes to yourself, updates and newsletters are kept apart. Summaries and reply drafts are written on the
+iPhone by Apple Intelligence. See `docs/calm-feed.md` for the sorting rules and `Design/Brand/README.md` for the brand.
 
 ## Privacy stance
 
-- **Read-only.** The only Google scope requested is `gmail.readonly`. There is no code that sends,
-  drafts, deletes or changes mail, and CI fails if a send scope or endpoint shows up in `App/`.
+- **One change to Gmail, and only when you ask.** The only Google scope requested is `gmail.modify`
+  (approved by the owner on 2026-11-01). It is used for one thing: moving a message to Gmail's Trash, and back
+  if you tap Undo. Nothing is ever permanently deleted, sent, drafted or relabeled. CI fails if a send, compose,
+  full-access scope, permanent-delete or label endpoint shows up in `App/`.
 - **On-device AI.** Summaries and reply drafts use Apple's Foundation Models framework on the
   iPhone. Email text is never sent to any server, including ours (there isn't one).
 - **Never sends.** "Draft reply" offers **Copy** and **Open in Gmail** only. You press Send in Gmail.
-- **No secrets in the repo.** The Google client ID comes from `Config/Local.xcconfig`, which is
-  gitignored. OAuth tokens live in the Keychain, this device only. Email bodies are never logged.
-- **Hide is local.** Hiding a message only affects the app. Changing Gmail would need `gmail.modify`,
-  which is intentionally not requested.
+- **No secrets in the repo.** The Google client ID is public by design for iOS OAuth clients. OAuth tokens live in the
+  Keychain, this device only. Email bodies are never logged.
+- **Hide is local.** Hiding a message only affects the app.
 
 ## What's here
 
@@ -24,7 +25,7 @@ People, Money, Catch up later), and a vertical reel of posts written on device b
 | `App/Reelmail/Design` | Tokens (`RM`): palette, nested radii (outer = inner + padding), rounded-square avatars, the rolling tab bar. |
 | `App/Reelmail/Features` | Home (header, lens carousel, reel), Open email, Draft reply sheet, Connection profile, DM-style thread, People, Search, New, Profile, **Summary Lab**. |
 | `App/Reelmail/Summarizer` | `EmailSummarizer` protocol, `AppleIntelligenceSummarizer` (`@Generable PostSummary`), `FallbackSummarizer` (heuristics), reply drafters. |
-| `App/Reelmail/Gmail` | Read-only `GmailService`: ASWebAuthenticationSession + PKCE, Keychain tokens, list/get `format=full`, plain-text parsing. |
+| `App/Reelmail/Gmail` | `GmailService`: ASWebAuthenticationSession + PKCE, Keychain tokens, list/get `format=full`, plain-text parsing, move to Trash. |
 | `App/Reelmail/Photos` | `PhotoProvider` with local placeholder gradients + SF Symbols. |
 | `App/Reelmail/Model` | Models, `FeedStore`, lenses and chips, ~20 fake sample emails. |
 | `App/ReelmailTests` | Fallback summarizer, radius math, tab bar, sample data, Gmail parsing/PKCE/scope tests. |

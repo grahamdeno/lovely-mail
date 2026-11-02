@@ -39,7 +39,7 @@ struct OpenEmailView: View {
                         .background(CalmStyle.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                     }
                     HStack(spacing: 8) {
-                        if FeedTriage.automatedReason(email) == nil {
+                        if !store.isAutomated(post) {
                             Button { router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
                                 .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
                         }
@@ -49,12 +49,15 @@ struct OpenEmailView: View {
                         Button { store.hide(post); router.path.removeLast() } label: {
                             Text("Hide").font(.subheadline).foregroundStyle(CalmStyle.secondary).frame(minWidth: 44, minHeight: 40)
                         }.buttonStyle(.plain).accessibilityLabel("Hide in Lovely")
+                        Button { Task { await store.moveToTrash(post) }; router.path.removeLast() } label: {
+                            Text("Trash").font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 40)
+                        }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash")
                     }
                     Text(email.body.isEmpty ? "No readable text was imported." : email.body)
                         .font(.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
-                    Text("Hiding only affects this app. Your Gmail is unchanged.")
+                    Text("Hide only affects this app. Trash moves the message to Gmail\u{2019}s Trash, where it stays for 30 days.")
                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
                 .padding(20)
@@ -81,6 +84,12 @@ struct WhyItsHere: View {
     @Environment(FeedStore.self) private var store
     let post: Post
     let assessment: TriageAssessment
+    /// A display name is never proof of identity, so a match only prompts a question; you decide.
+    private var looksLikeYou: Bool {
+        let mine = store.me.name.lowercased()
+        return mine.count > 3 && mine != "you" && post.email.from.name.lowercased() == mine
+            && post.email.from.email.lowercased() != store.account?.lowercased()
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
@@ -88,6 +97,14 @@ struct WhyItsHere: View {
                     .foregroundStyle(assessment.section == .waiting ? CalmStyle.roseInk : CalmStyle.secondary)
                 Text("·").font(.caption).foregroundStyle(CalmStyle.secondary)
                 Text(assessment.reason).font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            if assessment.section == .notes {
+                Button("This isn't my address") { store.removeOtherAddress(post.email.from.email) }
+                    .buttonStyle(CalmActionStyle()).lineLimit(1).fixedSize()
+            } else if looksLikeYou {
+                Text("This name matches yours. Is it another address of yours?").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Button("Yes, \(post.email.from.email) is mine") { store.addOtherAddress(post.email.from.email) }
+                    .buttonStyle(CalmActionStyle()).lineLimit(1).minimumScaleFactor(0.8)
             }
             if assessment.section == .waiting {
                 ViewThatFits(in: .horizontal) {

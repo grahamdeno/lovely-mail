@@ -72,3 +72,17 @@ Next steps:
 - Check the waiting count and reasons on the real inbox; tune machine phrases from misses.
 - Learn from corrections beyond the exact sender (for example, a domain that is always a portal).
 - Reference class for receipts and travel; daily summary.
+
+## Notes to self, Trash, speed and pinned bars (build after 1005)
+- **Identity is the account address only.** A display name never marks mail as yours (an earlier rule did, and hid a message the owner sent from his iCloud address).
+- **Notes to self.** The owner declares other addresses of his in Profile (or from a message: "This is another address of mine"). Mail from them lands in the Notes to self section and filter, never in Waiting on you. The app only asks when a display name matches; the owner decides.
+- **Waiting asks.** Plain requests without a question mark count ("if you could give me some help", "email me back", "call me", "please send").
+- **Trash (owner approved 2026-11-01).** Scope is now `gmail.modify`. Only action: move one message to Trash, and back on Undo (`users.messages.trash` / `untrash`). Swipe left: a short swipe shows Hide (and Not waiting); a full swipe moves to Trash with a 6 second Undo bar. Old sign-ins hold only the read scope; the first Trash attempt shows "Reconnect and allow it".
+  - Owner step in Google Cloud: Data Access > add `https://www.googleapis.com/auth/gmail.modify` to the consent screen, then Reconnect in Lovely.
+  - CI privacy guard now forbids send/compose/full-access scope, permanent delete, batch modify and label endpoints, and allows `gmail.modify` only in GmailConfig.swift.
+- **Speed.** Tab switches were slow because every screen draw re-ran text rules over all messages. FeedStore now builds its derived data (triage, people, conversations) once per change.
+- **Pinned bars.** Home filter pills, People title and search, and Search title and field stay in place while the list scrolls. The wordmark was removed from Home.
+
+Next steps:
+- Real-inbox check of Notes to self, swipe-to-Trash and Reconnect on the owner's phone (nothing here is device-verified yet).
+- Labeled fictional corpus scored per category in CI, then tune each category's criteria from the misses.
