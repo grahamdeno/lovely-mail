@@ -72,7 +72,7 @@ enum MailDates {
                                      "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12]
     private static let monthDay = try! NSRegularExpression(
         pattern: #"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b"#)
-    private static let numeric = try! NSRegularExpression(pattern: #"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?(?![\d/])"#)
+    private static let numeric = try! NSRegularExpression(pattern: #"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?(?![\d/])(?!\s*(?i:cups?|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|inch(?:es)?|miles?|hours?|hrs?|minutes?|mins?|of)\b)"#)
     private static let weekday = try! NSRegularExpression(
         pattern: #"\b(?:(this|next)\s+)?(sun|mon|tues|wednes|thurs|fri|satur)day\b"#, options: .caseInsensitive)
     private static let relative = try! NSRegularExpression(pattern: #"\b(today|tonight|tomorrow)\b"#, options: .caseInsensitive)

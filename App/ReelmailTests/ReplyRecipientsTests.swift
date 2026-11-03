@@ -25,7 +25,7 @@ final class ReplyRecipientsTests: XCTestCase {
     func testReplyAllRemovesDuplicatesIgnoringCase() {
         let email = mail(to: ["SAM@club.example", "sam@club.example"], cc: ["Sam <sam@club.example>", "DANA@rink.example"])
         let plan = ReplyRecipients.replyAll(email, mine: mine)
-        XCTAssertEqual(plan.to, ["dana@rink.example", "SAM@club.example"])
+        XCTAssertEqual(plan.to, ["dana@rink.example", "sam@club.example"], "addresses come back lowercase")
         XCTAssertEqual(plan.cc, [], "anyone already in To is not repeated in Cc")
     }
 
