@@ -148,4 +148,5 @@ Next steps:
 - Done (owner approved 2026-11-02): marks the message read in Gmail (`messages.modify`, removing UNREAD only) with a 6 second Undo that marks it unread again. Swipe right, the long-press menu, the Next up card and the open email all offer Done. If Gmail refuses, the message stays on the to-do and the reason shows. CI allows `modify` only in GmailService and only the UNREAD label.
 - "St. asked 7 days ago": first names keep titles and articles whole ("St. Andrews Reserve", "Dr. Patel", "The Rink").
 - Pending: device check of Done on the real inbox; screenshots come from CI.
+- Build 1014 on the real inbox showed "To do 0": all 17 unread messages were in the Updates and Promotions tabs, none in Primary, and the unread list used the Primary query. Fix: the unread list is `is:unread in:inbox`, every tab. Read mail still comes from Primary only.
 

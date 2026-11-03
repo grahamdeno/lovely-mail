@@ -178,9 +178,10 @@ final class GmailService: NSObject {
         if inboxList.ids.isEmpty {
             inboxList = try await listMessageIDs(query: "in:inbox", limit: limits.inboxMessages)
         }
-        // Unread is your to-do list, so every unread message is loaded however old it is, and the unread
-        // state of every loaded message is re-read from Gmail each time (it changes when you read mail elsewhere).
-        let unreadList = try await listMessageIDs(query: "is:unread " + inboxList.query, limit: limits.unreadMessages)
+        // Unread is your to-do list, so every unread inbox message is loaded however old it is and whichever
+        // inbox tab it is in (bills and statements usually land in Updates, not Primary), and the unread state of
+        // every loaded message is re-read from Gmail each time (it changes when you read mail elsewhere).
+        let unreadList = try await listMessageIDs(query: "is:unread in:inbox", limit: limits.unreadMessages)
         let listed = Set(inboxList.ids)
         let extraUnread = unreadList.ids.filter { !listed.contains($0) }
         let sentList = try await listMessageIDs(query: "in:sent newer_than:\(limits.sentWindowDays)d", limit: limits.sentMessages)
