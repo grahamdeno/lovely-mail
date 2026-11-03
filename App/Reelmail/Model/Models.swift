@@ -17,7 +17,7 @@ struct Person: Identifiable, Hashable, Sendable, Codable {
     }
 
     var initials: String {
-        let parts = name.split(separator: " ").prefix(2)
+        let parts = name.split(whereSeparator: { $0 == " " || $0 == "-" || $0 == "." || $0 == "_" }).prefix(2)
         let letters = parts.compactMap { $0.first }.map { String($0) }.joined()
         return letters.isEmpty ? "?" : letters.uppercased()
     }
@@ -131,7 +131,7 @@ enum SenderSignals {
         "notification", "alerts", "alert", "newsletter", "team", "marketing", "sales", "orders", "service",
         "customerservice", "help", "mailer", "mailer-daemon", "postmaster", "digest", "community",
         "invoice", "invoices", "receipt", "ebill", "confirmation", "confirmations", "reminders", "appointments",
-        "statements", "returns",
+        "statements", "returns", "admin", "sender", "assistance", "policy", "claims",
     ]
     private static let fragments = ["noreply", "no-reply", "donotreply", "do-not-reply", "notification", "mailer", "newsletter", "unsubscribe", "bounce", "auto-", "automated"]
 

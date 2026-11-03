@@ -23,7 +23,10 @@ enum ConversationPresentation {
             return (email.isFromMe ? "You forwarded: " : "Forwarded: ") + subject
         }
         let p = preview(email, summary: summary)
-        return (email.isFromMe ? "You: " : "") + FallbackSummarizer.firstSentence(of: p.text)
+        // An Apple Intelligence blurb is already one short statement; cutting it at a period can leave "Ms.".
+        let line = summary?.engine == .appleIntelligence && p.label == "Generated summary"
+            ? p.text : FallbackSummarizer.firstSentence(of: p.text)
+        return (email.isFromMe ? "You: " : "") + line
     }
     static func preview(_ email: Email, summary: EmailSummary?) -> ConversationPreview {
         if isSensitive(email, summary: summary) {
