@@ -7,7 +7,14 @@ struct Person: Identifiable, Hashable, Sendable, Codable {
     /// 0...1, picks a muted avatar color.
     let hue: Double
 
-    var firstName: String { name.split(separator: " ").first.map(String.init) ?? name }
+    /// "Dana" for "Dana Brooks". Names that start with a title or an article stay whole:
+    /// "St. Andrews Reserve", "Dr. Patel", "The Rink".
+    var firstName: String {
+        let parts = name.split(separator: " ")
+        guard let first = parts.first.map(String.init) else { return name }
+        if parts.count > 1, first.hasSuffix(".") || ["the", "a", "mr", "mrs", "ms", "dr"].contains(first.lowercased()) { return name }
+        return first
+    }
 
     var initials: String {
         let parts = name.split(separator: " ").prefix(2)

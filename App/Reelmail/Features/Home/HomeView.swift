@@ -18,6 +18,8 @@ enum CalmStyle {
     static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF2BB4)
     /// Postmark rose for text; passes 4.5:1 on its background in every palette.
     static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFF7AD0)
+    /// Done. Swipe tint only, with white text.
+    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x1E8A55)
     static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x3A2466)
     static let field = card
     static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x2C1A57)
@@ -100,16 +102,19 @@ struct CalmActionStyle: ButtonStyle {
 enum UndoAction: Equatable {
     case notWaiting(Post)
     case trash(Post)
+    case done(Post)
     var text: String {
         switch self {
         case .notWaiting: return "Moved out of Waiting on you"
         case .trash: return "Moved to Gmail Trash"
+        case .done: return "Done. Marked read in Gmail"
         }
     }
     var id: String {
         switch self {
         case .notWaiting(let p): return "nw-" + p.id
         case .trash(let p): return "tr-" + p.id
+        case .done(let p): return "dn-" + p.id
         }
     }
 }
@@ -163,12 +168,13 @@ struct HomeView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: undo?.id)
+        .onChange(of: store.lastDone?.id) { _, _ in if let post = store.lastDone { offer(.done(post)) } }
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
     }
 
-    @ViewBuilder private func rows(_ posts: [Post], compact: Bool) -> some View {
+    @ViewBuilder private func rows(_ posts: [Post], compact: Bool, showAge: Bool = false) -> some View {
         ForEach(posts) { post in
-            MailRow(post: post, assessment: store.assessment(for: post), compact: compact,
+            MailRow(post: post, assessment: store.assessment(for: post), compact: compact, showAge: showAge,
                     onNotWaiting: { notWaiting(post, wholeSender: $0) }, onTrash: { trash(post) })
                 .listRowInsets(rowInsets)
                 .listRowBackground(CalmStyle.background)
@@ -177,31 +183,29 @@ struct HomeView: View {
     }
 
     /// A section title that opens that section's full list.
-    private func title(_ text: String, _ count: Int, rose: Bool = false, opens key: String? = nil) -> some View {
+    private func title(_ text: String, _ count: Int, rose: Bool = false, note: String? = nil, opens key: String? = nil) -> some View {
         Group {
             if let key {
-                Button { router.open(.mailList(key)) } label: { DigestTitle(text: text, count: count, rose: rose, chevron: true) }
+                Button { router.open(.mailList(key)) } label: { DigestTitle(text: text, count: count, rose: rose, note: note, chevron: true) }
                     .buttonStyle(.plain).accessibilityHint("Shows all of them")
             } else {
-                DigestTitle(text: text, count: count, rose: rose)
+                DigestTitle(text: text, count: count, rose: rose, note: note)
             }
         }
         .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
     }
 
-    /// The "All" view: what needs you, what's new, people, organizations as groups, then everything older in one row.
+    /// Home: what needs you, your to-do (unread, oldest first), notes, people, organizations as groups,
+    /// then older read mail in one row.
     @ViewBuilder private func digest(_ d: HomeDigest) -> some View {
         if !d.waiting.isEmpty {
             title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
             rows(d.waiting, compact: false)
         }
+        todo(d.todo)
         if !d.notes.isEmpty {
             title("Notes to self", d.notes.count, opens: "notes")
             rows(d.notes, compact: true)
-        }
-        if !d.new.isEmpty {
-            title("New", d.new.count, opens: "new")
-            rows(d.new, compact: true)
         }
         if !d.people.isEmpty {
             title("People", d.people.count, opens: "people")
@@ -227,6 +231,32 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 0, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+    }
+
+    /// Your unread mail is your to-do. The oldest is "Next up", one decision at a time; a few more follow.
+    @ViewBuilder private func todo(_ todo: [Post]) -> some View {
+        let done = store.doneToday
+        let note = done > 0 ? "\(done) done today" : nil
+        if let next = todo.first {
+            title("To do", todo.count, note: note, opens: "todo")
+            NextUpCard(post: next, onTrash: { trash(next) })
+                .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 6, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            rows(Array(todo.dropFirst().prefix(4)), compact: true, showAge: true)
+            if todo.count > 5 {
+                Button { router.open(.mailList("todo")) } label: {
+                    Text("\(todo.count - 5) more unread").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            }
+        } else if !store.isLoading, !store.posts.isEmpty {
+            title("To do", 0, note: note)
+            Text("Nothing unread. All caught up.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                .padding(.vertical, 6)
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
     }
 
@@ -259,6 +289,7 @@ struct HomeView: View {
         switch action {
         case .notWaiting(let post): store.undoNotWaiting(post)
         case .trash(let post): Task { await store.restoreFromTrash(post) }
+        case .done(let post): Task { await store.undoDone(post) }
         }
         undo = nil
     }
@@ -316,13 +347,19 @@ struct DigestTitle: View {
     let text: String
     let count: Int
     var rose = false
+    /// A quiet note on the right, such as "3 done today".
+    var note: String? = nil
     var chevron = false
     var body: some View {
         HStack(spacing: 6) {
             Text(text.uppercased()).tracking(0.8)
             Text("\(count)").opacity(0.8)
+            if note != nil || chevron { Spacer(minLength: 8) }
+            if let note {
+                Label(note, systemImage: "checkmark.circle.fill").labelStyle(.titleAndIcon)
+                    .foregroundStyle(CalmStyle.blue).textCase(nil)
+            }
             if chevron {
-                Spacer(minLength: 8)
                 Image(systemName: "chevron.right").font(.caption2.weight(.bold)).accessibilityHidden(true)
             }
         }
@@ -370,7 +407,7 @@ struct DigestListView: View {
         case "earlier": return ("Earlier", d.earlier)
         case "waiting": return ("Waiting on you", d.waiting)
         case "notes": return ("Notes to self", d.notes)
-        case "new": return ("New", d.new)
+        case "todo", "new": return ("To do", d.todo)
         case "people": return ("People", d.people)
         case "organizations": return ("Organizations", d.organizations.flatMap(\.posts).sorted { $0.email.date > $1.email.date })
         default: break
@@ -384,7 +421,7 @@ struct DigestListView: View {
         List {
             if c.posts.isEmpty { Text("Nothing here now.").foregroundStyle(CalmStyle.secondary).listRowBackground(CalmStyle.background) }
             ForEach(c.posts) { post in
-                MailRow(post: post, assessment: store.assessment(for: post), compact: key != "waiting",
+                MailRow(post: post, assessment: store.assessment(for: post), compact: key != "waiting", showAge: key == "todo",
                         onNotWaiting: { store.markNotWaiting(post, wholeSender: $0) },
                         onTrash: { Task { await store.moveToTrash(post) } })
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
@@ -456,7 +493,7 @@ struct StatusNotices: View {
             } else if store.needsReconnect {
                 notice("Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.", button: "Reconnect Gmail")
             } else if store.needsTrashPermission {
-                notice("Lovely needs your OK to move mail to Gmail's Trash. It can't send mail or delete anything for good. Reconnect and allow it.", button: "Reconnect Gmail")
+                notice("Lovely needs your OK to change mail in Gmail (Trash and Done). It can't send mail or delete anything for good. Reconnect and allow it.", button: "Reconnect Gmail")
             } else if let error = store.errorMessage {
                 Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
                     .padding(14).frame(maxWidth: .infinity, alignment: .leading)
@@ -491,6 +528,8 @@ struct MailRow: View {
     let assessment: TriageAssessment
     /// One line of preview, smaller avatar, no headline: for New, People, organizations and Earlier.
     var compact = false
+    /// In the to-do, show how long it has waited ("3 weeks") instead of the date.
+    var showAge = false
     var onNotWaiting: (Bool) -> Void = { _ in }
     var onTrash: () -> Void = {}
 
@@ -505,7 +544,8 @@ struct MailRow: View {
     }
 
     var body: some View {
-        Button { store.markRead(post); router.open(.email(post.id)) } label: {
+        // Opening never marks mail read. Unread is your to-do; Done is the only thing that clears it.
+        Button { router.open(.email(post.id)) } label: {
             if compact { compactBody } else { fullBody }
         }
         .buttonStyle(.plain)
@@ -526,7 +566,8 @@ struct MailRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(compactName).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
                     Spacer(minLength: 8)
-                    Text(MailTime.short(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
+                    Text(showAge ? HomeDigest.age(of: post.email.date, now: Date()) : MailTime.short(post.email.date))
+                        .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
                     if post.email.isUnread { Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread") }
                 }
                 Text(sensitive ? "Private message" : (fromPerson ? post.summary.blurb : post.summary.headline))
@@ -581,8 +622,12 @@ private struct MailRowActions: ViewModifier {
         content
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if fromPerson {
-                Button { store.markRead(post); router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+                Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
                     .tint(CalmStyle.blue)
+            }
+            if post.email.isUnread {
+                Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark") }
+                    .tint(CalmStyle.green)
             }
         }
         // First button = the full swipe. Short swipe reveals all of them.
@@ -596,8 +641,13 @@ private struct MailRowActions: ViewModifier {
         .contextMenu {
             Section("Why it's here: " + assessment.reason) {
                 if fromPerson {
-                    Button { store.markRead(post); router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
+                    Button { router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
                     Button { router.open(.thread(post.email.from)) } label: { Label("Conversation with \(post.email.from.firstName)", systemImage: "bubble.left") }
+                }
+            }
+            if post.email.isUnread {
+                Section {
+                    Button { Task { await store.markDone(post) } } label: { Label("Done (mark read in Gmail)", systemImage: "checkmark.circle") }
                 }
             }
             Section {
@@ -623,7 +673,8 @@ private struct MailRowActions: ViewModifier {
                 Button(role: .destructive, action: onTrash) { Label("Move to Gmail Trash", systemImage: "trash") }
             }
         }
-        .accessibilityHint(waiting ? "Waiting on you. Swipe right to reply, swipe left to hide, mark not waiting or move to Trash." : "Swipe left to hide or move to Trash.")
+        .accessibilityHint(waiting ? "Waiting on you. Swipe right to reply, swipe left to hide, mark not waiting or move to Trash."
+                           : post.email.isUnread ? "On your to-do. Swipe right for Done, swipe left to hide or move to Trash." : "Swipe left to hide or move to Trash.")
     }
 }
 
@@ -655,5 +706,64 @@ struct FilteredMailReview: View {
                 .navigationTitle("Filtered senders").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }.tint(CalmStyle.blue)
+    }
+}
+
+/// The oldest unread message, on its own: one decision at a time.
+struct NextUpCard: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    let post: Post
+    var onTrash: () -> Void = {}
+
+    private var age: TimeInterval { Date().timeIntervalSince(post.email.date) }
+    private var stale: Bool { age >= HomeDigest.staleAfter }
+    private var sensitive: Bool { ConversationPresentation.isSensitive(post.email, summary: post.summary) }
+    private var organization: Bool { store.isAutomated(post) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { router.open(.email(post.id)) } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("NEXT UP").font(.caption2.weight(.bold)).tracking(0.8).foregroundStyle(CalmStyle.blue)
+                    HStack(alignment: .top, spacing: 12) {
+                        CalmAvatar(person: post.email.from, size: 36, organization: organization)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(organization ? HomeDigest.organizationName(post.email.from) : post.email.from.name)
+                                .font(.subheadline.weight(.bold)).lineLimit(1)
+                            Text(sensitive ? "Private message" : post.summary.headline)
+                                .font(.subheadline.weight(.medium)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            if !sensitive {
+                                Text(post.summary.blurb).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    Text(stale ? "Still need this? Unread \(HomeDigest.age(of: post.email.date, now: Date()))."
+                               : "Unread \(HomeDigest.age(of: post.email.date, now: Date())).")
+                        .font(.caption.weight(.medium)).foregroundStyle(stale ? CalmStyle.roseInk : CalmStyle.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the message")
+            HStack(spacing: 8) {
+                Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark") }
+                    .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
+                    .accessibilityHint("Marks it read in Gmail")
+                if !organization {
+                    Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+                        .buttonStyle(CalmActionStyle()).lineLimit(1).fixedSize()
+                }
+                Spacer(minLength: 0)
+                Button(action: onTrash) {
+                    Text("Trash").font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 40)
+                }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash")
+            }
+        }
+        .padding(14)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }

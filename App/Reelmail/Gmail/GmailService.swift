@@ -32,7 +32,7 @@ final class GmailService: NSObject {
                 return "Gmail refused the request (HTTP \(code), \(e.reason)). \(e.message)"
             case .notSignedIn: return "Not signed in to Gmail."
             case .sessionExpired: return "Google signed you out. Reconnect Gmail in Profile."
-            case .needsTrashPermission: return "Lovely needs your OK to move mail to Trash. Reconnect Gmail in Profile and allow it."
+            case .needsTrashPermission: return "Lovely needs your OK to change mail in Gmail (Trash and Done). Reconnect Gmail in Profile and allow it."
             case .mailAccessNotGranted:
                 return "Google didn't give Lovely access to your mail. Reconnect Gmail in Profile, and on Google's screen tick the Gmail box (or Select all) before Continue."
             }
@@ -116,7 +116,7 @@ final class GmailService: NSObject {
     }
 
     /// Message ids matching a Gmail search, newest first, following pages up to `limit`.
-    func listMessageIDs(query: String, limit: Int) async throws -> (ids: [String], truncated: Bool) {
+    func listMessageIDs(query: String, limit: Int) async throws -> (ids: [String], truncated: Bool, query: String) {
         var ids: [String] = []
         var pageToken: String?
         repeat {
@@ -129,7 +129,7 @@ final class GmailService: NSObject {
             pageToken = list.nextPageToken
         } while pageToken != nil && ids.count < limit
         log.info("Listed \(ids.count, privacy: .public) messages")
-        return (Array(ids.prefix(limit)), pageToken != nil)
+        return (Array(ids.prefix(limit)), pageToken != nil, query)
     }
 
     /// One message with its full payload, parsed to plain text.
@@ -178,10 +178,15 @@ final class GmailService: NSObject {
         if inboxList.ids.isEmpty {
             inboxList = try await listMessageIDs(query: "in:inbox", limit: limits.inboxMessages)
         }
+        // Unread is your to-do list, so every unread message is loaded however old it is, and the unread
+        // state of every loaded message is re-read from Gmail each time (it changes when you read mail elsewhere).
+        let unreadList = try await listMessageIDs(query: "is:unread " + inboxList.query, limit: limits.unreadMessages)
+        let listed = Set(inboxList.ids)
+        let extraUnread = unreadList.ids.filter { !listed.contains($0) }
         let sentList = try await listMessageIDs(query: "in:sent newer_than:\(limits.sentWindowDays)d", limit: limits.sentMessages)
-        let inboxResult = try await messages(ids: inboxList.ids, account: account, known: knownByID)
+        let inboxResult = try await messages(ids: inboxList.ids + extraUnread, account: account, known: knownByID)
         let sentResult = try await messages(ids: sentList.ids, account: account, known: knownByID)
-        let inbox = inboxResult.emails
+        let inbox = Self.applyUnread(inboxResult.emails, unread: Set(unreadList.ids), complete: !unreadList.truncated)
         let sent = sentResult.emails.map { var e = $0; e.isFromMe = true; e.bulk = false; return e }
         log.info("Mailbox import complete: \(inbox.count, privacy: .public) inbox, \(sent.count, privacy: .public) sent")
         // Skipped messages make the inbox incomplete for now; the next refresh fetches only what is missing.
@@ -189,20 +194,47 @@ final class GmailService: NSObject {
                                inboxTruncated: inboxList.truncated || inboxResult.skipped > 0)
     }
 
-    // MARK: Trash (the only change Lovely ever makes to Gmail)
+    // MARK: The only changes Lovely makes to Gmail (approved by the owner)
+    // 2026-11-01: move one message to Trash and back. 2026-11-02: mark one message read, and unread again for Undo.
+    // Nothing else: no sending, no permanent delete, no other labels.
 
-    private enum MessageAction: String { case trash, untrash }
+    private enum MessageAction: String {
+        case trash, untrash, markRead, markUnread
+        var path: String {
+            switch self {
+            case .trash: return "trash"
+            case .untrash: return "untrash"
+            case .markRead, .markUnread: return "modify"
+            }
+        }
+        /// The request body. Only ever the UNREAD label, never any other.
+        var body: Data? {
+            switch self {
+            case .trash, .untrash: return nil
+            case .markRead: return Data(#"{"removeLabelIds":["UNREAD"]}"#.utf8)
+            case .markUnread: return Data(#"{"addLabelIds":["UNREAD"]}"#.utf8)
+            }
+        }
+    }
 
     /// Moves one message to Gmail's Trash. Recoverable for 30 days. Never a permanent delete.
     func trash(messageID: String) async throws { try await perform(.trash, messageID: messageID) }
     /// Takes one message back out of Trash.
     func untrash(messageID: String) async throws { try await perform(.untrash, messageID: messageID) }
+    /// Marks one message read in Gmail ("Done" on your to-do).
+    func markRead(messageID: String) async throws { try await perform(.markRead, messageID: messageID) }
+    /// Marks one message unread again. Only used to undo "Done".
+    func markUnread(messageID: String) async throws { try await perform(.markUnread, messageID: messageID) }
 
     private func perform(_ action: MessageAction, messageID: String) async throws {
         guard let id = messageID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed), !id.isEmpty,
-              let url = URL(string: Self.api + "/messages/" + id + "/" + action.rawValue) else { throw GmailError.badCallback }
+              let url = URL(string: Self.api + "/messages/" + id + "/" + action.path) else { throw GmailError.badCallback }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        if let body = action.body {
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         request.setValue("Bearer " + (try await accessToken()), forHTTPHeaderField: "Authorization")
         let (data, response) = try await URLSession.shared.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -210,12 +242,22 @@ final class GmailService: NSObject {
             let detail = GmailAPIError.parse(data)
             log.error("Gmail \(action.rawValue, privacy: .public) failed with HTTP \(code, privacy: .public) \(detail?.reason ?? "", privacy: .public)")
             if code == 401 { keychain.delete(); throw GmailError.sessionExpired }
-            // 403 on a sign-in made before Trash was approved: the token only holds the read-only scope.
+            // 403 on a sign-in made before changes were approved: the token only holds the read-only scope.
             if code == 403, detail?.isMissingScope ?? true { throw GmailError.needsTrashPermission }
             if let detail { throw GmailError.refused(code, detail) }
             throw GmailError.http(code)
         }
         log.info("Gmail \(action.rawValue, privacy: .public) succeeded")
+    }
+
+    /// Sets each message's unread state from Gmail's current unread list. When that list stopped at its limit,
+    /// messages outside it keep the state they were downloaded with.
+    nonisolated static func applyUnread(_ emails: [Email], unread: Set<String>, complete: Bool) -> [Email] {
+        emails.map { email in
+            var e = email
+            if unread.contains(e.id) { e.isUnread = true } else if complete { e.isUnread = false }
+            return e
+        }
     }
 
     // MARK: Plumbing

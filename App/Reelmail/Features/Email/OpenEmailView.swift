@@ -38,10 +38,17 @@ struct OpenEmailView: View {
                         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CalmStyle.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                     }
+                    if email.isUnread {
+                        Button { Task { await store.markDone(post) }; router.path.removeLast() } label: {
+                            Label("Done", systemImage: "checkmark").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(CalmActionStyle(prominent: true))
+                        .accessibilityHint("Takes it off your to-do and marks it read in Gmail")
+                    }
                     HStack(spacing: 8) {
                         if !store.isAutomated(post) {
                             Button { router.draftPostID = post.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
-                                .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
+                                .buttonStyle(CalmActionStyle(prominent: !email.isUnread)).lineLimit(1).fixedSize()
                         }
                         Button { openInGmail(email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                             .buttonStyle(CalmActionStyle()).lineLimit(1).fixedSize()
@@ -57,7 +64,7 @@ struct OpenEmailView: View {
                         .font(.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-                    Text("Hide only affects this app. Trash moves the message to Gmail\u{2019}s Trash, where it stays for 30 days.")
+                    Text("Done marks it read in Gmail. Hide only affects this app. Trash moves the message to Gmail\u{2019}s Trash, where it stays for 30 days.")
                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
                 .padding(20)

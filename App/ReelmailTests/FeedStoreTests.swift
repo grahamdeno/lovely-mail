@@ -79,6 +79,48 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertTrue(client.trashed.isEmpty)
     }
 
+    func testDoneMarksReadInGmailCountsAndCanBeUndone() async {
+        let client = FakeInboxClient()
+        let defaults = UserDefaults(suiteName: "done-\(UUID())")!
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
+        await store.load()
+        let post = store.posts[0]
+        XCTAssertTrue(post.email.isUnread)
+        XCTAssertTrue(store.isTodo(post))
+        await store.markDone(post)
+        XCTAssertEqual(client.markedRead, ["fixture-live"])
+        XCTAssertFalse(store.isTodo(post))
+        XCTAssertEqual(store.doneToday, 1)
+        XCTAssertEqual(store.lastDone?.id, "fixture-live")
+        await store.undoDone(post)
+        XCTAssertEqual(client.markedUnread, ["fixture-live"])
+        XCTAssertTrue(store.isTodo(post))
+        XCTAssertEqual(store.doneToday, 0)
+    }
+
+    func testRefusedDoneStaysOnTheToDo() async {
+        let client = FakeInboxClient()
+        client.readError = GmailService.GmailError.needsTrashPermission
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, triageDefaults: UserDefaults(suiteName: "done-\(UUID())")!, cacheStore: nil)
+        await store.load()
+        await store.markDone(store.posts[0])
+        XCTAssertTrue(store.isTodo(store.posts[0]), "Still unread when Gmail refuses")
+        XCTAssertEqual(store.doneToday, 0)
+        XCTAssertTrue(store.needsTrashPermission)
+        XCTAssertNotNil(store.errorMessage)
+    }
+
+    func testDemoDoneNeverCallsGmail() async {
+        let client = FakeInboxClient()
+        client.isSignedIn = false
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, triageDefaults: UserDefaults(suiteName: "done-\(UUID())")!, cacheStore: nil)
+        await store.load()
+        guard let post = store.digest.todo.first else { return XCTFail("Demo needs unread mail") }
+        await store.markDone(post)
+        XCTAssertTrue(client.markedRead.isEmpty)
+        XCTAssertFalse(store.digest.todo.contains { $0.id == post.id })
+    }
+
     func testOtherAddressMakesNotesToSelfAndIsAccountScoped() async throws {
         let suite = "reelmail.notes-tests." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -228,6 +270,14 @@ final class FakeInboxClient: GmailInboxClient {
         trashed.append(messageID)
     }
     func untrash(messageID: String) async throws { untrashed.append(messageID) }
+    var markedRead: [String] = []
+    var markedUnread: [String] = []
+    var readError: Error?
+    func markRead(messageID: String) async throws {
+        if let readError { throw readError }
+        markedRead.append(messageID)
+    }
+    func markUnread(messageID: String) async throws { markedUnread.append(messageID) }
     func signIn() async throws { isSignedIn = true }
     func signOut() { isSignedIn = false }
 }

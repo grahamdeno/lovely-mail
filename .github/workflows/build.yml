@@ -22,8 +22,17 @@ jobs:
       - name: Privacy guard
         run: |
           # Approved 2026-11-01: gmail.modify, used only to move one message to Trash and back.
+          # Approved 2026-11-02: mark one message read ("Done"), and unread again to undo it. The UNREAD label only.
           if grep -rnE 'gmail\.send|gmail\.compose|mail\.google\.com/"|messages/send|drafts/send|/send\?|\.send\(|batchDelete|batchModify|"DELETE"|/modify\b|/labels' App/Reelmail; then
-            echo '::error::Lovely may only read mail and move a message to Trash. No sending, composing, relabeling or permanent delete.'
+            echo '::error::Lovely may only read mail, move a message to Trash and mark it read. No sending, composing, relabeling or permanent delete.'
+            exit 1
+          fi
+          if grep -rn '"modify"' App/Reelmail | grep -v 'App/Reelmail/Gmail/GmailService.swift'; then
+            echo '::error::The modify endpoint may be used only in GmailService.swift.'
+            exit 1
+          fi
+          if grep -rnE 'LabelIds' App/Reelmail | grep -vE 'LabelIds\\?"?:\[\\?"UNREAD\\?"\]'; then
+            echo '::error::Lovely may change only the UNREAD label.'
             exit 1
           fi
           if grep -rn 'gmail\.modify' App/Reelmail | grep -v 'App/Reelmail/Gmail/GmailConfig.swift'; then

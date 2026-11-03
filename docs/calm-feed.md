@@ -37,7 +37,7 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
 - "Waiting on you" relies on reply detection; a reply that only promises a follow-up clears the wait. Resolution tracking beyond that is not implemented.
-- Read state is local; Gmail unread labels are not changed.
+- Read state comes from Gmail. Since 2026-11-02 Done marks a message read in Gmail (owner approved); opening a message never does.
 - Hidden mail and rules are per phone, not synced.
 
 ## Next implementation task
@@ -97,7 +97,7 @@ Shipped as build 1006 (merge ec68a78). Same-address self mail is also a note to 
   - Shipping and delivery notices stay in Updates even with a date. Bulk marketing ("shop now", "% off", "limited time", "promo code", "sitewide") goes to Reading.
 - **Known holdout misses, deliberately not tuned:** "Remind me what the wifi password is" (an imperative ask with no ask phrase), an "out for delivery" notice from a plain-looking tracking address, and a recipe newsletter whose only list signal is "You are receiving this email because you signed up".
 - **Review sorting** (Profile > Review sorting): the 60 newest messages, each with Right or "Belongs in…". Verdicts are stored per account on the phone (message ids and section numbers only) and never change sorting. Share summary sends counts and each miss's rule reason with the sender's name and address replaced; subjects are added only if the owner turns that on, and never for private messages.
-- **Live test mail.** Eleven tagged messages, subjects [LT-01] to [LT-11], were sent from the owner's Gmail to itself on 2026-11-02 with his approval. Because they come from his own address they test Notes to self only. They should be moved to Trash once he confirms the test is done.
+- **Live test mail.** Eleven tagged messages, subjects [LT-01] to [LT-11], were sent from the owner's Gmail to itself on 2026-11-02 with his approval to test Notes to self. The owner has since removed them.
 
 Next steps:
 - Owner reviews 30 to 60 real messages in Review sorting and shares the summary; add each real miss as a fictional corpus case, then tune.
@@ -140,3 +140,12 @@ Next steps:
 - Forwards read "You forwarded: <subject>" in list rows.
 - Same full name from two addresses is one person; the person page lists "Also <address>" with "Not the same person" (saved per account).
 - This year's dates drop the year.
+
+## Unread is the to-do (after 1013, Nov 2, 2026)
+- Owner: "I used my unread status as a todo list. Unread means I wasn't ready to act on it yet." Build 1013 hid it: unread mail older than two weeks folded into Earlier, and opening a message in Lovely marked it read on the phone.
+- Fixes: unread never folds into Earlier; opening never marks read; the old local "seen" set is ignored. Every refresh re-reads Gmail's unread list (`is:unread` + the inbox query, up to 300) and loads every unread message however old, so the to-do matches Gmail.
+- Home "To do · N": the oldest unread is a Next up card (sender, what it is, "Unread 3 weeks", Done, Reply, Trash); the next four follow as compact rows with their age; "N more unread" and the title open the whole list, oldest first. After 30 days the card asks "Still need this?". The title shows "3 done today" (count kept on the phone, resets daily). No streaks or mascots (owner rejected the gamified Neon mockups the same night).
+- Done (owner approved 2026-11-02): marks the message read in Gmail (`messages.modify`, removing UNREAD only) with a 6 second Undo that marks it unread again. Swipe right, the long-press menu, the Next up card and the open email all offer Done. If Gmail refuses, the message stays on the to-do and the reason shows. CI allows `modify` only in GmailService and only the UNREAD label.
+- "St. asked 7 days ago": first names keep titles and articles whole ("St. Andrews Reserve", "Dr. Patel", "The Rink").
+- Pending: device check of Done on the real inbox; screenshots come from CI.
+

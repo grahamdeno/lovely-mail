@@ -58,8 +58,10 @@ enum FeedFilter: String, CaseIterable, Identifiable {
 /// The Home "All" view: what needs you, what's new, the people you hear from, organizations grouped by sender,
 /// and everything older folded into one row. Pure, so it is tested without views.
 struct HomeDigest {
-    /// Mail older than this folds into Earlier (Waiting and new mail never do).
+    /// Read mail older than this folds into Earlier. Waiting and unread mail never do.
     static let recentWindow: TimeInterval = 14 * 86_400
+    /// Unread this long gets "Still need this?".
+    static let staleAfter: TimeInterval = 30 * 86_400
 
     struct OrganizationGroup: Identifiable, Equatable {
         let id: String
@@ -90,7 +92,8 @@ struct HomeDigest {
 
     var waiting: [Post] = []
     var notes: [Post] = []
-    var new: [Post] = []
+    /// Unread mail, oldest first: your to-do list. Unread means you weren't ready to act on it yet.
+    var todo: [Post] = []
     var people: [Post] = []
     var organizations: [OrganizationGroup] = []
     var earlier: [Post] = []
@@ -103,18 +106,31 @@ struct HomeDigest {
         for post in active.sorted(by: { $0.email.date > $1.email.date }) {
             let s = section(post)
             if s == .waiting { d.waiting.append(post); continue }
+            if post.email.isUnread { d.todo.append(post); continue }
             let recent = now.timeIntervalSince(post.email.date) <= recentWindow
             if s == .notes, recent { d.notes.append(post); continue }
             if !recent { d.earlier.append(post); continue }
-            if post.email.isUnread { d.new.append(post); continue }
             if isOrganization(post) || s != .people {
                 orgPosts.append(post)
             } else {
                 d.people.append(post)
             }
         }
+        d.todo.reverse()
         d.organizations = OrganizationGroup.group(orgPosts, key: groupKey ?? { OrganizationKey.key(for: $0.email.from, overrides: [:]) })
         return d
+    }
+
+    /// How long a message has waited, short: "today", "3 days", "2 weeks", "4 months".
+    static func age(of date: Date, now: Date) -> String {
+        let days = Int(max(0, now.timeIntervalSince(date)) / 86_400)
+        switch days {
+        case 0: return "today"
+        case 1: return "1 day"
+        case 2..<14: return "\(days) days"
+        case 14..<60: return "\(days / 7) weeks"
+        default: return "\(days / 30) months"
+        }
     }
 
     /// The sender's display name, or its domain when the name is only an address.

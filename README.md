@@ -6,10 +6,12 @@ iPhone by Apple Intelligence. See `docs/calm-feed.md` for the sorting rules and 
 
 ## Privacy stance
 
-- **One change to Gmail, and only when you ask.** The only Google scope requested is `gmail.modify`
-  (approved by the owner on 2026-11-01). It is used for one thing: moving a message to Gmail's Trash, and back
-  if you tap Undo. Nothing is ever permanently deleted, sent, drafted or relabeled. CI fails if a send, compose,
-  full-access scope, permanent-delete or label endpoint shows up in `App/`.
+- **Two changes to Gmail, and only when you ask.** The only Google scope requested is `gmail.modify`
+  (approved by the owner on 2026-11-01). It is used for two things, each undoable: moving a message to Gmail's
+  Trash, and back (approved 2026-11-01); and marking a message read when you tap Done on your to-do, and unread
+  again on Undo (approved 2026-11-02). Nothing is ever permanently deleted, sent, drafted or relabeled; the only
+  label Lovely touches is UNREAD. CI fails if a send, compose, full-access scope, permanent-delete or label
+  endpoint, or any label other than UNREAD, shows up in `App/`.
 - **On-device AI.** Summaries and reply drafts use Apple's Foundation Models framework on the
   iPhone. Email text is never sent to any server, including ours (there isn't one).
 - **Never sends.** "Draft reply" offers **Copy** and **Open in Gmail** only. You press Send in Gmail.
@@ -28,7 +30,7 @@ iPhone by Apple Intelligence. See `docs/calm-feed.md` for the sorting rules and 
 | `App/Reelmail/Design` | Tokens (`RM`): palette, nested radii (outer = inner + padding), rounded-square avatars, the rolling tab bar. |
 | `App/Reelmail/Features` | Home (header, lens carousel, reel), Open email, Draft reply sheet, Connection profile, DM-style thread, People, Search, New, Profile, **Summary Lab**. |
 | `App/Reelmail/Summarizer` | `EmailSummarizer` protocol, `AppleIntelligenceSummarizer` (`@Generable PostSummary`), `FallbackSummarizer` (heuristics), reply drafters. |
-| `App/Reelmail/Gmail` | `GmailService`: ASWebAuthenticationSession + PKCE, Keychain tokens, list/get `format=full`, plain-text parsing, move to Trash. |
+| `App/Reelmail/Gmail` | `GmailService`: ASWebAuthenticationSession + PKCE, Keychain tokens, list/get `format=full`, plain-text parsing, move to Trash, mark read (Done). |
 | `App/Reelmail/Photos` | `PhotoProvider` with local placeholder gradients + SF Symbols. |
 | `App/Reelmail/Model` | Models, `FeedStore`, lenses and chips, ~20 fake sample emails. |
 | `App/ReelmailTests` | Fallback summarizer, radius math, tab bar, sample data, Gmail parsing/PKCE/scope tests. |

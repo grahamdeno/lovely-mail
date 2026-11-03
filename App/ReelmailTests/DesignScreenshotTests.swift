@@ -102,5 +102,7 @@ private final class ScreenshotInboxClient: GmailInboxClient {
     func signIn() async throws { XCTFail("Screenshot capture must never sign in") }
     func trash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
     func untrash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
+    func markRead(messageID: String) async throws { XCTFail("Screenshot capture must never change Gmail") }
+    func markUnread(messageID: String) async throws { XCTFail("Screenshot capture must never change Gmail") }
     func signOut() {}
 }
