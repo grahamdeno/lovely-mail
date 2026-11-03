@@ -203,3 +203,8 @@ Design: docs/sprint4-design.md. Stacked on Sprint 3 (PR #23); ships in one relea
 - **Morning brief:** off until switched on (Settings, or a one-time Home card after the first Done). Local notification at 7:30 AM by default, counts only unless "Show names in the brief" is on, skipped when empty. Rebuilt after each refresh and when the app goes to the background; a background refresh task (`com.grahamdeno.reelmail.morning`) asks iOS to wake the app about an hour earlier. iOS decides whether it runs. Info.plist gained `UIBackgroundModes: fetch` and `BGTaskSchedulerPermittedIdentifiers`. No notification actions.
 - **Gmail:** no new actions, scopes or credential changes (the Keychain already uses AfterFirstUnlockThisDeviceOnly).
 - **Not done / next:** the date row only uses the first date for Add to Calendar's default; no calendar read, so no conflict check. The brief cannot run if iOS never grants background time (it then shows what was loaded last). Owner device check of notifications, the Add Event sheet and Reply all in Gmail is pending. CI is the only compile check; screenshots 19 to 23 come from CI.
+
+- **Shipped:** Sprints 2, 3 and 4 merged to testflight together on Nov 3, 2026 as build 1017.
+
+## Sprint 5 (planned, Nov 3, 2026)
+Design: docs/sprint5-design.md. Trust pass before the first device check: auto-replies, delivery notices, the r13 newsletter miss, new honest holdout cases, a dates corpus, one Coming up entry per conversation, the Sprint 3 leftovers, and a test brief in Testing tools. Not built yet.
