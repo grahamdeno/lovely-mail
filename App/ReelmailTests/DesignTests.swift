@@ -27,6 +27,6 @@ final class DesignTests: XCTestCase {
     }
 
     func testTabOrderIsRightThumbFirst() {
-        XCTAssertEqual(AppTab.allCases, [.profile, .search, .new, .people, .home])
+        XCTAssertEqual(AppTab.allCases, [.search, .people, .home])
     }
 }

@@ -44,7 +44,10 @@ struct ThreadView: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 16).padding(.bottom, 8)
+                .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8)
+                // Opaque, full width: scrolled messages never show around or under the bar.
+                .frame(maxWidth: .infinity)
+                .background(CalmStyle.background.ignoresSafeArea(edges: .bottom))
             }
         }
         .navigationTitle(person.name).navigationBarTitleDisplayMode(.inline)
@@ -225,7 +228,7 @@ private struct PersonHeader: View {
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
                         ForEach(profile.topics, id: \.self) { topic in
-                            Text(topic).font(.footnote).lineLimit(1).padding(.horizontal, 10).padding(.vertical, 6)
+                            Text(topic).font(.footnote).lineLimit(1).fixedSize(horizontal: true, vertical: false).padding(.horizontal, 10).padding(.vertical, 6)
                                 .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 8))
                         }
                     }

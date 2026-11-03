@@ -25,13 +25,31 @@ struct OrganizationRow: View {
     }
 }
 
-/// Every organization in loaded mail, newest first.
+extension HomeDigest.OrganizationGroup {
+    /// Matches the name, the company domain or any sending address.
+    func matches(_ query: String) -> Bool {
+        name.localizedCaseInsensitiveContains(query)
+            || (domain?.localizedCaseInsensitiveContains(query) ?? false)
+            || senders.contains { $0.address.localizedCaseInsensitiveContains(query) }
+    }
+}
+
+/// Every organization in loaded mail, A to Z. Search matches the name and the domain.
 struct OrganizationListView: View {
     @Environment(FeedStore.self) private var store
+    @State private var query = ""
+    private var groups: [HomeDigest.OrganizationGroup] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return store.organizationGroups
+            .filter { q.isEmpty || $0.matches(q) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
     var body: some View {
+        let groups = self.groups
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(store.organizationGroups) { group in
+                if groups.isEmpty, !query.isEmpty { Text("No matches.").padding(.vertical, 24) }
+                ForEach(groups) { group in
                     OrganizationRow(group: group)
                     Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                 }
@@ -39,6 +57,8 @@ struct OrganizationListView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Organizations").navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Name or domain")
+        .autocorrectionDisabled().textInputAutocapitalization(.never)
     }
 }
 
