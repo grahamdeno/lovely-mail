@@ -108,3 +108,12 @@ Next steps:
 - The 403 after reconnecting was never a permission problem. Build 1008 showed Google's reason: RATE_LIMIT_EXCEEDED, "Units per minute per user". The project's per-user quota is now 6,000 units a minute (Google lists the previous value as 15,000). A fresh load with no cache (about 180 messages) went over it, and one refused message discarded the whole load, so Home showed nothing.
 - Fix: a refused request waits 20 s, then 40 s, and retries; messages download 4 at a time; a message still refused is skipped and fetched on the next refresh, so everything that loaded is kept and cached.
 - Next: if first loads stay slow, fetch sent mail with format=metadata, or raise the quota in Google Cloud (Gmail API > Quotas & System Limits).
+
+## Real-inbox review and UI pass (after 1010, Nov 2, 2026)
+- Claude read the owner's recent inbox through the Gmail connector (read-only) and compared Lovely's rules with its own judgment. Only patterns were kept; every corpus case is fictional. Corpus is now 120 cases (88 tune, 32 holdout).
+- The account has no Primary tab results for `category:primary`, so Lovely loads the inbox without Promotions/Social/Updates/Forums (the second fallback). Gmail still labels messages CATEGORY_PERSONAL/UPDATES, which drive `bulk`.
+- Fixes: forwarded messages end the author's words; blind-copy blasts are never Waiting and list under Organizations; Gmail addresses compare without dots and +tags; more system senders (invoice@, ebill@, confirmation@, reminders@, machine ids with long digit runs); auto-replies and schedulers are automated; receipts and finished services stay in Updates.
+- Owner's calls: a business asking you to act on its site (eSign, complete a form, pay) is Waiting on you; a bare forward from his wife is People.
+- Known holdout misses (untuned): an imperative ask with no ask phrase, an out-of-office reply that names a weekday (goes to Coming up), a delivery notice from a plain tracking address, a newsletter with only "you are receiving this".
+- UI: dark mode (palette follows the iPhone), People tab People / Organizations / All, filter pills fade before the profile button.
+- Owner step: add graham.denoyer@ipta.com in Profile > Your other addresses.
