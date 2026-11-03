@@ -218,6 +218,8 @@ final class FeedStore {
         var postsByID: [String: Post] = [:]
         var active: [Post] = []
         var people: [Person] = []
+        /// Senders of automated mail: companies, schools' systems, apps.
+        var organizations: [Person] = []
         var waitingPeople: Set<String> = []
         var unreadPeople: Set<String> = []
         var duplicateNames: Set<String> = []
@@ -272,8 +274,14 @@ final class FeedStore {
             if d.waitingPeople.contains(p.id) { waiting.append(p) } else { rest.append(p) }
         }
         d.people = waiting + rest
+        for post in d.active where d.automated.contains(post.id) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
+            let p = post.email.from
+            guard seenIDs.insert(p.id).inserted else { continue }
+            d.organizations.append(p)
+        }
         var names: [String: Int] = [:]
         for p in d.people { names[p.name, default: 0] += 1; d.lastContact[p.id] = Self.thread(for: p, in: d).last?.date }
+        for p in d.organizations { d.lastContact[p.id] = Self.thread(for: p, in: d).last?.date }
         d.duplicateNames = Set(names.filter { $0.value > 1 }.keys)
         return d
     }
@@ -328,6 +336,21 @@ final class FeedStore {
     var needsReplyPosts: [Post] { activePosts.filter { derived.assessments[$0.id]?.section == .waiting } }
 
     var people: [Person] { derived.people }
+    /// Senders of automated mail, for the People tab's Organizations view.
+    var organizations: [Person] { derived.organizations }
+
+    enum ContactKind: String, CaseIterable, Identifiable {
+        case people = "People", organizations = "Organizations", all = "All"
+        var id: String { rawValue }
+    }
+
+    func contacts(_ kind: ContactKind) -> [Person] {
+        switch kind {
+        case .people: return derived.people
+        case .organizations: return derived.organizations
+        case .all: return derived.people + derived.organizations
+        }
+    }
     func needsReply(_ person: Person) -> Bool { derived.waitingPeople.contains(person.id) }
     func hasUnread(_ person: Person) -> Bool { derived.unreadPeople.contains(person.id) }
     func sharesName(_ person: Person) -> Bool { derived.duplicateNames.contains(person.name) }

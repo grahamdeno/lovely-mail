@@ -33,7 +33,6 @@ struct RootView: View {
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(.light, for: .navigationBar)
             }
         }
         .tint(CalmStyle.blue)

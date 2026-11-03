@@ -70,7 +70,7 @@ struct SortingReviewView: View {
             }
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -121,7 +121,7 @@ private struct ReviewRow: View {
             }
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
         .accessibilityElement(children: .contain)
     }
 }

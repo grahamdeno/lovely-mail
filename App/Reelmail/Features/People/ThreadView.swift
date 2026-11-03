@@ -40,7 +40,7 @@ struct ThreadView: View {
                         .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16).padding(.bottom, 8)
             }
         }
@@ -58,7 +58,7 @@ struct ThreadView: View {
         }
         .toolbarBackground(CalmStyle.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        
         .sheet(isPresented: $showingInfo) {
             ConversationInfoSheet(person: person, mode: store.mode)
         }
@@ -125,7 +125,7 @@ private struct ConversationInfoSheet: View {
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
             .navigationTitle("Conversation details").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }.tint(CalmStyle.blue).preferredColorScheme(.light)
+        }.tint(CalmStyle.blue)
     }
 }
 
@@ -149,6 +149,6 @@ private struct EmailSourceSheet: View {
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
             .navigationTitle("Source email").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }.tint(CalmStyle.blue).preferredColorScheme(.light)
+        }.tint(CalmStyle.blue)
     }
 }

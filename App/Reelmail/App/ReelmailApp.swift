@@ -10,7 +10,6 @@ struct ReelmailApp: App {
             RootView()
                 .environment(store)
                 .environment(router)
-                .preferredColorScheme(.light)
                 .task { await store.load() }
         }
     }

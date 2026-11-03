@@ -1,22 +1,27 @@
 import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
+/// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(hex: 0xFBF8F4)
-    static let ink = Color(hex: 0x25222A)
-    static let secondary = Color(hex: 0x6D6870)
-    /// Airmail blue: everything you can tap.
-    static let blue = Color(hex: 0x2E58C8)
+    static let background = Color(light: 0xFBF8F4, dark: 0x17161A)
+    /// Cards, pills and fields that sit on the background.
+    static let card = Color(light: 0xFFFFFF, dark: 0x25232A)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA)
+    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC)
+    /// Airmail blue: everything you can tap. White text on it stays readable in both appearances.
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8)
     /// Postmark rose: "Waiting on you" only. Graphics (rings, dots).
-    static let rose = Color(hex: 0xD2546E)
-    /// Postmark rose for text; passes 4.5:1 on letter paper.
-    static let roseInk = Color(hex: 0xB8405A)
-    static let divider = Color(hex: 0xECE6E2)
-    static let field = Color.white
-    static let bubble = Color(hex: 0xEFEBE8)
-    static let warning = Color(hex: 0xFFF4E6)
-    static let warningInk = Color(hex: 0x7A4A10)
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A)
+    /// Postmark rose for text; passes 4.5:1 on its background in both appearances.
+    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3)
+    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34)
+    static let field = card
+    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930)
+    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F)
+    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B)
+    /// The Undo bar: dark in both appearances, with white text.
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842)
 }
 
 /// The italic "lovely" wordmark. Apple's serif (New York) so nothing extra ships with the app.
@@ -185,7 +190,7 @@ struct TopBar: View {
                 } label: {
                     CalmAvatar(person: store.me, size: 34).frame(minWidth: 44, minHeight: 44)
                 }
-                .padding(.trailing, 12)
+                .padding(.leading, 4).padding(.trailing, 12)
                 .accessibilityLabel("Account and mail options")
             }
             .padding(.top, 4)
@@ -223,13 +228,19 @@ struct FilterPills: View {
                         .fixedSize()
                         .padding(.horizontal, 14).frame(minHeight: 36)
                         .foregroundStyle(selected ? Color.white : CalmStyle.secondary)
-                        .background(selected ? CalmStyle.blue : Color.white, in: Capsule())
+                        .background(selected ? CalmStyle.blue : CalmStyle.card, in: Capsule())
                     }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
         }
-        .contentMargins(.horizontal, 20, for: .scrollContent)
+        .contentMargins(.leading, 20, for: .scrollContent)
+        .contentMargins(.trailing, 28, for: .scrollContent)
         .scrollIndicators(.hidden)
+        // Pills fade out before the profile button instead of running underneath it.
+        .mask(HStack(spacing: 0) {
+            Rectangle()
+            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
+        })
     }
 }
 
@@ -278,7 +289,7 @@ struct UndoBar: View {
         }
         .padding(.horizontal, 16)
         .foregroundStyle(Color.white)
-        .background(CalmStyle.ink.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
+        .background(CalmStyle.toast, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -435,12 +446,12 @@ struct FilteredMailReview: View {
                                 Button("Keep this message") { store.setMessageRule(post.id, destination: .inbox) }.buttonStyle(CalmActionStyle())
                             }
                         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 16)).disabled(store.rules.persistenceError != nil)
+                            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).disabled(store.rules.persistenceError != nil)
                     }
                 }.padding(20)
             }.background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
                 .navigationTitle("Filtered senders").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }.tint(CalmStyle.blue).preferredColorScheme(.light)
+        }.tint(CalmStyle.blue)
     }
 }
