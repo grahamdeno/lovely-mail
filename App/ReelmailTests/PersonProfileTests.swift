@@ -89,4 +89,22 @@ final class PersonProfileTests: XCTestCase {
         let partial = GmailService.applyUnread(cached, unread: ["markedUnread"], complete: false)
         XCTAssertEqual(partial.map(\.isUnread), [true, true, true], "An incomplete unread list never marks mail read")
     }
+
+    func testEmailScreenRules() {
+        let body = "Please log onto our website (www.livestandrewsreserve.com) and eSign it today. Call 910.313.6100."
+        let linked = EmailPresentation.linked(body)
+        let links = linked.runs.compactMap(\.link).map(\.absoluteString)
+        XCTAssertTrue(links.contains { $0.contains("livestandrewsreserve.com") }, "\(links)")
+        XCTAssertTrue(links.contains { $0.hasPrefix("tel:") && $0.contains("9103136100") }, "\(links)")
+        XCTAssertEqual(String(linked.characters), body, "Linking never changes the text")
+
+        let solo = Email(id: "a", threadId: "a", from: dana, to: ["Graham <graham.denoyer@gmail.com>"], subject: "S", date: now, body: "Hi")
+        XCTAssertFalse(EmailPresentation.showsRecipients(solo, mine: ["grahamdenoyer@gmail.com"]), "Mail only to you needs no To line")
+        var group = solo; group.cc = ["team@school.example"]
+        XCTAssertTrue(EmailPresentation.showsRecipients(group, mine: ["grahamdenoyer@gmail.com"]), "Group mail keeps its recipients")
+
+        XCTAssertFalse(EmailPresentation.showsSummary(solo))
+        XCTAssertEqual(EmailPresentation.dateLine(now.addingTimeInterval(-8 * 86_400), now: now).hasSuffix("8 days ago"), true)
+    }
 }
+

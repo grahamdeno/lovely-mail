@@ -25,7 +25,7 @@ struct ReelmailApp: App {
     }
 }
 
-/// Light, dark, or follow the iPhone. Chosen in Profile; saved on this phone.
+/// Light, dark, or follow the iPhone. Chosen in Settings; saved on this phone.
 enum Appearance: String, CaseIterable, Identifiable {
     case system, light, dark, neon
     static let storageKey = "lovely.appearance"
@@ -57,19 +57,22 @@ enum Route: Hashable {
     /// An organization's page, by group key.
     case organization(String)
     case organizationList
+    case settings
+    /// Review sorting and Summary Lab, inside Settings.
+    case testingTools
+    /// The privacy paragraph, inside Settings.
+    case aboutPrivacy
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {
     // Ordered for a right thumb: the most used tabs sit on the right.
-    case profile, search, new, people, home
+    case search, people, home
 
     var id: Int { rawValue }
 
     var title: String {
         switch self {
-        case .profile: return "Profile"
         case .search: return "Search"
-        case .new: return "New"
         case .people: return "People"
         case .home: return "Home"
         }
@@ -77,9 +80,7 @@ enum AppTab: Int, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .profile: return "person.crop.square"
         case .search: return "magnifyingglass"
-        case .new: return "square.and.pencil"
         case .people: return "person.2"
         case .home: return "house"
         }

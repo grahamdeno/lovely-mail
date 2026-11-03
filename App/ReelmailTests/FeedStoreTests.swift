@@ -128,13 +128,13 @@ final class FeedStoreTests: XCTestCase {
         let store = FeedStore(gmail: FakeInboxClient(), summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
         await store.load()
         XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
-        XCTAssertEqual(store.addOtherAddress("Sender@reelmail.example"), .added)
+        XCTAssertEqual(store.addOtherAddress("Pal@reelmail.example"), .added)
         XCTAssertEqual(store.section(for: store.posts[0]), .notes)
         XCTAssertEqual(store.noteCount, 1)
         XCTAssertTrue(store.people.isEmpty, "Your own addresses are not people")
         XCTAssertEqual(store.sections.map { $0.section }, [.notes])
         XCTAssertEqual(store.demoRules.otherAddresses, [], "Live addresses must not leak into the demo namespace")
-        store.removeOtherAddress("sender@reelmail.example")
+        store.removeOtherAddress("pal@reelmail.example")
         XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
         XCTAssertEqual(store.addOtherAddress("not an address"), .invalid)
         XCTAssertEqual(store.addOtherAddress("graham.denoyer@icloud.com"), .added, "A normal address is accepted")
@@ -152,11 +152,11 @@ final class FeedStoreTests: XCTestCase {
         await store.load()
         XCTAssertEqual(store.mode, .gmail)
         XCTAssertNil(store.account)
-        XCTAssertEqual(store.addOtherAddress("Sender@reelmail.example"), .pending)
-        XCTAssertEqual(store.pendingOtherAddresses, ["sender@reelmail.example"])
+        XCTAssertEqual(store.addOtherAddress("Pal@reelmail.example"), .pending)
+        XCTAssertEqual(store.pendingOtherAddresses, ["pal@reelmail.example"])
         client.fails = false
         await store.load()
-        XCTAssertEqual(store.otherAddresses, ["sender@reelmail.example"])
+        XCTAssertEqual(store.otherAddresses, ["pal@reelmail.example"])
         XCTAssertTrue(store.pendingOtherAddresses.isEmpty)
         XCTAssertEqual(store.section(for: store.posts[0]), .notes)
     }
@@ -197,10 +197,10 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertEqual(store.account, "owner@reelmail.example")
         XCTAssertEqual(store.me.email, "owner@reelmail.example")
         XCTAssertEqual(store.section(for: store.posts[0]), .waiting)
-        store.setSenderRule("sender@reelmail.example", destination: .filtered)
+        store.setSenderRule("pal@reelmail.example", destination: .filtered)
         XCTAssertTrue(store.activePosts.isEmpty)
         XCTAssertEqual(store.filteredPosts.count, 1)
-        XCTAssertEqual(store.demoRules.decision(messageID: "fixture-live", sender: "sender@reelmail.example").destination, .inbox,
+        XCTAssertEqual(store.demoRules.decision(messageID: "fixture-live", sender: "pal@reelmail.example").destination, .inbox,
                        "Live rules must not leak into the demo namespace")
     }
 
@@ -257,7 +257,7 @@ final class FakeInboxClient: GmailInboxClient {
         if expires { throw GmailService.GmailError.sessionExpired }
         fetches += 1; lastKnown = known
         let inbox = [Email(id: "fixture-live", threadId: "fixture-thread",
-                      from: Person(id: "sender", name: "Test Sender", email: "sender@reelmail.example", hue: 0.4),
+                      from: Person(id: "sender", name: "Test Sender", email: "pal@reelmail.example", hue: 0.4),
                       to: ["owner@reelmail.example"], subject: "Fixture message",
                       date: Date(timeIntervalSince1970: 1700000000), body: "A deterministic fictional message. Can you call me?")]
         return MailboxSnapshot(account: "owner@reelmail.example", inbox: inbox, sent: [], fetchedAt: Date(timeIntervalSince1970: 1700000100))

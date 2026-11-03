@@ -38,6 +38,11 @@ struct PeopleView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     let people = self.people
                     let groups = self.groups
+                    let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    // Hidden while searching: results already include matching organizations.
+                    if !searching, !groups.isEmpty {
+                        OrganizationsShortcut(groups: groups).padding(.top, 12)
+                    }
                     if people.isEmpty, groups.isEmpty {
                         Text(query.isEmpty ? "No people or organizations in the loaded mail yet." : "No matches.")
                             .font(.body).padding(.vertical, 24)
@@ -71,12 +76,12 @@ struct PeopleView: View {
                         Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                     }
                     if !groups.isEmpty {
-                        // Searching shows every match; otherwise the five most recent, and the title opens the rest.
+                        // Searching shows every match; otherwise the three most recent, and the title opens the rest.
                         Button { router.open(.organizationList) } label: {
                             DigestTitle(text: "Organizations", count: groups.count, chevron: true)
                         }
                         .buttonStyle(.plain).padding(.top, 10).accessibilityHint("Shows all organizations")
-                        ForEach(query.isEmpty ? Array(groups.prefix(5)) : groups) { group in
+                        ForEach(searching ? groups : Array(groups.prefix(3))) { group in
                             OrganizationRow(group: group)
                             Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                         }
@@ -93,7 +98,7 @@ struct PeopleView: View {
     private var groups: [HomeDigest.OrganizationGroup] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.organizationGroups.filter { g in
-            q.isEmpty || g.name.localizedCaseInsensitiveContains(q) || g.senders.contains { $0.address.localizedCaseInsensitiveContains(q) }
+            q.isEmpty || g.matches(q)
         }
     }
 
@@ -101,5 +106,29 @@ struct PeopleView: View {
         if let email {
             Text(MailTime.label(email.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
         }
+    }
+}
+
+/// "Organizations · 12 ›" with up to four logos, under the search field. Opens the full list.
+struct OrganizationsShortcut: View {
+    @Environment(Router.self) private var router
+    let groups: [HomeDigest.OrganizationGroup]
+    var body: some View {
+        Button { router.open(.organizationList) } label: {
+            HStack(spacing: 10) {
+                Text("Organizations · \(groups.count)").font(.subheadline.weight(.semibold))
+                Spacer(minLength: 8)
+                HStack(spacing: 6) {
+                    ForEach(groups.prefix(4)) { group in
+                        CalmAvatar(person: group.posts[0].email.from, size: 26, organization: true, domain: group.domain)
+                    }
+                }
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+            }
+            .padding(.horizontal, 14).frame(minHeight: 48).frame(maxWidth: .infinity)
+            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12)).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Organizations, \(groups.count)").accessibilityHint("Shows all organizations")
     }
 }

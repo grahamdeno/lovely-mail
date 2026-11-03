@@ -31,10 +31,10 @@ final class GmailService: NSObject {
             case .refused(let code, let e):
                 return "Gmail refused the request (HTTP \(code), \(e.reason)). \(e.message)"
             case .notSignedIn: return "Not signed in to Gmail."
-            case .sessionExpired: return "Google signed you out. Reconnect Gmail in Profile."
-            case .needsTrashPermission: return "Lovely needs your OK to change mail in Gmail (Trash and Done). Reconnect Gmail in Profile and allow it."
+            case .sessionExpired: return "Google signed you out. Reconnect Gmail in Settings."
+            case .needsTrashPermission: return "Lovely needs your OK to change mail in Gmail (Trash and Done). Reconnect Gmail in Settings and allow it."
             case .mailAccessNotGranted:
-                return "Google didn't give Lovely access to your mail. Reconnect Gmail in Profile, and on Google's screen tick the Gmail box (or Select all) before Continue."
+                return "Google didn't give Lovely access to your mail. Reconnect Gmail in Settings, and on Google's screen tick the Gmail box (or Select all) before Continue."
             }
         }
     }

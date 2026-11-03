@@ -10,9 +10,7 @@ struct RootView: View {
                 switch router.tab {
                 case .home: HomeView()
                 case .people: PeopleView()
-                case .new: NewMessageView()
                 case .search: SearchView()
-                case .profile: MyProfileView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -32,6 +30,9 @@ struct RootView: View {
                     case .mailList(let key): DigestListView(key: key)
                     case .organization(let key): OrganizationView(key: key)
                     case .organizationList: OrganizationListView()
+                    case .settings: SettingsView()
+                    case .testingTools: TestingToolsView()
+                    case .aboutPrivacy: AboutPrivacyView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

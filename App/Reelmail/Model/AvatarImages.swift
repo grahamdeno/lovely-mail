@@ -6,7 +6,7 @@ import UIKit
 /// Pictures for avatars, both optional and both kept on this phone:
 /// - People: the photo from your own Contacts, matched by email address. Nothing leaves the phone.
 /// - Organizations: the company's own icon, fetched once from the company's own website (never a third-party
-///   icon service, never for people or shared domains like gmail.com) and cached. Turn off in Profile.
+///   icon service, never for people or shared domains like gmail.com) and cached. Turn off in Settings.
 @MainActor
 @Observable
 final class AvatarImages {

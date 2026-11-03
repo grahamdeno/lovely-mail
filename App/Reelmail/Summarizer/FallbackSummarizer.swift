@@ -49,10 +49,25 @@ struct FallbackSummarizer: EmailSummarizer {
         if let first = lines.first, isGreeting(first), lines.count > 1 { lines.removeFirst() }
         let text = lines.joined(separator: " ")
         guard !text.isEmpty else { return "" }
-        if let range = text.range(of: #"^.*?[.!?](\s|$)"#, options: .regularExpression) {
-            return String(text[range]).trimmingCharacters(in: .whitespaces)
+        // Take the first break that ends a real sentence: not after "Mr." or "J.", and not before three words.
+        var from = text.startIndex
+        while let range = text.range(of: #"[.!?](\s|$)"#, options: .regularExpression, range: from..<text.endIndex) {
+            let candidate = String(text[..<range.upperBound]).trimmingCharacters(in: .whitespaces)
+            if endsSentence(candidate) { return candidate }
+            from = range.upperBound
         }
         return text
+    }
+
+    private static let abbreviations: Set<String> = ["mr.", "mrs.", "ms.", "dr.", "st.", "jr.", "sr.", "vs.", "e.g.", "i.e."]
+
+    /// A candidate ends a sentence when it has at least three words and does not stop on an abbreviation or an initial.
+    private static func endsSentence(_ candidate: String) -> Bool {
+        guard TextClamp.wordCount(candidate) >= 3 else { return false }
+        guard candidate.hasSuffix("."), let token = candidate.split(separator: " ").last.map(String.init) else { return true }
+        let word = token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'(")).lowercased()
+        if abbreviations.contains(word) { return false }
+        return token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'(")).range(of: #"^[A-Z]\.$"#, options: .regularExpression) == nil
     }
 
     static func isGreeting(_ line: String) -> Bool {
@@ -77,11 +92,35 @@ struct FallbackSummarizer: EmailSummarizer {
         ReplySignals.needsReply(body: body, automated: automated, category: category)
     }
 
+    /// Wording that means a secret is in the message. "Temporary password will come in a separate email" is not one.
+    private static let secretPhrases = ["verification code", "security code", "one-time code", "your code is", "password reset",
+                                        "passcode", "api key", "secret key", "social security", "account number", "routing number"]
+    private static let secretPatterns = [
+        #"(your|the|a) (temporary |new |one-time )?password (is|:)"#,
+        #"(temporary|new) password( is|:)"#,
+        #"\bpassword:"#,
+        #"\bsk-[a-z0-9_\-]{20,}"#,
+    ]
+
     static func isSensitive(_ lower: String) -> Bool {
         // Real secrets only: codes, passwords, keys and account numbers. Ordinary mail keeps its preview.
-        ["verification code", "security code", "one-time code", "your code is", "password reset", "your password",
-         "temporary password", "passcode", "api key", "secret key", "social security", "account number", "routing number"]
-            .contains { lower.contains($0) }
+        let text = ReplySignals.normalizeQuotes(lower).lowercased()
+        if secretPhrases.contains(where: { text.contains($0) }) { return true }
+        if secretPatterns.contains(where: { text.range(of: $0, options: .regularExpression) != nil }) { return true }
+        // Long ids inside links (tracking, unsubscribe, order pages) are not secrets: check only text outside URLs.
+        let outsideLinks = text.replacingOccurrences(of: #"(https?://|www\.)\S+"#, with: " ", options: .regularExpression)
+        return hasKeyLikeToken(outsideLinks)
+    }
+
+    /// A run of 32 or more letters and digits with both present: an API key, token or hash.
+    static func hasKeyLikeToken(_ text: String) -> Bool {
+        var search = text.startIndex
+        while let r = text.range(of: #"[A-Za-z0-9]{32,}"#, options: .regularExpression, range: search..<text.endIndex) {
+            let run = text[r]
+            if run.contains(where: { $0.isLetter }) && run.contains(where: { $0.isNumber }) { return true }
+            search = r.upperBound
+        }
+        return false
     }
 
     private static let datePattern = try! NSRegularExpression(

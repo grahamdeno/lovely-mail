@@ -474,8 +474,11 @@ final class FeedStore {
 
     /// Moves a message to Gmail's Trash (recoverable for 30 days). It leaves Lovely at once; if Gmail refuses,
     /// it comes back and the reason is shown. In demo mode this only hides the fictional message.
+    /// The last message moved to Trash, so a screen can offer Undo.
+    private(set) var lastTrashed: Post?
+
     func moveToTrash(_ post: Post) async {
-        hidden.insert(post.id); persist()
+        hidden.insert(post.id); lastTrashed = post; persist()
         guard mode == .gmail else { return }
         do { try await gmail.trash(messageID: post.id) }
         catch { trashFailed(post, error) }
@@ -492,6 +495,7 @@ final class FeedStore {
 
     private func trashFailed(_ post: Post, _ error: Error) {
         hidden.remove(post.id); persist()
+        if lastTrashed?.id == post.id { lastTrashed = nil }
         if let e = error as? GmailService.GmailError {
             switch e {
             case .needsTrashPermission: needsTrashPermission = true

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
-/// Neon (an 80s gel palette: midnight violet, hot pink and electric cyan) replaces both when chosen in Profile.
+/// Neon (an 80s gel palette: midnight violet, hot pink and electric cyan) replaces both when chosen in Settings.
 enum CalmStyle {
     /// Letter paper.
     static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x120A24)
@@ -122,7 +122,6 @@ enum UndoAction: Equatable {
 struct HomeView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
-    @State private var showingFiltered = false
     @State private var undo: UndoAction?
 
     private let rowInsets = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
@@ -130,7 +129,7 @@ struct HomeView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Pinned: the filter pills and account button stay put while the feed scrolls.
-            TopBar(onFiltered: { showingFiltered = true })
+            TopBar()
             List {
                 StatusNotices()
                     .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -169,7 +168,7 @@ struct HomeView: View {
         }
         .animation(.easeOut(duration: 0.2), value: undo?.id)
         .onChange(of: store.lastDone?.id) { _, _ in if let post = store.lastDone { offer(.done(post)) } }
-        .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
+        .onChange(of: store.lastTrashed?.id) { _, _ in if let post = store.lastTrashed { offer(.trash(post)) } }
     }
 
     @ViewBuilder private func rows(_ posts: [Post], compact: Bool, showAge: Bool = false) -> some View {
@@ -295,13 +294,12 @@ struct HomeView: View {
     }
 }
 
-/// The only thing above the feed: filter pills and the account menu. No title, no wordmark.
+/// The only thing above the feed: the date and the Settings button. No title, no wordmark.
 /// It stays in place while the feed scrolls. Loading shows as a thin bar; the account address and
 /// "updated" time are at the end of the list.
 struct TopBar: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
-    var onFiltered: () -> Void = {}
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
@@ -309,21 +307,14 @@ struct TopBar: View {
                     .font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
                     .padding(.leading, 20)
                 Spacer()
-                Button { router.tab = .search } label: {
-                    Image(systemName: "magnifyingglass").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue)
-                        .frame(width: 44, height: 44)
+                Button { router.open(.settings) } label: {
+                    CalmAvatar(person: store.me, size: 36)
+                        .overlay { RoundedRectangle(cornerRadius: 36 * 0.3).strokeBorder(CalmStyle.divider, lineWidth: 1) }
+                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
-                .accessibilityLabel("Search mail")
-                Menu {
-                    if let account = store.account { Text(account) }
-                    Button("Account and settings") { router.tab = .profile }
-                    Button("Filtered senders", action: onFiltered)
-                    if !store.hiddenPosts.isEmpty { Button("Show hidden mail (\(store.hiddenPosts.count))") { store.restoreAll() } }
-                } label: {
-                    CalmAvatar(person: store.me, size: 34).frame(minWidth: 44, minHeight: 44)
-                }
-                .padding(.leading, 4).padding(.trailing, 12)
-                .accessibilityLabel("Account and mail options")
+                .buttonStyle(.plain)
+                .padding(.trailing, 12)
+                .accessibilityLabel("Settings")
             }
             .padding(.top, 4)
             ZStack {
@@ -461,7 +452,7 @@ struct EmptyFeedNote: View {
             } else if store.filter == .waiting {
                 Text("No one is waiting on a reply from you.").font(.caption).foregroundStyle(CalmStyle.secondary)
             } else if store.filter == .notes {
-                Text("Mail from your other addresses shows here. Add them in Profile.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Mail from your other addresses shows here. Add them in Settings.").font(.caption).foregroundStyle(CalmStyle.secondary)
             }
         }.padding(.vertical, 24)
     }
@@ -742,7 +733,7 @@ struct NextUpCard: View {
                     }
                     Text(stale ? "Still need this? Unread \(HomeDigest.age(of: post.email.date, now: Date()))."
                                : "Unread \(HomeDigest.age(of: post.email.date, now: Date())).")
-                        .font(.caption.weight(.medium)).foregroundStyle(stale ? CalmStyle.roseInk : CalmStyle.secondary)
+                        .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -750,12 +741,12 @@ struct NextUpCard: View {
             .buttonStyle(.plain)
             .accessibilityHint("Opens the message")
             HStack(spacing: 8) {
-                Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark") }
-                    .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
+                Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark").labelStyle(.titleAndIcon) }
+                    .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
                     .accessibilityHint("Marks it read in Gmail")
                 if !organization {
-                    Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
-                        .buttonStyle(CalmActionStyle()).lineLimit(1).fixedSize()
+                    Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left").labelStyle(.titleAndIcon) }
+                        .buttonStyle(CalmActionStyle()).lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 Button(action: onTrash) {

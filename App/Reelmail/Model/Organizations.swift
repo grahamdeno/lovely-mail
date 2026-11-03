@@ -81,9 +81,25 @@ enum PersonSignals {
         let domain = email.lowercased().split(separator: "@").last.map(String.init) ?? ""
         if trimmed.isEmpty || trimmed.contains("@") { return freeMail.contains(domain) }
         if freeMail.contains(domain) { return true }
+        // A name Lovely built from the address ("DFAS SmartDocs" from dfas-smartdocs@, "Infinitecampus" from
+        // noreply@infinitecampus.org) says nothing about a person; real people set a display name.
+        if isFromAddress(trimmed, email: email) { return false }
         // "Amy Hand", "James Brendle", "Hand, Amy": two to four capitalized words.
         let original = trimmed.split(whereSeparator: { $0 == " " || $0 == "," }).map(String.init)
         return (2...4).contains(original.count) && original.allSatisfy { $0.first?.isUppercase == true }
+    }
+
+    /// True when the name is just the address's domain label, or a system-style local part, respelled.
+    static func isFromAddress(_ name: String, email: String) -> Bool {
+        func squash(_ s: String) -> String { s.lowercased().filter { $0.isLetter || $0.isNumber } }
+        let parts = email.lowercased().split(separator: "@", maxSplits: 1).map(String.init)
+        guard parts.count == 2, !squash(name).isEmpty else { return false }
+        let labels = parts[1].split(separator: ".").map { squash(String($0)) }
+        if labels.contains(squash(name)) { return true }
+        // "dana.brooks@" spelled out is still Dana Brooks; hyphens, underscores or digits in the address are a system's.
+        let local = parts[0]
+        let systemLike = local.contains("-") || local.contains("_") || local.contains(where: \.isNumber)
+        return systemLike && squash(name) == squash(local)
     }
 
     /// "julia denoyer" for a two-to-four word name, used to treat one person's two addresses as one.
