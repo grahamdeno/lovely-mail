@@ -16,6 +16,9 @@ iPhone by Apple Intelligence. See `docs/calm-feed.md` for the sorting rules and 
 - **No secrets in the repo.** The Google client ID is public by design for iOS OAuth clients. OAuth tokens live in the
   Keychain, this device only. Email bodies are never logged.
 - **Hide is local.** Hiding a message only affects the app.
+- **Pictures stay local.** People's photos come from your own Contacts (if you turn it on), matched by email on the
+  phone. Company logos are fetched once from each company's own website (never a third-party icon service, never for
+  people or shared domains like gmail.com) and cached; turn off in Profile. These are the only requests besides Gmail.
 
 ## What's here
 

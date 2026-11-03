@@ -39,11 +39,36 @@ struct CalmAvatar: View {
     var size: CGFloat = 40
     /// Rose ring: this person is waiting on you. The only place besides labels that uses rose.
     var waiting = false
+    /// Organizations show their company icon (when fetched); people show their Contacts photo.
+    var organization = false
+    var domain: String? = nil
+    private var images: AvatarImages { AvatarImages.shared }
+
+    private var picture: UIImage? {
+        organization ? images.logo(for: domain ?? OrganizationKey.domain(of: person.email)) : images.contactPhoto(for: person.email)
+    }
+
     var body: some View {
-        Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
-            .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(CalmStyle.blue)
-            .frame(width: size, height: size)
-            .background(CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
+        Group {
+            if let picture {
+                if organization {
+                    Image(uiImage: picture).resizable().scaledToFit()
+                        .frame(width: size * 0.76, height: size * 0.76)
+                        .frame(width: size, height: size)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
+                } else {
+                    Image(uiImage: picture).resizable().scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
+                }
+            } else {
+                Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
+                    .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(organization ? CalmStyle.secondary : CalmStyle.blue)
+                    .frame(width: size, height: size)
+                    .background(organization ? CalmStyle.bubble : CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
+            }
+        }
             .padding(waiting ? 3 : 0)
             .overlay {
                 if waiting { RoundedRectangle(cornerRadius: size * 0.3 + 3).strokeBorder(CalmStyle.rose, lineWidth: 1.75) }
@@ -323,9 +348,12 @@ struct OrganizationChips: View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(groups) { group in
-                    Button { router.open(.mailList("org:" + group.id)) } label: {
-                        Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
-                            .padding(.horizontal, 12).frame(minHeight: 36)
+                    Button { router.open(.organization(group.id)) } label: {
+                        HStack(spacing: 8) {
+                            CalmAvatar(person: group.posts[0].email.from, size: 22, organization: true, domain: group.domain)
+                            Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
+                        }
+                            .padding(.leading, 8).padding(.trailing, 12).frame(minHeight: 36)
                             .foregroundStyle(CalmStyle.ink)
                             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 10))
                     }.buttonStyle(.plain)
@@ -489,7 +517,7 @@ struct MailRow: View {
 
     private var compactBody: some View {
         HStack(alignment: .top, spacing: 12) {
-            CalmAvatar(person: post.email.from, size: 30, waiting: waiting)
+            CalmAvatar(person: post.email.from, size: 30, waiting: waiting, organization: !fromPerson && section != .notes)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(compactName).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
@@ -507,7 +535,7 @@ struct MailRow: View {
 
     private var fullBody: some View {
             HStack(alignment: .top, spacing: 12) {
-                CalmAvatar(person: post.email.from, size: 36, waiting: waiting)
+                CalmAvatar(person: post.email.from, size: 36, waiting: waiting, organization: !fromPerson && section != .notes)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(post.email.from.name).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)

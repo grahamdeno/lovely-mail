@@ -7,7 +7,8 @@ struct PeopleView: View {
     @State private var kind: FeedStore.ContactKind = .people
     private var people: [Person] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return store.contacts(kind).filter {
+        // Organizations are listed as grouped companies below, so this list is people only.
+        return (kind == .organizations ? [] : store.contacts(.people)).filter {
             q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.email.localizedCaseInsensitiveContains(q)
         }.sorted { left, right in
             let a = store.lastContact(left), b = store.lastContact(right)
@@ -43,7 +44,8 @@ struct PeopleView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     let people = self.people
-                    if people.isEmpty {
+                    let groups = self.groups
+                    if people.isEmpty, groups.isEmpty {
                         Text(query.isEmpty ? (kind == .organizations ? "No organizations in the loaded mail yet." : "No people in the loaded mail yet.")
                                            : "No matches.")
                             .font(.body).padding(.vertical, 24)
@@ -77,6 +79,26 @@ struct PeopleView: View {
                         }.buttonStyle(.plain).accessibilityHint("Opens the loaded conversation")
                         Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                     }
+                    if !groups.isEmpty {
+                        if kind == .all {
+                            Text("ORGANIZATIONS").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                                .padding(.top, 22).padding(.bottom, 4)
+                        }
+                        ForEach(groups) { group in
+                            Button { router.open(.organization(group.id)) } label: {
+                                HStack(alignment: .center, spacing: 12) {
+                                    CalmAvatar(person: group.posts[0].email.from, size: 44, organization: true, domain: group.domain)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack { Text(group.name).font(.headline).lineLimit(1); Spacer(minLength: 8); time(group.posts.first?.email) }
+                                        Text(group.senders.count > 1 ? "\(group.posts.count) messages from \(group.senders.count) senders" : "\(group.posts.count) message\(group.posts.count == 1 ? "" : "s")")
+                                            .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                    }
+                                }
+                                .padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityHint("Opens this organization")
+                            Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
+                        }
+                    }
                     Text(store.mode == .sample ? "Fictional connections and messages." : "People from loaded mail, not your complete address book.")
                         .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
                 }.padding(.horizontal, 20).padding(.bottom, 20)
@@ -85,6 +107,15 @@ struct PeopleView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
     }
+    /// Organizations, grouped by company, for the Organizations and All views.
+    private var groups: [HomeDigest.OrganizationGroup] {
+        guard kind != .people else { return [] }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return store.organizationGroups.filter { g in
+            q.isEmpty || g.name.localizedCaseInsensitiveContains(q) || g.senders.contains { $0.address.localizedCaseInsensitiveContains(q) }
+        }
+    }
+
     @ViewBuilder private func time(_ email: Email?) -> some View {
         if let email {
             Text(MailTime.label(email.date)).font(.caption).foregroundStyle(CalmStyle.secondary)

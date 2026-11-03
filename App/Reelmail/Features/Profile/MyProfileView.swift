@@ -51,6 +51,7 @@ struct MyProfileView: View {
                 ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
 
                 OtherAddressesCard()
+                PicturesCard()
 
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
@@ -64,7 +65,7 @@ struct MyProfileView: View {
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
 
-                Text("Lovely reads your Gmail and writes summaries on this iPhone. The one change it can make is moving a message to Gmail's Trash when you swipe it there, and you can undo that. It never sends mail, never deletes anything for good, and never changes labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+                Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off above. The one change it can make is moving a message to Gmail's Trash when you swipe it there, and you can undo that. It never sends mail, never deletes anything for good, and never changes labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
             }
             .padding(20)
@@ -76,6 +77,28 @@ struct MyProfileView: View {
     private var rulesSummary: String {
         let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
         return filtered == 0 ? "No senders filtered" : (filtered == 1 ? "1 sender filtered" : "\(filtered) senders filtered")
+    }
+}
+
+/// Where avatar pictures come from. Both stay on this phone.
+struct PicturesCard: View {
+    @State private var images = AvatarImages.shared
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Pictures").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Toggle("Photos from your Contacts", isOn: Binding(get: { images.useContacts },
+                                                             set: { on in Task { await images.setUseContacts(on) } }))
+                .font(.subheadline)
+            Text("Matched by email address on this iPhone. Nothing is uploaded.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            if !images.contactsStatus.isEmpty {
+                Text(images.contactsStatus).font(.caption).foregroundStyle(CalmStyle.roseInk)
+            }
+            Toggle("Company logos", isOn: $images.showLogos).font(.subheadline)
+            Text("Fetched once from each company's own website and kept on this iPhone. Never for people, never through a third party.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

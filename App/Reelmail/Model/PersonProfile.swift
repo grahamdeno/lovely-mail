@@ -76,7 +76,7 @@ struct PersonProfile: Equatable {
         var parts: [String] = []
         let sinceText = since.map { " since " + $0.formatted(.dateTime.month(.abbreviated).year()) } ?? ""
         if isOrganization {
-            parts.append("An organization, not a person. \(total) emails\(sinceText).")
+            parts.append("\(person.name). \(total) email\(total == 1 ? "" : "s")\(sinceText).")
         } else {
             parts.append("You've traded \(total) email\(total == 1 ? "" : "s") with \(person.firstName)\(sinceText).")
         }
@@ -93,7 +93,7 @@ struct PersonProfile: Equatable {
         } else if let promise = open.first(where: { !$0.theirs }) {
             parts.append("You owe them: \u{201C}\(promise.text)\u{201D}")
         } else {
-            parts.append("Nothing open.")
+            parts.append(isOrganization ? "Nothing needs you." : "Nothing open.")
         }
         return parts.joined(separator: " ")
     }

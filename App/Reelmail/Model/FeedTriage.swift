@@ -66,6 +66,25 @@ struct HomeDigest {
         let name: String
         let posts: [Post]
         var latest: Date { posts.map(\.email.date).max() ?? .distantPast }
+        /// The company's domain, for its logo. Nil for groups by name.
+        var domain: String? { OrganizationKey.domain(ofKey: id) }
+        /// Each sending address and how many messages it sent, most first.
+        var senders: [(address: String, count: Int)] {
+            var counts: [String: Int] = [:]
+            for p in posts { counts[p.email.from.email.lowercased(), default: 0] += 1 }
+            return counts.map { ($0.key, $0.value) }.sorted { $0.count == $1.count ? $0.address < $1.address : $0.count > $1.count }
+        }
+
+        /// Groups posts by organization key, newest group first.
+        static func group(_ posts: [Post], key: (Post) -> String) -> [OrganizationGroup] {
+            var byKey: [String: [Post]] = [:]
+            for post in posts { byKey[key(post), default: []].append(post) }
+            return byKey.map { k, v in
+                OrganizationGroup(id: k, name: OrganizationKey.displayName(for: v.map(\.email.from), key: k),
+                                  posts: v.sorted { $0.email.date > $1.email.date })
+            }
+            .sorted { $0.latest == $1.latest ? $0.name < $1.name : $0.latest > $1.latest }
+        }
         static func == (a: Self, b: Self) -> Bool { a.id == b.id && a.posts.map(\.id) == b.posts.map(\.id) }
     }
 
@@ -77,9 +96,10 @@ struct HomeDigest {
     var earlier: [Post] = []
 
     /// `isOrganization`: automated mail, or a list sent as a blind copy.
-    static func make(active: [Post], section: (Post) -> FeedSection, isOrganization: (Post) -> Bool, now: Date) -> HomeDigest {
+    static func make(active: [Post], section: (Post) -> FeedSection, isOrganization: (Post) -> Bool,
+                     groupKey: ((Post) -> String)? = nil, now: Date) -> HomeDigest {
         var d = HomeDigest()
-        var groups: [String: (name: String, posts: [Post])] = [:]
+        var orgPosts: [Post] = []
         for post in active.sorted(by: { $0.email.date > $1.email.date }) {
             let s = section(post)
             if s == .waiting { d.waiting.append(post); continue }
@@ -88,14 +108,12 @@ struct HomeDigest {
             if !recent { d.earlier.append(post); continue }
             if post.email.isUnread { d.new.append(post); continue }
             if isOrganization(post) || s != .people {
-                let name = organizationName(post.email.from)
-                groups[name.lowercased(), default: (name, [])].posts.append(post)
+                orgPosts.append(post)
             } else {
                 d.people.append(post)
             }
         }
-        d.organizations = groups.map { OrganizationGroup(id: $0.key, name: $0.value.name, posts: $0.value.posts) }
-            .sorted { $0.latest == $1.latest ? $0.name < $1.name : $0.latest > $1.latest }
+        d.organizations = OrganizationGroup.group(orgPosts, key: groupKey ?? { OrganizationKey.key(for: $0.email.from, overrides: [:]) })
         return d
     }
 

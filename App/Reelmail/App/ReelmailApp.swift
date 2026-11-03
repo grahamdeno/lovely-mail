@@ -22,6 +22,8 @@ enum Route: Hashable {
     case sortingReview
     /// "earlier", or "org:<group id>" from the Home digest.
     case mailList(String)
+    /// An organization's page, by group key.
+    case organization(String)
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {
