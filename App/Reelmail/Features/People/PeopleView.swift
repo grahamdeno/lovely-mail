@@ -4,11 +4,9 @@ struct PeopleView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var query = ""
-    @State private var kind: FeedStore.ContactKind = .people
     private var people: [Person] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Organizations are listed as grouped companies below, so this list is people only.
-        return (kind == .organizations ? [] : store.contacts(.people)).filter {
+        return store.contacts(.people).filter {
             q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.email.localizedCaseInsensitiveContains(q)
         }.sorted { left, right in
             let a = store.lastContact(left), b = store.lastContact(right)
@@ -27,16 +25,11 @@ struct PeopleView: View {
                 }.padding(.bottom, 12)
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
-                    TextField("Find a person", text: $query)
+                    TextField("Find a person or organization", text: $query)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityLabel("Find a person by name or email address")
                 }
                 .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
-                Picker("Show", selection: $kind) {
-                    ForEach(FeedStore.ContactKind.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented).padding(.top, 10)
-                .accessibilityLabel("Show people, organizations or all")
             }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 10)
             .background(CalmStyle.background)
@@ -46,8 +39,7 @@ struct PeopleView: View {
                     let people = self.people
                     let groups = self.groups
                     if people.isEmpty, groups.isEmpty {
-                        Text(query.isEmpty ? (kind == .organizations ? "No organizations in the loaded mail yet." : "No people in the loaded mail yet.")
-                                           : "No matches.")
+                        Text(query.isEmpty ? "No people or organizations in the loaded mail yet." : "No matches.")
                             .font(.body).padding(.vertical, 24)
                     }
                     ForEach(people) { person in
@@ -80,22 +72,13 @@ struct PeopleView: View {
                         Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                     }
                     if !groups.isEmpty {
-                        if kind == .all {
-                            Text("ORGANIZATIONS").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
-                                .padding(.top, 22).padding(.bottom, 4)
+                        // Searching shows every match; otherwise the five most recent, and the title opens the rest.
+                        Button { router.open(.organizationList) } label: {
+                            DigestTitle(text: "Organizations", count: groups.count, chevron: true)
                         }
-                        ForEach(groups) { group in
-                            Button { router.open(.organization(group.id)) } label: {
-                                HStack(alignment: .center, spacing: 12) {
-                                    CalmAvatar(person: group.posts[0].email.from, size: 44, organization: true, domain: group.domain)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        HStack { Text(group.name).font(.headline).lineLimit(1); Spacer(minLength: 8); time(group.posts.first?.email) }
-                                        Text(group.senders.count > 1 ? "\(group.posts.count) messages from \(group.senders.count) senders" : "\(group.posts.count) message\(group.posts.count == 1 ? "" : "s")")
-                                            .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
-                                    }
-                                }
-                                .padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                            }.buttonStyle(.plain).accessibilityHint("Opens this organization")
+                        .buttonStyle(.plain).padding(.top, 10).accessibilityHint("Shows all organizations")
+                        ForEach(query.isEmpty ? Array(groups.prefix(5)) : groups) { group in
+                            OrganizationRow(group: group)
                             Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
                         }
                     }
@@ -109,7 +92,6 @@ struct PeopleView: View {
     }
     /// Organizations, grouped by company, for the Organizations and All views.
     private var groups: [HomeDigest.OrganizationGroup] {
-        guard kind != .people else { return [] }
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.organizationGroups.filter { g in
             q.isEmpty || g.name.localizedCaseInsensitiveContains(q) || g.senders.contains { $0.address.localizedCaseInsensitiveContains(q) }

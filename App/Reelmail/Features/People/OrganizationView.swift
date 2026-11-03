@@ -1,5 +1,47 @@
 import SwiftUI
 
+/// A row for one organization: logo, name, last message time, how many messages from how many senders.
+struct OrganizationRow: View {
+    @Environment(Router.self) private var router
+    let group: HomeDigest.OrganizationGroup
+    var body: some View {
+        Button { router.open(.organization(group.id)) } label: {
+            HStack(alignment: .center, spacing: 12) {
+                CalmAvatar(person: group.posts[0].email.from, size: 44, organization: true, domain: group.domain)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(group.name).font(.headline).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(MailTime.label(group.latest)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                    }
+                    Text(group.senders.count > 1 ? "\(group.posts.count) messages from \(group.senders.count) senders"
+                                                 : "\(group.posts.count) message\(group.posts.count == 1 ? "" : "s")")
+                        .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                }
+            }
+            .padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).accessibilityHint("Opens this organization")
+    }
+}
+
+/// Every organization in loaded mail, newest first.
+struct OrganizationListView: View {
+    @Environment(FeedStore.self) private var store
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(store.organizationGroups) { group in
+                    OrganizationRow(group: group)
+                    Rectangle().fill(CalmStyle.divider).frame(height: 1).accessibilityHidden(true)
+                }
+            }.padding(.horizontal, 20)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Organizations").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 /// One organization: every sender of one company together, with what needs you on top and each sending
 /// address listed so you can quiet one (say, marketing) and keep the rest.
 struct OrganizationView: View {

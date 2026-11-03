@@ -131,3 +131,4 @@ Next steps:
 - Logos: fetched from the company's own site (apple-touch-icon, then favicon), cached in Caches, failures retried after a week; never for people, shared domains or fictional domains. Profile toggle "Company logos" (on by default).
 - People photos: from Contacts only, matched by email on the phone, opt in from Profile (system permission prompt). Never fetched from the internet: matching people by name online is unreliable and would publish who emails you.
 - Home has no filter chip row any more (owner, Nov 2): the top shows the date, a search button and the account button; each digest section title ("WAITING ON YOU · 2 ›") opens that section's full list.
+- People tab has no switch (owner, Nov 2): one list, people first, then an "ORGANIZATIONS · N ›" section showing the five most recent (all matches while searching); the title opens the full organization list.

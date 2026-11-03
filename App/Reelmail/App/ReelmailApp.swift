@@ -24,6 +24,7 @@ enum Route: Hashable {
     case mailList(String)
     /// An organization's page, by group key.
     case organization(String)
+    case organizationList
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {
