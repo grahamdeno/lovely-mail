@@ -391,7 +391,7 @@ enum ReplySignals {
     }
 
     private static func authoredLines(_ body: String, dropLinks: Bool) -> String {
-        let lines = normalizeQuotes(body).components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+        let lines = body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
         var kept: [String] = []
         for index in lines.indices {
             let line = lines[index]
@@ -462,7 +462,7 @@ enum ReplySignals {
         for raw in candidates {
             let sentence = raw.trimmingCharacters(in: .whitespaces)
             guard sentence.count >= 6, !isCourtesy(sentence) else { continue }
-            let lower = sentence.lowercased()
+            let lower = normalizeQuotes(sentence).lowercased()
             let asks = sentence.hasSuffix("?") && sentence.range(of: #"[A-Za-z][^.!?]{2,}\?$"#, options: .regularExpression) != nil
             if asks || Self.asks.contains(where: { lower.contains($0) }) {
                 return sentence.count > 140 ? String(sentence.prefix(137)) + "…" : sentence
@@ -474,7 +474,7 @@ enum ReplySignals {
     static func needsReply(body: String, automated: Bool, category: PostCategory) -> Bool {
         guard !automated, category != .newsletter else { return false }
         let text = authoredText(body)
-        let lower = text.lowercased()
+        let lower = normalizeQuotes(text).lowercased()
         if asks.contains(where: { lower.contains($0) }) { return true }
         // A question mark counts only when it ends a sentence the author wrote.
         return text.range(of: #"[A-Za-z][^.!?\n]{2,}\?(\s|$)"#, options: .regularExpression) != nil
