@@ -119,6 +119,20 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertEqual(store.section(for: store.posts[0]), .notes)
     }
 
+    /// Pull-to-refresh and view tasks are cancelled when the gesture ends or the view goes away.
+    /// The load itself must keep going (it may be waiting out Gmail's rate limit).
+    func testCancellingTheCallerDoesNotCancelTheLoad() async throws {
+        let client = FakeInboxClient()
+        client.delayNanoseconds = 300_000_000
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil)
+        let caller = Task { await store.load() }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        caller.cancel()
+        await caller.value
+        XCTAssertEqual(store.posts.count, 1, "The load finished even though its caller was cancelled")
+        XCTAssertNil(store.errorMessage)
+    }
+
     func testExplicitDisconnectReturnsToLabeledSampleMode() async {
         let client = FakeInboxClient()
         let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil)
@@ -190,11 +204,13 @@ final class FakeInboxClient: GmailInboxClient {
     var isSignedIn = true
     var fails = false
     var expires = false
+    var delayNanoseconds: UInt64 = 0
     enum Failure: Error { case offline }
 
     var fetches = 0
     var lastKnown: MailboxSnapshot?
     func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot {
+        if delayNanoseconds > 0 { try await Task.sleep(nanoseconds: delayNanoseconds) }
         if fails { throw Failure.offline }
         if expires { throw GmailService.GmailError.sessionExpired }
         fetches += 1; lastKnown = known

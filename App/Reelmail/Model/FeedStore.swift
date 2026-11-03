@@ -67,7 +67,13 @@ final class FeedStore {
 
     // MARK: Loading
 
+    /// Loads mail. The work runs in its own task, so leaving the screen or letting go of pull-to-refresh
+    /// does not cancel a load that is waiting out Gmail's rate limit (build 1009 showed CancellationError).
     func load() async {
+        await Task { await self.performLoad() }.value
+    }
+
+    private func performLoad() async {
         revision += 1
         let current = revision
         isLoading = true; isSummarizing = false; errorMessage = nil
@@ -102,6 +108,8 @@ final class FeedStore {
         do { snapshot = try await gmail.fetchMailbox(known: known, limits: .standard) }
         catch {
             guard current == revision else { return }
+            // A cancelled load (app closed mid-load) is not an error worth showing; the next open retries.
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             if let e = error as? GmailService.GmailError, e.needsReconnect { needsReconnect = true }
             if case GmailService.GmailError.mailAccessNotGranted = error { needsMailAccess = true }
             errorMessage = "Gmail could not refresh. Previously loaded mail, if any, is unchanged. \(error.localizedDescription)"
