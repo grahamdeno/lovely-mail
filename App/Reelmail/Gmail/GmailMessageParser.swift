@@ -35,13 +35,25 @@ enum GmailMessageParser {
         message.payload?.headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
     }
 
-    /// Plain text body: the first text/plain part, else text/html with tags stripped, else the snippet.
+    /// A text/plain part shorter than this is often a stub ("View this email in your browser") beside a real HTML body.
+    static let stubLimit = 200
+
+    /// Plain text body: the text/plain part, else text/html with tags stripped, else the snippet.
+    /// When the plain part is only a stub and the HTML says more, the HTML wins.
     static func plainText(of message: GmailMessage) -> String {
         if let p = message.payload {
-            if let text = firstPart(in: p, mimeType: "text/plain").flatMap(decode) { return text }
-            if let html = firstPart(in: p, mimeType: "text/html").flatMap(decode) { return stripHTML(html) }
+            let plain = firstPart(in: p, mimeType: "text/plain").flatMap(decode)
+            let html = firstPart(in: p, mimeType: "text/html").flatMap(decode).map(stripHTML)
+            return preferred(plain: plain, html: html) ?? message.snippet ?? ""
         }
         return message.snippet ?? ""
+    }
+
+    static func preferred(plain: String?, html: String?) -> String? {
+        guard let plain else { return html }
+        guard let html, plain.trimmingCharacters(in: .whitespacesAndNewlines).count < stubLimit,
+              html.count > plain.trimmingCharacters(in: .whitespacesAndNewlines).count else { return plain }
+        return html
     }
 
     private static func firstPart(in part: GmailMessage.Part, mimeType: String) -> GmailMessage.Part? {
@@ -166,7 +178,8 @@ enum GmailMessageParser {
             isUnread: labels.contains("UNREAD"),
             isFromMe: mine,
             bulk: !mine && SenderSignals.isBulk(labelIds: labels, hasListHeaders: hasList,
-                                                precedence: header("Precedence", in: message), address: from.email)
+                                                precedence: header("Precedence", in: message), address: from.email),
+            promotional: !mine && labels.contains("CATEGORY_PROMOTIONS")
         )
     }
 }

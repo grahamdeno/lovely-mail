@@ -19,6 +19,8 @@ final class FeedStore {
     private(set) var lastFetched: Date?
     private(set) var inboxTruncated = false
     var errorMessage: String?
+    /// True when the last refresh failed, so Home can offer Try again.
+    private(set) var refreshFailed = false
     var filter: FeedFilter = .all
     private(set) var hidden: Set<String> = []
     private(set) var seen: Set<String> = []
@@ -76,7 +78,7 @@ final class FeedStore {
     private func performLoad() async {
         revision += 1
         let current = revision
-        isLoading = true; isSummarizing = false; errorMessage = nil
+        isLoading = true; isSummarizing = false; errorMessage = nil; refreshFailed = false
         defer { if revision == current { isLoading = false } }
         if gmail.isSignedIn || mode == .gmail {
             await loadGmail(revision: current)
@@ -113,7 +115,8 @@ final class FeedStore {
             if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             if let e = error as? GmailService.GmailError, e.needsReconnect { needsReconnect = true }
             if case GmailService.GmailError.mailAccessNotGranted = error { needsMailAccess = true }
-            errorMessage = "Gmail could not refresh. Previously loaded mail, if any, is unchanged. \(error.localizedDescription)"
+            errorMessage = RefreshProblem.message(for: error)
+            refreshFailed = true
             return
         }
         guard current == revision else { return }
@@ -462,12 +465,25 @@ final class FeedStore {
     }
     func post(for email: Email) -> Post? { derived.postsByID[email.id] }
     func search(_ query: String) -> [Post] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return [] }
-        return activePosts.filter {
-            $0.email.from.name.lowercased().contains(q) || $0.email.subject.lowercased().contains(q)
-                || $0.summary.headline.lowercased().contains(q) || $0.email.body.lowercased().contains(q)
-        }.sorted { $0.email.date > $1.email.date }
+        let tokens = MailSearch.tokens(query)
+        guard !tokens.isEmpty else { return [] }
+        return activePosts.filter { MailSearch.matches($0, tokens: tokens) }.sorted { $0.email.date > $1.email.date }
+    }
+
+    /// People whose name or address matches, most recent contact first.
+    func searchPeople(_ query: String) -> [Person] {
+        let tokens = MailSearch.tokens(query)
+        guard !tokens.isEmpty else { return [] }
+        return derived.people.filter { MailSearch.matches($0, tokens: tokens) }
+            .sorted { lastContact($0) > lastContact($1) }
+    }
+
+    /// Organizations whose name, domain or any sending address matches, A to Z.
+    func searchOrganizations(_ query: String) -> [HomeDigest.OrganizationGroup] {
+        let tokens = MailSearch.tokens(query)
+        guard !tokens.isEmpty else { return [] }
+        return organizationGroups.filter { MailSearch.matches($0, tokens: tokens) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     // MARK: Trash (the only change Lovely makes to Gmail, and only when you ask)

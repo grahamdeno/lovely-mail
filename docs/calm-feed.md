@@ -175,3 +175,13 @@ Next steps:
 - **SCORECARD before (sprint/1, CI):** tune 88/88, holdout 28/32, all 116/120; Waiting (all) precision 100%, recall 97%.
 - **SCORECARD after (PR 19, CI):** tune 95/95, holdout 28/32, all 123/127; Waiting (all) precision 100%, recall 97%. 134 tests, 0 failures. Holdout misses unchanged (w25, u17, r13, u24).
 - **Side effect to watch:** an address-built name such as "DFAS SmartDocs" is two capitalized words, so People vs Organizations may treat it as a person; the 32+ token rule can match long tracking ids. A test fixture sender called `sender@` became a system address, so the test now uses `pal@`.
+
+## Sprint 2 (Nov 3, 2026)
+- Search tab: People and Organizations groups (best five each) above Mail. Every word of the query must match somewhere (name, address, subject, summary, body), in any order. Rules live in `MailSearch`.
+- Reading: Gmail's Promotions tab (`CATEGORY_PROMOTIONS`) sends mail to Reading even with no marketing words (`Email.promotionalMark`, optional so older caches decode). A `.newsletter` category now needs list signals (`email.isAutomated`); a person's mail that mentions a newsletter is no longer filed as one.
+- Stub bodies: when the text/plain part is under 200 characters and the HTML has more, the stripped HTML is used (`GmailMessageParser.preferred`).
+- Plain asks added: "i need the", "remind me", "keep me posted", "let us know", "see if you have/had", "touch base". "Let us know if you have any questions" stays a courtesy.
+- Refresh errors: `RefreshProblem` gives a short plain message (offline, slow down, Gmail trouble, other), says loaded mail is unchanged, and Home shows Try again. No demo mail is substituted.
+- Corpus: 7 new cases (p-ask-*, p-courtesy-let-us-know, r-promo-no-keywords, r-newsletter-ai-only). Sprint2Tests covers the rest.
+- Not verified locally (no Xcode here): compile and tests run in CI only. Screenshots and on-device checks are pending.
+- Still open: Waiting on them / You said you would (Sprint 3, design first), Later/snooze, holdout misses w25, u17, r13, u24 (w25 "Remind me" may now pass), structured dates, group reply-all, morning brief.

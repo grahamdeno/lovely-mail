@@ -486,9 +486,15 @@ struct StatusNotices: View {
             } else if store.needsTrashPermission {
                 notice("Lovely needs your OK to change mail in Gmail (Trash and Done). It can't send mail or delete anything for good. Reconnect and allow it.", button: "Reconnect Gmail")
             } else if let error = store.errorMessage {
-                Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
-                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
+                    if store.refreshFailed {
+                        Button("Try again") { Task { await store.load() } }
+                            .buttonStyle(CalmActionStyle(prominent: true)).disabled(store.isLoading)
+                    }
+                }
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
             }
             if let error = store.rules.persistenceError {
                 Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(CalmStyle.secondary)
