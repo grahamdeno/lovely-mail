@@ -259,7 +259,7 @@
   },
   {
    "id": "w25",
-   "split": "holdout",
+   "split": "tune",
    "expect": "waiting",
    "name": "Eli Brooks",
    "email": "eli.brooks@mail.example",
