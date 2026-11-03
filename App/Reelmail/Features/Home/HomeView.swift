@@ -170,31 +170,39 @@ struct HomeView: View {
         }
     }
 
-    private func title(_ text: String, _ count: Int, rose: Bool = false) -> some View {
-        DigestTitle(text: text, count: count, rose: rose)
-            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+    /// A section title that opens that section's full list.
+    private func title(_ text: String, _ count: Int, rose: Bool = false, opens key: String? = nil) -> some View {
+        Group {
+            if let key {
+                Button { router.open(.mailList(key)) } label: { DigestTitle(text: text, count: count, rose: rose, chevron: true) }
+                    .buttonStyle(.plain).accessibilityHint("Shows all of them")
+            } else {
+                DigestTitle(text: text, count: count, rose: rose)
+            }
+        }
+        .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
     }
 
     /// The "All" view: what needs you, what's new, people, organizations as groups, then everything older in one row.
     @ViewBuilder private func digest(_ d: HomeDigest) -> some View {
         if !d.waiting.isEmpty {
-            title("Waiting on you", d.waiting.count, rose: true)
+            title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
             rows(d.waiting, compact: false)
         }
         if !d.notes.isEmpty {
-            title("Notes to self", d.notes.count)
+            title("Notes to self", d.notes.count, opens: "notes")
             rows(d.notes, compact: true)
         }
         if !d.new.isEmpty {
-            title("New", d.new.count)
+            title("New", d.new.count, opens: "new")
             rows(d.new, compact: true)
         }
         if !d.people.isEmpty {
-            title("People", d.people.count)
+            title("People", d.people.count, opens: "people")
             rows(d.people, compact: true)
         }
         if !d.organizations.isEmpty {
-            title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count })
+            title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
             OrganizationChips(groups: d.organizations)
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -259,8 +267,16 @@ struct TopBar: View {
     var onFiltered: () -> Void = {}
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                FilterPills()
+            HStack(spacing: 4) {
+                Text(Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    .padding(.leading, 20)
+                Spacer()
+                Button { router.tab = .search } label: {
+                    Image(systemName: "magnifyingglass").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Search mail")
                 Menu {
                     if let account = store.account { Text(account) }
                     Button("Account and settings") { router.tab = .profile }
@@ -285,54 +301,23 @@ struct TopBar: View {
     }
 }
 
-/// Filter pills. The row scrolls edge to edge so a partly visible pill reads as "more", not as clipping.
-struct FilterPills: View {
-    @Environment(FeedStore.self) private var store
-    private var filters: [FeedFilter] {
-        // "Notes to self" appears once there is something in it.
-        FeedFilter.allCases.filter { $0 != .notes || store.noteCount > 0 || store.filter == .notes }
-    }
-    var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(filters) { f in
-                    let selected = store.filter == f
-                    Button { store.filter = f } label: {
-                        HStack(spacing: 6) {
-                            Text(f.title).lineLimit(1)
-                            if f == .waiting, store.waitingCount > 0 { Text("\(store.waitingCount)").opacity(0.8) }
-                            if f == .notes, store.noteCount > 0 { Text("\(store.noteCount)").opacity(0.8) }
-                        }
-                        .font(.subheadline.weight(.medium))
-                        .fixedSize()
-                        .padding(.horizontal, 14).frame(minHeight: 36)
-                        .foregroundStyle(selected ? Color.white : CalmStyle.secondary)
-                        .background(selected ? CalmStyle.blue : CalmStyle.card, in: Capsule())
-                    }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-        }
-        .contentMargins(.leading, 20, for: .scrollContent)
-        .contentMargins(.trailing, 28, for: .scrollContent)
-        .scrollIndicators(.hidden)
-        // Pills fade out before the profile button instead of running underneath it.
-        .mask(HStack(spacing: 0) {
-            Rectangle()
-            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
-        })
-    }
-}
-
 /// A Home digest heading: "NEW · 3". Rose only for Waiting on you.
 struct DigestTitle: View {
     let text: String
     let count: Int
     var rose = false
+    var chevron = false
     var body: some View {
         HStack(spacing: 6) {
             Text(text.uppercased()).tracking(0.8)
             Text("\(count)").opacity(0.8)
+            if chevron {
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).accessibilityHidden(true)
+            }
         }
+        .frame(minHeight: 32)
+        .contentShape(Rectangle())
         .font(.caption.weight(.semibold))
         .foregroundStyle(rose ? CalmStyle.roseInk : CalmStyle.secondary)
         .padding(.top, 18).padding(.bottom, 2)
@@ -371,7 +356,15 @@ struct DigestListView: View {
     let key: String
     private var content: (title: String, posts: [Post]) {
         let d = store.digest
-        if key == "earlier" { return ("Earlier", d.earlier) }
+        switch key {
+        case "earlier": return ("Earlier", d.earlier)
+        case "waiting": return ("Waiting on you", d.waiting)
+        case "notes": return ("Notes to self", d.notes)
+        case "new": return ("New", d.new)
+        case "people": return ("People", d.people)
+        case "organizations": return ("Organizations", d.organizations.flatMap(\.posts).sorted { $0.email.date > $1.email.date })
+        default: break
+        }
         let id = String(key.dropFirst(4))
         let group = d.organizations.first { $0.id == id }
         return (group?.name ?? "Organization", group?.posts ?? [])
@@ -381,7 +374,8 @@ struct DigestListView: View {
         List {
             if c.posts.isEmpty { Text("Nothing here now.").foregroundStyle(CalmStyle.secondary).listRowBackground(CalmStyle.background) }
             ForEach(c.posts) { post in
-                MailRow(post: post, assessment: store.assessment(for: post), compact: true,
+                MailRow(post: post, assessment: store.assessment(for: post), compact: key != "waiting",
+                        onNotWaiting: { store.markNotWaiting(post, wholeSender: $0) },
                         onTrash: { Task { await store.moveToTrash(post) } })
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
                     .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
