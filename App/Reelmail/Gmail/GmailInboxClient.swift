@@ -39,8 +39,21 @@ protocol GmailInboxClient: AnyObject {
     /// Marks one message read ("Done"), and unread again to undo it. Approved 2026-11-02. Only the UNREAD label.
     func markRead(messageID: String) async throws
     func markUnread(messageID: String) async throws
+    /// Who wrote each message in a thread and when. Read-only (metadata only, no bodies).
+    func threadSenders(threadID: String) async throws -> [ThreadSender]
     func signIn() async throws
     func signOut()
+}
+
+extension GmailInboxClient {
+    /// Clients that cannot look a thread up report nothing, which keeps Waiting on them to the mail already loaded.
+    func threadSenders(threadID: String) async throws -> [ThreadSender] { [] }
+}
+
+/// One message in a thread, for "has anyone answered?".
+struct ThreadSender: Equatable, Sendable {
+    var address: String
+    var date: Date
 }
 
 extension GmailService: GmailInboxClient {}

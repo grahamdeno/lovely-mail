@@ -12,6 +12,8 @@ struct MailCache: Codable, Equatable {
     var hidden: Set<String> = []
     /// Message ids opened in the app. Gmail's own read state is not changed.
     var seen: Set<String> = []
+    /// On-device verdicts for You said you would / Waiting on them. Optional so older caches still decode.
+    var verdicts: [String: Bool]? = nil
 
     /// Stable, non-reversible id for keying preferences without writing the address around.
     static func accountKey(_ address: String) -> String {

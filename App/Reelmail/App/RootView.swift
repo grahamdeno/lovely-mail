@@ -30,6 +30,9 @@ struct RootView: View {
                     case .mailList(let key): DigestListView(key: key)
                     case .organization(let key): OrganizationView(key: key)
                     case .organizationList: OrganizationListView()
+                    case .promises: PromisesListView()
+                    case .waitingOnThem: WaitingOnThemListView()
+                    case .comingUp: ComingUpListView()
                     case .settings: SettingsView()
                     case .testingTools: TestingToolsView()
                     case .aboutPrivacy: AboutPrivacyView()
@@ -44,5 +47,6 @@ struct RootView: View {
             get: { router.draftPostID.flatMap { id in store.posts.first { $0.id == id } } },
             set: { router.draftPostID = $0?.id }
         )) { post in DraftReplySheet(post: post) }
+        .sheet(item: Binding(get: { router.nudge }, set: { router.nudge = $0 })) { request in NudgeSheet(request: request) }
     }
 }

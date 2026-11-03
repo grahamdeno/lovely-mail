@@ -45,22 +45,24 @@ enum ReplyDrafterFactory {
 
 /// Hands a draft to Gmail's compose screen. The user presses Send there, never us.
 enum GmailCompose {
-    static func appURL(to: String, subject: String, body: String) -> URL? {
+    /// `cc` is comma-separated and left out of the link when empty.
+    static func appURL(to: String, cc: String = "", subject: String, body: String) -> URL? {
         var c = URLComponents()
         c.scheme = "googlegmail"
         c.host = "co"
-        c.queryItems = [URLQueryItem(name: "to", value: to),
-                        URLQueryItem(name: "subject", value: subject),
-                        URLQueryItem(name: "body", value: body)]
+        var items = [URLQueryItem(name: "to", value: to)]
+        if !cc.isEmpty { items.append(URLQueryItem(name: "cc", value: cc)) }
+        items += [URLQueryItem(name: "subject", value: subject), URLQueryItem(name: "body", value: body)]
+        c.queryItems = items
         return c.url
     }
 
-    static func webURL(to: String, subject: String, body: String) -> URL? {
+    static func webURL(to: String, cc: String = "", subject: String, body: String) -> URL? {
         var c = URLComponents(string: "https://mail.google.com/mail/")
-        c?.queryItems = [URLQueryItem(name: "view", value: "cm"),
-                         URLQueryItem(name: "to", value: to),
-                         URLQueryItem(name: "su", value: subject),
-                         URLQueryItem(name: "body", value: body)]
+        var items = [URLQueryItem(name: "view", value: "cm"), URLQueryItem(name: "to", value: to)]
+        if !cc.isEmpty { items.append(URLQueryItem(name: "cc", value: cc)) }
+        items += [URLQueryItem(name: "su", value: subject), URLQueryItem(name: "body", value: body)]
+        c?.queryItems = items
         return c?.url
     }
 

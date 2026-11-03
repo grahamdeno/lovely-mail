@@ -1,0 +1,124 @@
+{
+ "cases": [
+  {
+   "id": "y01",
+   "text": "I'll send the signed form tonight.",
+   "commitment": true
+  },
+  {
+   "id": "y02",
+   "text": "I will call the school tomorrow.",
+   "commitment": true
+  },
+  {
+   "id": "y03",
+   "text": "Let me check with Sarah and get back to you.",
+   "commitment": true
+  },
+  {
+   "id": "y04",
+   "text": "I'll follow up with the vendor on Monday.",
+   "commitment": true
+  },
+  {
+   "id": "y05",
+   "text": "I'm going to put together the budget this week.",
+   "commitment": true
+  },
+  {
+   "id": "y06",
+   "text": "I'll get back to you by Friday.",
+   "commitment": true
+  },
+  {
+   "id": "y07",
+   "text": "I'll forward you the invoice.",
+   "commitment": true
+  },
+  {
+   "id": "y08",
+   "text": "I'll take care of the registration.",
+   "commitment": true
+  },
+  {
+   "id": "y09",
+   "text": "I'll let you know once I hear from them.",
+   "commitment": true
+  },
+  {
+   "id": "y10",
+   "text": "I'll try to send it before the game.",
+   "commitment": true
+  },
+  {
+   "id": "y11",
+   "text": "Let me look into the billing issue.",
+   "commitment": true
+  },
+  {
+   "id": "y12",
+   "text": "I'll pick up the jerseys Saturday.",
+   "commitment": true
+  },
+  {
+   "id": "n01",
+   "text": "I'll be out of the office Friday.",
+   "commitment": false
+  },
+  {
+   "id": "n02",
+   "text": "I'll see you at practice.",
+   "commitment": false
+  },
+  {
+   "id": "n03",
+   "text": "I'll talk to you soon.",
+   "commitment": false
+  },
+  {
+   "id": "n04",
+   "text": "Let me know if you need anything.",
+   "commitment": false
+  },
+  {
+   "id": "n05",
+   "text": "If you want, I'll send the slides.",
+   "commitment": false
+  },
+  {
+   "id": "n06",
+   "text": "I can send it if that helps.",
+   "commitment": false
+  },
+  {
+   "id": "n07",
+   "text": "Will you send the form?",
+   "commitment": false
+  },
+  {
+   "id": "n08",
+   "text": "I'll be there at 6.",
+   "commitment": false
+  },
+  {
+   "id": "n09",
+   "text": "I will be traveling next week.",
+   "commitment": false
+  },
+  {
+   "id": "n10",
+   "text": "I'll have to think about it.",
+   "commitment": false
+  },
+  {
+   "id": "n11",
+   "text": "Thanks, I'll take a look when I get a chance.",
+   "commitment": false
+  },
+  {
+   "id": "n12",
+   "text": "I'll probably be late.",
+   "commitment": false
+  }
+ ]
+}
