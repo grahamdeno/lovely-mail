@@ -1125,6 +1125,176 @@
    "body": "Five dinners in 30 minutes. You are receiving this email because you signed up at weeknight.example.",
    "daysAgo": 1,
    "bulk": true
+  },
+  {
+   "id": "w28",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Jess Owner",
+   "email": "jess@mail.example",
+   "subject": "Fwd: Your domain renews in 15 days",
+   "body": "Do I need this, and is the card up to date?\nThanks,\nJess\n\n---------- Forwarded message ---------\nFrom: Hostly <no-reply@hostly.example>\nYour domain renews in 15 days. This is an automated message. Please do not reply.",
+   "daysAgo": 1,
+   "why": "a person's question above a forwarded notice"
+  },
+  {
+   "id": "w29",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Jess Owner",
+   "email": "jess@mail.example",
+   "subject": "Fwd: Pickup",
+   "body": "Can you grab this on your way home?\n\nBegin forwarded message:\n\nFrom: Grocer <noreply@grocer.example>\nYour order is ready for pickup. Do not reply to this email.",
+   "daysAgo": 1,
+   "why": "Apple Mail forward with a question"
+  },
+  {
+   "id": "p27",
+   "split": "tune",
+   "expect": "people",
+   "name": "Jess Owner",
+   "email": "jess@mail.example",
+   "subject": "Fwd: Your pickup reminder",
+   "body": "---------- Forwarded message ---------\nFrom: Grocer <noreply@grocer.example>\nYour pickup is scheduled for Friday. Please do not reply.",
+   "daysAgo": 1,
+   "why": "forward with no note of her own"
+  },
+  {
+   "id": "p28",
+   "split": "tune",
+   "expect": "people",
+   "name": "Rec League",
+   "email": "rec.league@mail.example",
+   "subject": "Fall season",
+   "body": "Hi Families,\nCan everyone bring a snack on Saturday?",
+   "daysAgo": 1,
+   "to": [
+    "rec.league@mail.example"
+   ],
+   "why": "blind-copy blast addressed to the sender itself"
+  },
+  {
+   "id": "p29",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Coach Lee",
+   "email": "coach.lee@mail.example",
+   "subject": "Practice",
+   "body": "Hi team,\nCan you all arrive by 7:30?",
+   "daysAgo": 1,
+   "to": [],
+   "why": "blind copy, no visible recipients"
+  },
+  {
+   "id": "u19",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Example Co",
+   "email": "invoice@relay.example",
+   "subject": "Your receipt from Example Co #2845",
+   "body": "Thanks for your purchase. Total $20.00.",
+   "daysAgo": 1,
+   "why": "receipt from a plain-looking address, not in a Gmail tab"
+  },
+  {
+   "id": "u20",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Pest Pros",
+   "email": "info.office@pestpros.example",
+   "subject": "Completed Service",
+   "body": "My name is Matt. I performed a service at your home on Wednesday (10/28). To pay your bill, log in to your customer portal.",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "finished service mentions a past day"
+  },
+  {
+   "id": "u21",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Shop Merch",
+   "email": "merch.service@shop.example",
+   "subject": "Automatic reply: Registration exchange",
+   "body": "Thanks for your email. We will respond within 2 business days.",
+   "daysAgo": 1,
+   "why": "auto-reply"
+  },
+  {
+   "id": "u22",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Forms Co",
+   "email": "se-32-54555085-24931459@send.forms.example",
+   "subject": "Pre-Authorization Form",
+   "body": "Hello PAT,\nPlease fill in the below form so we can confirm your details.",
+   "daysAgo": 1,
+   "why": "machine sender id"
+  },
+  {
+   "id": "u23",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Pat's Utility",
+   "email": "ebill@utilitymail.example",
+   "subject": "Monthly statement",
+   "body": "Your monthly statement is ready to view online.",
+   "daysAgo": 1,
+   "why": "statement from a plain-looking address"
+  },
+  {
+   "id": "u24",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Shop Merch",
+   "email": "orders.desk@shop.example",
+   "subject": "Out of office",
+   "body": "I am out of the office until Monday with limited access to email.",
+   "daysAgo": 1,
+   "why": "out-of-office reply"
+  },
+  {
+   "id": "d14",
+   "split": "tune",
+   "expect": "dated",
+   "name": "City Clinic",
+   "email": "videovisit@clinic.example",
+   "subject": "Your video visit has been scheduled for 12/01/2026 07:30",
+   "body": "Your video visit has been scheduled. Join 10 minutes early using the link in this message.",
+   "daysAgo": 1,
+   "why": "appointment system, plain address"
+  },
+  {
+   "id": "d15",
+   "split": "holdout",
+   "expect": "dated",
+   "name": "Rink",
+   "email": "dash@rinkapp.example",
+   "subject": "Upcoming game",
+   "body": "You are scheduled for the following event: Sunday at 9:00 PM, Rink 1.",
+   "daysAgo": 1,
+   "why": "league scheduler"
+  },
+  {
+   "id": "w30",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Tandy at Harbor Flats",
+   "email": "harborflats.reply.office@leasing.example",
+   "subject": "eSign your lease",
+   "body": "Hi Pat, the renewed lease is ready to eSign. Please log onto our website and eSign it today, thanks!!\nTandy | Harbor Flats",
+   "daysAgo": 1,
+   "why": "owner: a business asking you to act on its site is Waiting"
+  },
+  {
+   "id": "w31",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Front Desk at Oak Dental",
+   "email": "frontdesk.oak@dentalmail.example",
+   "subject": "Forms",
+   "body": "Hi Pat, please complete the new patient forms on our website before Thursday.",
+   "daysAgo": 1,
+   "why": "owner: site asks are Waiting"
   }
  ]
 }

@@ -41,6 +41,13 @@ final class DesignScreenshotTests: XCTestCase {
         }
         try await capture(NavigationStack { SortingReviewView() }.environment(store).environment(Router()), name: "07-Review-sorting")
     }
+    func testDarkModeScreenshots() async throws {
+        let store = await demoStore()
+        let router = Router()
+        try await capture(RootView().environment(store).environment(router), name: "08-Home-dark", dark: true)
+        router.tab = .people
+        try await capture(RootView().environment(store).environment(router), name: "09-People-dark", dark: true)
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()
@@ -54,13 +61,13 @@ final class DesignScreenshotTests: XCTestCase {
         }
         return try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive }, "No foreground scene became available within 10 seconds.")
     }
-    private func capture<Content: View>(_ content: Content, name: String) async throws {
+    private func capture<Content: View>(_ content: Content, name: String, dark: Bool = false) async throws {
         let scene = try await foregroundScene()
         let previousKeyWindow = scene.windows.first { $0.isKeyWindow }
-        let controller = UIHostingController(rootView: content.preferredColorScheme(.light))
+        let controller = UIHostingController(rootView: content.preferredColorScheme(dark ? .dark : .light))
         let window = UIWindow(windowScene: scene)
         window.frame = scene.coordinateSpace.bounds
-        window.overrideUserInterfaceStyle = .light
+        window.overrideUserInterfaceStyle = dark ? .dark : .light
         window.rootViewController = controller
         window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKey() }

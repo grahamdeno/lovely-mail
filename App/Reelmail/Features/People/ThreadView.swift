@@ -10,6 +10,8 @@ struct ThreadView: View {
         let latestIncoming = messages.last { !$0.isFromMe }.flatMap { store.post(for: $0) }
         ScrollView {
             LazyVStack(spacing: 10) {
+                PersonHeader(person: person, profile: store.profile(for: person), waiting: store.needsReply(person))
+                    .padding(.bottom, 8)
                 Text(store.mode == .sample ? "Demo · fictional conversation" : "Recent mail with \(person.firstName)")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.bottom, 4)
                 if messages.isEmpty { Text("No loaded messages with this person.").padding(.vertical, 24) }
@@ -40,7 +42,7 @@ struct ThreadView: View {
                         .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16).padding(.bottom, 8)
             }
         }
@@ -58,7 +60,7 @@ struct ThreadView: View {
         }
         .toolbarBackground(CalmStyle.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        
         .sheet(isPresented: $showingInfo) {
             ConversationInfoSheet(person: person, mode: store.mode)
         }
@@ -125,7 +127,7 @@ private struct ConversationInfoSheet: View {
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
             .navigationTitle("Conversation details").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }.tint(CalmStyle.blue).preferredColorScheme(.light)
+        }.tint(CalmStyle.blue)
     }
 }
 
@@ -149,6 +151,80 @@ private struct EmailSourceSheet: View {
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
             .navigationTitle("Source email").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }.tint(CalmStyle.blue).preferredColorScheme(.light)
+        }.tint(CalmStyle.blue)
+    }
+}
+
+/// Who this is and where things stand, in a few blunt lines, above the conversation.
+private struct PersonHeader: View {
+    let person: Person
+    let profile: PersonProfile
+    let waiting: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                CalmAvatar(person: person, size: 56, waiting: waiting)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(person.name).font(.title2.weight(.bold)).lineLimit(2)
+                    Text(person.email).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1).textSelection(.enabled)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("THE SHORT VERSION").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                Text(profile.shortVersion).font(.body).fixedSize(horizontal: false, vertical: true)
+                Text("From the mail loaded on this iPhone").font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+
+            HStack(spacing: 8) {
+                stat("\(profile.total)", profile.since.map { "emails since " + $0.formatted(.dateTime.month(.abbreviated)) } ?? "emails")
+                stat("\(profile.fromYou)", "from you")
+                stat(profile.usualReply.map(PersonProfile.duration) ?? "None", "your usual reply")
+            }
+
+            if !profile.open.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("OPEN WITH \(person.firstName.uppercased())").font(.caption.weight(.semibold)).tracking(0.8)
+                        .foregroundStyle(CalmStyle.roseInk)
+                    ForEach(profile.open) { item in
+                        HStack(alignment: .top, spacing: 10) {
+                            Circle().fill(item.theirs ? CalmStyle.rose : CalmStyle.secondary).frame(width: 8, height: 8).padding(.top, 6)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                                Text(item.detail).font(.caption).foregroundStyle(CalmStyle.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+            }
+
+            if !profile.topics.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(profile.topics, id: \.self) { topic in
+                            Text(topic).font(.footnote).lineLimit(1).padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                }.scrollIndicators(.hidden)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func stat(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.title3.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 }

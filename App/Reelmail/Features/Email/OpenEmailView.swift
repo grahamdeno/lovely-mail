@@ -56,7 +56,7 @@ struct OpenEmailView: View {
                     Text(email.body.isEmpty ? "No readable text was imported." : email.body)
                         .font(.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
                     Text("Hide only affects this app. Trash moves the message to Gmail\u{2019}s Trash, where it stays for 30 days.")
                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }

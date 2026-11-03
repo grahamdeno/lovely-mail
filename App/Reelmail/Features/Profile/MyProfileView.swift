@@ -111,7 +111,7 @@ struct OtherAddressesCard: View {
             if let problem { Text(problem).font(.caption).foregroundStyle(CalmStyle.roseInk) }
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
     private func add() {
         switch store.addOtherAddress(newAddress) {
@@ -133,6 +133,6 @@ struct ProfileCard: View {
             Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }

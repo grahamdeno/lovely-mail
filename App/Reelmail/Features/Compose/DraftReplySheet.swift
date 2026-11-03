@@ -29,7 +29,7 @@ struct DraftReplySheet: View {
                     .scrollContentBackground(.hidden)
                     .font(.body)
                     .padding(8)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 if loading { ProgressView() }
             }
 
@@ -51,7 +51,7 @@ struct DraftReplySheet: View {
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .presentationDetents([.medium, .large])
         .presentationCornerRadius(24)
-        .preferredColorScheme(.light)
+        
         .task { await makeDraft() }
     }
 

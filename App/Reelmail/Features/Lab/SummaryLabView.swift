@@ -35,7 +35,7 @@ struct SummaryLabView: View {
                     .font(.system(size: 14, design: .monospaced))
                     .frame(minHeight: 160)
                     .padding(8)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 Button {
                     Task { await model.runPasted() }
                 } label: {
@@ -107,7 +107,7 @@ struct LabResultCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(CalmStyle.card)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -137,6 +137,6 @@ struct StatTile: View {
             Text(label).font(.caption2).foregroundStyle(CalmStyle.secondary)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
     }
 }

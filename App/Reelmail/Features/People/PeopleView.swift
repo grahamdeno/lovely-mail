@@ -4,9 +4,10 @@ struct PeopleView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var query = ""
+    @State private var kind: FeedStore.ContactKind = .people
     private var people: [Person] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return store.people.filter {
+        return store.contacts(kind).filter {
             q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.email.localizedCaseInsensitiveContains(q)
         }.sorted { left, right in
             let a = store.lastContact(left), b = store.lastContact(right)
@@ -29,7 +30,12 @@ struct PeopleView: View {
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityLabel("Find a person by name or email address")
                 }
-                .padding(14).background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                Picker("Show", selection: $kind) {
+                    ForEach(FeedStore.ContactKind.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented).padding(.top, 10)
+                .accessibilityLabel("Show people, organizations or all")
             }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 10)
             .background(CalmStyle.background)
@@ -38,7 +44,8 @@ struct PeopleView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     let people = self.people
                     if people.isEmpty {
-                        Text(query.isEmpty ? "No people in the loaded mail yet." : "No matching people.")
+                        Text(query.isEmpty ? (kind == .organizations ? "No organizations in the loaded mail yet." : "No people in the loaded mail yet.")
+                                           : "No matches.")
                             .font(.body).padding(.vertical, 24)
                     }
                     ForEach(people) { person in

@@ -1,22 +1,27 @@
 import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
+/// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(hex: 0xFBF8F4)
-    static let ink = Color(hex: 0x25222A)
-    static let secondary = Color(hex: 0x6D6870)
-    /// Airmail blue: everything you can tap.
-    static let blue = Color(hex: 0x2E58C8)
+    static let background = Color(light: 0xFBF8F4, dark: 0x17161A)
+    /// Cards, pills and fields that sit on the background.
+    static let card = Color(light: 0xFFFFFF, dark: 0x25232A)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA)
+    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC)
+    /// Airmail blue: everything you can tap. White text on it stays readable in both appearances.
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8)
     /// Postmark rose: "Waiting on you" only. Graphics (rings, dots).
-    static let rose = Color(hex: 0xD2546E)
-    /// Postmark rose for text; passes 4.5:1 on letter paper.
-    static let roseInk = Color(hex: 0xB8405A)
-    static let divider = Color(hex: 0xECE6E2)
-    static let field = Color.white
-    static let bubble = Color(hex: 0xEFEBE8)
-    static let warning = Color(hex: 0xFFF4E6)
-    static let warningInk = Color(hex: 0x7A4A10)
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A)
+    /// Postmark rose for text; passes 4.5:1 on its background in both appearances.
+    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3)
+    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34)
+    static let field = card
+    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930)
+    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F)
+    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B)
+    /// The Undo bar: dark in both appearances, with white text.
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842)
 }
 
 /// The italic "lovely" wordmark. Apple's serif (New York) so nothing extra ships with the app.
@@ -94,15 +99,13 @@ struct HomeView: View {
                 StatusNotices()
                     .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
 
-                ForEach(store.sections, id: \.section) { group in
-                    SectionTitle(section: group.section, count: group.posts.count)
-                        .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-                    ForEach(group.posts) { post in
-                        MailRow(post: post, assessment: store.assessment(for: post),
-                                onNotWaiting: { notWaiting(post, wholeSender: $0) }, onTrash: { trash(post) })
-                            .listRowInsets(rowInsets)
-                            .listRowBackground(CalmStyle.background)
-                            .listRowSeparatorTint(CalmStyle.divider)
+                if store.filter == .all {
+                    digest(store.digest)
+                } else {
+                    ForEach(store.sections, id: \.section) { group in
+                        SectionTitle(section: group.section, count: group.posts.count)
+                            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+                        rows(group.posts, compact: group.section != .waiting)
                     }
                 }
 
@@ -130,6 +133,62 @@ struct HomeView: View {
         }
         .animation(.easeOut(duration: 0.2), value: undo?.id)
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
+    }
+
+    @ViewBuilder private func rows(_ posts: [Post], compact: Bool) -> some View {
+        ForEach(posts) { post in
+            MailRow(post: post, assessment: store.assessment(for: post), compact: compact,
+                    onNotWaiting: { notWaiting(post, wholeSender: $0) }, onTrash: { trash(post) })
+                .listRowInsets(rowInsets)
+                .listRowBackground(CalmStyle.background)
+                .listRowSeparatorTint(CalmStyle.divider)
+        }
+    }
+
+    private func title(_ text: String, _ count: Int, rose: Bool = false) -> some View {
+        DigestTitle(text: text, count: count, rose: rose)
+            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+    }
+
+    /// The "All" view: what needs you, what's new, people, organizations as groups, then everything older in one row.
+    @ViewBuilder private func digest(_ d: HomeDigest) -> some View {
+        if !d.waiting.isEmpty {
+            title("Waiting on you", d.waiting.count, rose: true)
+            rows(d.waiting, compact: false)
+        }
+        if !d.notes.isEmpty {
+            title("Notes to self", d.notes.count)
+            rows(d.notes, compact: true)
+        }
+        if !d.new.isEmpty {
+            title("New", d.new.count)
+            rows(d.new, compact: true)
+        }
+        if !d.people.isEmpty {
+            title("People", d.people.count)
+            rows(d.people, compact: true)
+        }
+        if !d.organizations.isEmpty {
+            title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count })
+            OrganizationChips(groups: d.organizations)
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        if !d.earlier.isEmpty {
+            Button { router.open(.mailList("earlier")) } label: {
+                HStack(spacing: 10) {
+                    Text("Earlier · \(d.earlier.count)").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                    Spacer()
+                    Text("Older than 2 weeks").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                }
+                .padding(.horizontal, 14).frame(minHeight: 48)
+                .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 0, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
     }
 
     private var footerText: String {
@@ -185,7 +244,7 @@ struct TopBar: View {
                 } label: {
                     CalmAvatar(person: store.me, size: 34).frame(minWidth: 44, minHeight: 44)
                 }
-                .padding(.trailing, 12)
+                .padding(.leading, 4).padding(.trailing, 12)
                 .accessibilityLabel("Account and mail options")
             }
             .padding(.top, 4)
@@ -223,13 +282,86 @@ struct FilterPills: View {
                         .fixedSize()
                         .padding(.horizontal, 14).frame(minHeight: 36)
                         .foregroundStyle(selected ? Color.white : CalmStyle.secondary)
-                        .background(selected ? CalmStyle.blue : Color.white, in: Capsule())
+                        .background(selected ? CalmStyle.blue : CalmStyle.card, in: Capsule())
                     }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }
+        .contentMargins(.leading, 20, for: .scrollContent)
+        .contentMargins(.trailing, 28, for: .scrollContent)
+        .scrollIndicators(.hidden)
+        // Pills fade out before the profile button instead of running underneath it.
+        .mask(HStack(spacing: 0) {
+            Rectangle()
+            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
+        })
+    }
+}
+
+/// A Home digest heading: "NEW · 3". Rose only for Waiting on you.
+struct DigestTitle: View {
+    let text: String
+    let count: Int
+    var rose = false
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(text.uppercased()).tracking(0.8)
+            Text("\(count)").opacity(0.8)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(rose ? CalmStyle.roseInk : CalmStyle.secondary)
+        .padding(.top, 18).padding(.bottom, 2)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// One button per organization ("National Life Group · 3"); tap to see its mail.
+struct OrganizationChips: View {
+    @Environment(Router.self) private var router
+    let groups: [HomeDigest.OrganizationGroup]
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(groups) { group in
+                    Button { router.open(.mailList("org:" + group.id)) } label: {
+                        Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
+                            .padding(.horizontal, 12).frame(minHeight: 36)
+                            .foregroundStyle(CalmStyle.ink)
+                            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 10))
+                    }.buttonStyle(.plain)
                 }
             }
         }
         .contentMargins(.horizontal, 20, for: .scrollContent)
         .scrollIndicators(.hidden)
+    }
+}
+
+/// Earlier mail, or one organization's mail, as compact rows.
+struct DigestListView: View {
+    @Environment(FeedStore.self) private var store
+    let key: String
+    private var content: (title: String, posts: [Post]) {
+        let d = store.digest
+        if key == "earlier" { return ("Earlier", d.earlier) }
+        let id = String(key.dropFirst(4))
+        let group = d.organizations.first { $0.id == id }
+        return (group?.name ?? "Organization", group?.posts ?? [])
+    }
+    var body: some View {
+        let c = content
+        List {
+            if c.posts.isEmpty { Text("Nothing here now.").foregroundStyle(CalmStyle.secondary).listRowBackground(CalmStyle.background) }
+            ForEach(c.posts) { post in
+                MailRow(post: post, assessment: store.assessment(for: post), compact: true,
+                        onTrash: { Task { await store.moveToTrash(post) } })
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                    .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+            }
+        }
+        .listStyle(.plain).scrollContentBackground(.hidden)
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle(c.title).navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -278,7 +410,7 @@ struct UndoBar: View {
         }
         .padding(.horizontal, 16)
         .foregroundStyle(Color.white)
-        .background(CalmStyle.ink.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
+        .background(CalmStyle.toast, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -325,6 +457,8 @@ struct MailRow: View {
     @Environment(Router.self) private var router
     let post: Post
     let assessment: TriageAssessment
+    /// One line of preview, smaller avatar, no headline: for New, People, organizations and Earlier.
+    var compact = false
     var onNotWaiting: (Bool) -> Void = { _ in }
     var onTrash: () -> Void = {}
 
@@ -340,6 +474,38 @@ struct MailRow: View {
 
     var body: some View {
         Button { store.markRead(post); router.open(.email(post.id)) } label: {
+            if compact { compactBody } else { fullBody }
+        }
+        .buttonStyle(.plain)
+        .modifier(MailRowActions(post: post, assessment: assessment, fromPerson: fromPerson, waiting: waiting,
+                                 onNotWaiting: onNotWaiting, onTrash: onTrash))
+    }
+
+    /// Organizations name their section ("Rink · Coming up") so you know why it's there.
+    private var compactName: String {
+        guard !fromPerson, section != .notes else { return post.email.from.name }
+        return HomeDigest.organizationName(post.email.from) + " · " + section.title
+    }
+
+    private var compactBody: some View {
+        HStack(alignment: .top, spacing: 12) {
+            CalmAvatar(person: post.email.from, size: 30, waiting: waiting)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(compactName).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(MailTime.short(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
+                    if post.email.isUnread { Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread") }
+                }
+                Text(sensitive ? "Private message" : (fromPerson ? post.summary.blurb : post.summary.headline))
+                    .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+            }
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+
+    private var fullBody: some View {
             HStack(alignment: .top, spacing: 12) {
                 CalmAvatar(person: post.email.from, size: 36, waiting: waiting)
                 VStack(alignment: .leading, spacing: 3) {
@@ -364,8 +530,23 @@ struct MailRow: View {
             }
             .padding(.vertical, 12)
             .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+    }
+}
+
+/// Swipes and the long-press menu, shared by full and compact rows.
+private struct MailRowActions: ViewModifier {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    let post: Post
+    let assessment: TriageAssessment
+    let fromPerson: Bool
+    let waiting: Bool
+    let onNotWaiting: (Bool) -> Void
+    let onTrash: () -> Void
+    private var section: FeedSection { assessment.section }
+
+    func body(content: Content) -> some View {
+        content
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if fromPerson {
                 Button { store.markRead(post); router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
@@ -435,12 +616,12 @@ struct FilteredMailReview: View {
                                 Button("Keep this message") { store.setMessageRule(post.id, destination: .inbox) }.buttonStyle(CalmActionStyle())
                             }
                         }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 16)).disabled(store.rules.persistenceError != nil)
+                            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).disabled(store.rules.persistenceError != nil)
                     }
                 }.padding(20)
             }.background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
                 .navigationTitle("Filtered senders").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }.tint(CalmStyle.blue).preferredColorScheme(.light)
+        }.tint(CalmStyle.blue)
     }
 }

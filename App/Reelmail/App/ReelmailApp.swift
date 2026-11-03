@@ -10,7 +10,6 @@ struct ReelmailApp: App {
             RootView()
                 .environment(store)
                 .environment(router)
-                .preferredColorScheme(.light)
                 .task { await store.load() }
         }
     }
@@ -21,6 +20,8 @@ enum Route: Hashable {
     case thread(Person)
     case summaryLab
     case sortingReview
+    /// "earlier", or "org:<group id>" from the Home digest.
+    case mailList(String)
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

@@ -218,6 +218,10 @@ final class FeedStore {
         var postsByID: [String: Post] = [:]
         var active: [Post] = []
         var people: [Person] = []
+        /// Senders of automated mail: companies, schools' systems, apps.
+        var organizations: [Person] = []
+        /// Post ids from organizations: automated mail and blind-copy lists.
+        var organizationPosts: Set<String> = []
         var waitingPeople: Set<String> = []
         var unreadPeople: Set<String> = []
         var duplicateNames: Set<String> = []
@@ -266,14 +270,25 @@ final class FeedStore {
 
         var seenIDs = Set<String>()
         var waiting: [Person] = []; var rest: [Person] = []
-        for post in d.active where !d.automated.contains(post.id) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
+        // Lists sent as a blind copy (team and league announcements) count as organizations, not people.
+        func isOrganization(_ post: Post) -> Bool {
+            d.automated.contains(post.id) || context.addressing(of: post.email) == .blindCopy
+        }
+        for post in d.active where !isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
             let p = post.email.from
             guard seenIDs.insert(p.id).inserted else { continue }
             if d.waitingPeople.contains(p.id) { waiting.append(p) } else { rest.append(p) }
         }
         d.people = waiting + rest
+        for post in d.active where isOrganization(post) { d.organizationPosts.insert(post.id) }
+        for post in d.active where isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
+            let p = post.email.from
+            guard seenIDs.insert(p.id).inserted else { continue }
+            d.organizations.append(p)
+        }
         var names: [String: Int] = [:]
         for p in d.people { names[p.name, default: 0] += 1; d.lastContact[p.id] = Self.thread(for: p, in: d).last?.date }
+        for p in d.organizations { d.lastContact[p.id] = Self.thread(for: p, in: d).last?.date }
         d.duplicateNames = Set(names.filter { $0.value > 1 }.keys)
         return d
     }
@@ -314,6 +329,14 @@ final class FeedStore {
         }
     }
 
+    /// The Home "All" view.
+    var digest: HomeDigest {
+        let d = derived
+        return HomeDigest.make(active: d.active, section: { d.assessments[$0.id]?.section ?? .people },
+                               isOrganization: { d.organizationPosts.contains($0.id) },
+                               now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    }
+
     var waitingCount: Int { derived.active.filter { derived.assessments[$0.id]?.section == .waiting }.count }
     var noteCount: Int { derived.noteCount }
     var topics: [MailTopic] { MailTopic.make(posts: activePosts, sent: sentByMe) }
@@ -328,12 +351,40 @@ final class FeedStore {
     var needsReplyPosts: [Post] { activePosts.filter { derived.assessments[$0.id]?.section == .waiting } }
 
     var people: [Person] { derived.people }
+    /// Senders of automated mail, for the People tab's Organizations view.
+    var organizations: [Person] { derived.organizations }
+
+    enum ContactKind: String, CaseIterable, Identifiable {
+        case people = "People", organizations = "Organizations", all = "All"
+        var id: String { rawValue }
+    }
+
+    func contacts(_ kind: ContactKind) -> [Person] {
+        switch kind {
+        case .people: return derived.people
+        case .organizations: return derived.organizations
+        case .all: return derived.people + derived.organizations
+        }
+    }
     func needsReply(_ person: Person) -> Bool { derived.waitingPeople.contains(person.id) }
     func hasUnread(_ person: Person) -> Bool { derived.unreadPeople.contains(person.id) }
     func sharesName(_ person: Person) -> Bool { derived.duplicateNames.contains(person.name) }
     func lastContact(_ person: Person) -> Date { derived.lastContact[person.id] ?? .distantPast }
     func posts(from person: Person) -> [Post] { posts.filter { $0.email.from.id == person.id } }
     func conversation(with person: Person) -> [Email] { Self.thread(for: person, in: derived) }
+
+    /// The summary at the top of a person's page.
+    func profile(for person: Person) -> PersonProfile {
+        let d = derived
+        let theirs = d.theirs[person.id] ?? []
+        var asks: [String: String] = [:]
+        for email in theirs {
+            if let a = d.assessments[email.id], a.section == .waiting { asks[email.id] = a.ask ?? FallbackSummarizer.firstSentence(of: email.body) }
+        }
+        return PersonProfile.make(person: person, theirs: theirs, mine: d.sentTo[person.email] ?? [], waitingAsk: asks,
+                                  isOrganization: d.organizations.contains(where: { $0.id == person.id }),
+                                  now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    }
     func post(for email: Email) -> Post? { derived.postsByID[email.id] }
     func search(_ query: String) -> [Post] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
