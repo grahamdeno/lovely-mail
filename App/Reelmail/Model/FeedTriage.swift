@@ -237,9 +237,9 @@ enum FeedTriage {
         // newsletter or receipt.
         if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
-        // A newsletter needs list signals (Gmail tab, list headers, bulk precedence, system address). A person's mail
-        // that merely mentions a newsletter is not one.
-        if post.summary.category == .newsletter, email.isAutomated { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
+        // A newsletter needs list evidence: Gmail's signals (tab, list headers, bulk precedence, system address) or a
+        // list footer in the text. A person's mail that merely mentions a newsletter is not one.
+        if post.summary.category == .newsletter, email.isAutomated || ReplySignals.hasListFooter(email.body) { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
         if let why = automatedReason(email) {
             let text = email.subject + "\n" + email.body
             if email.isPromotional { return TriageAssessment(section: .reading, reason: "Gmail filed this under Promotions") }
@@ -438,6 +438,15 @@ enum ReplySignals {
         "has been scheduled for", "you are scheduled for",
         "this is a group email", "please reply to sender only",
     ]
+    private static let listFooterPhrases = ["unsubscribe", "view this email in your browser", "view in browser", "view it in your browser",
+                                            "update preferences", "manage preferences", "you are receiving this", "you received this email because"]
+
+    /// True when the text carries a mailing-list footer ("Unsubscribe", "View this email in your browser").
+    static func hasListFooter(_ body: String) -> Bool {
+        let lower = normalizeQuotes(body).lowercased()
+        return listFooterPhrases.contains { lower.contains($0) }
+    }
+
     /// Calendar auto-responses: "Accepted: Sprint review".
     private static let machineSubjectPrefixes = ["accepted:", "declined:", "tentative:", "new time proposed:", "invitation:"]
     /// Booking systems: "Reply C to confirm", "Reply Y to confirm or N to cancel".

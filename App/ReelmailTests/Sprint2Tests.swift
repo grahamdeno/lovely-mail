@@ -80,6 +80,12 @@ final class Sprint2Tests: XCTestCase {
         XCTAssertFalse(decoded.isPromotional)
     }
 
+    func testListFooterNeedsRealFooterText() {
+        XCTAssertTrue(ReplySignals.hasListFooter("Three soups.\nUnsubscribe | Update preferences"))
+        XCTAssertTrue(ReplySignals.hasListFooter("View this email in your browser"))
+        XCTAssertFalse(ReplySignals.hasListFooter("Here is the newsletter draft for the club."))
+    }
+
     // MARK: Plain asks
 
     func testPlainAsksFound() {
