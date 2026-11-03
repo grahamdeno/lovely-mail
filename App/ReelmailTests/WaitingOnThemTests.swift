@@ -115,7 +115,8 @@ final class SentMailStoreTests: XCTestCase {
         func signOut() {}
     }
 
-    private func loaded(veto: CommitmentVeto?, client: SentClient = SentClient()) async -> (FeedStore, SentClient) {
+    private func loaded(veto: CommitmentVeto?, client given: SentClient? = nil) async -> (FeedStore, SentClient) {
+        let client = given ?? SentClient()
         let defaults = UserDefaults(suiteName: "sent-\(UUID())")!
         let store = FeedStore(gmail: client, summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil, veto: veto)
         await store.load()
