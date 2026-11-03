@@ -1,0 +1,69 @@
+/* Lovely Mail website. The Airmail palette from Design/Brand/README.md: letter paper, ink, airmail blue for
+   anything you can tap, and postmark rose for one thing only, someone waiting on you. System fonts, as in the app. */
+:root { --paper:#FBF8F4; --ink:#25222A; --muted:#6D6870; --blue:#2E58C8; --rose:#D2546E; --rose-ink:#B8405A; --line:#ECE6E2; --bubble:#EFEBE8; --wash:rgba(46,88,200,.08); }
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; background:var(--paper); }
+body { margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+a { color:var(--blue); }
+.stripe { height:10px; background:repeating-linear-gradient(135deg, var(--rose) 0 18px, var(--paper) 18px 26px, var(--blue) 26px 44px, var(--paper) 44px 52px); }
+.wrap { --gut:24px; max-width:1120px; margin:0 auto; padding:0 var(--gut); }
+/* top */
+nav { display:flex; align-items:center; gap:12px; padding:20px 0; }
+nav .brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size:18px; color:var(--ink); text-decoration:none; margin-right:auto; }
+nav .brand img { width:34px; height:34px; border-radius:9px; box-shadow:0 0 0 1px rgba(37,34,42,.12), 0 2px 6px rgba(37,34,42,.10); }
+nav a.link { font-size:15px; color:var(--muted); text-decoration:none; padding:8px 10px; }
+.btn { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:0 24px; border-radius:999px; font-size:16px; font-weight:600; text-decoration:none; }
+.btn.primary { background:var(--blue); color:#FFFFFF; }
+.btn.ghost { background:var(--wash); color:var(--blue); }
+.btn.sm { min-height:40px; padding:0 18px; font-size:15px; }
+/* hero */
+.hero { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:center; padding:40px 0 72px; }
+.word { margin:0 0 18px; font-family:"New York",ui-serif,Georgia,serif; font-style:italic; font-size:28px; color:var(--blue); }
+.hero h1 { margin:0; font-size:clamp(44px, 6.4vw, 80px); line-height:1; letter-spacing:-.035em; font-weight:700; }
+.lede { margin:26px 0 0; font-size:20px; line-height:1.5; color:var(--muted); max-width:30em; }
+.ctas { display:flex; gap:10px; flex-wrap:wrap; margin-top:30px; }
+.fine { margin-top:14px; font-size:14px; color:var(--muted); }
+.phone { width:300px; max-width:100%; height:auto; display:block; margin:0 auto; border-radius:40px; border:8px solid var(--ink); box-shadow:0 30px 50px rgba(37,34,42,.18), 0 4px 10px rgba(37,34,42,.10); }
+/* sections */
+section.s { padding:88px 0; border-top:1px solid var(--line); }
+.kicker { font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--rose-ink); font-weight:600; margin:0 0 14px; }
+h2 { margin:0; font-size:clamp(34px, 4.4vw, 54px); line-height:1.05; letter-spacing:-.03em; font-weight:700; }
+.split { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; }
+.split.rev .txt { order:2; }
+.split p { margin:20px 0 0; max-width:30em; font-size:18px; line-height:1.55; color:var(--muted); }
+.cols { display:grid; grid-template-columns:repeat(3, 1fr); gap:28px; margin-top:36px; }
+.cols div { border-top:1px solid var(--line); padding-top:18px; }
+.cols b { display:block; font-size:20px; font-weight:700; }
+.cols span { display:block; margin-top:8px; color:var(--muted); font-size:17px; line-height:1.5; }
+.end { text-align:center; padding:96px 0 64px; border-top:1px solid var(--line); }
+.end .ctas { justify-content:center; }
+.end p { margin:18px auto 0; max-width:30em; font-size:18px; line-height:1.55; color:var(--muted); }
+footer { display:flex; flex-wrap:wrap; gap:18px; justify-content:space-between; align-items:center; padding:28px 0 40px; border-top:1px solid var(--line); font-size:14px; color:var(--muted); }
+footer nav { padding:0; gap:18px; }
+footer a { color:var(--muted); text-decoration:none; }
+/* Support and Privacy */
+.doc { max-width:760px; padding:40px 0 48px; }
+.doc h1 { margin:0; font-size:clamp(40px,5vw,64px); letter-spacing:-.03em; line-height:1; font-weight:700; }
+.docbody { max-width:760px; padding:8px 0 72px; }
+.docbody h2 { font-size:26px; letter-spacing:-.015em; margin:44px 0 10px; }
+.docbody h2:first-child { margin-top:0; }
+.docbody p, .docbody li { color:var(--muted); font-size:17px; line-height:1.6; }
+.docbody b { color:var(--ink); font-weight:600; }
+details { border-bottom:1px solid var(--line); }
+details summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 0; font-size:18px; font-weight:600; }
+details summary::-webkit-details-marker { display:none; }
+details summary::after { content:"+"; font-size:22px; color:var(--blue); }
+details[open] summary::after { content:"\2212"; }
+details p { margin:0 0 20px; }
+.contact { background:var(--bubble); border-radius:18px; padding:24px; margin-top:48px; }
+.contact b { font-size:19px; }
+.contact p { margin:6px 0 14px; }
+@media (max-width:820px) {
+  .hero, .split { grid-template-columns:1fr; gap:36px; }
+  .split.rev .txt { order:0; }
+  .cols { grid-template-columns:1fr; gap:6px; }
+  section.s { padding:64px 0; }
+  .phone { width:260px; }
+  nav a.link { display:none; }
+}
+@media (max-width:400px) { .wrap { --gut:20px; } nav { gap:8px; } nav .btn.sm { padding:0 14px; font-size:14px; } }
