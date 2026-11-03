@@ -60,6 +60,7 @@ enum Route: Hashable {
     /// Everything you promised, and everything you asked that has no answer yet.
     case promises
     case waitingOnThem
+    case comingUp
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools

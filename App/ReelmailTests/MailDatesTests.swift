@@ -12,7 +12,6 @@ final class MailDatesTests: XCTestCase {
         calendar.date(from: DateComponents(year: y, month: m, day: d, hour: h, minute: min))!
     }
     /// Sent (and read) on Monday, Nov 2, 2026.
-    private let sentDefault = (2026, 11, 2)
     private func found(_ text: String, sent: Date? = nil, now: Date? = nil) -> [MailDate] {
         let s = sent ?? date(2026, 11, 2, 9)
         return MailDates.extract(text: text, sent: s, now: now ?? s, calendar: calendar)
@@ -48,7 +47,8 @@ final class MailDatesTests: XCTestCase {
     func testThisAndNext() {
         XCTAssertEqual(found("Meet this Tuesday.").map(\.start), [date(2026, 11, 3)])
         XCTAssertEqual(found("Meet next Tuesday.").map(\.start), [date(2026, 11, 10)])
-        XCTAssertEqual(found("Meet next Saturday.").map(\.start), [date(2026, 11, 7)], "Saturday is in the following week only when this week has passed it; here it is still ahead")
+        // "next" adds a week when the day is still ahead in the sent week (Saturday Nov 7 is this week).
+        XCTAssertEqual(found("Meet next Saturday.").map(\.start), [date(2026, 11, 14)])
     }
 
     func testRelativeDays() {

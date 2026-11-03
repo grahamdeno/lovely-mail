@@ -229,6 +229,12 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
+        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
+        if !soon.isEmpty {
+            ComingUpRow(count: soon.count)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
         if !d.organizations.isEmpty {
             title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
             OrganizationChips(groups: d.organizations)
@@ -403,6 +409,7 @@ struct DigestTitle: View {
 /// One button per organization ("National Life Group · 3"); tap to see its mail.
 struct OrganizationChips: View {
     @Environment(Router.self) private var router
+    @Environment(FeedStore.self) private var store
     let groups: [HomeDigest.OrganizationGroup]
     var body: some View {
         ScrollView(.horizontal) {
@@ -411,7 +418,7 @@ struct OrganizationChips: View {
                     Button { router.open(.organization(group.id)) } label: {
                         HStack(spacing: 8) {
                             CalmAvatar(person: group.posts[0].email.from, size: 22, organization: true, domain: group.domain)
-                            Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
+                            Text(chipText(group)).font(.subheadline.weight(.medium)).lineLimit(1)
                         }
                             .padding(.leading, 8).padding(.trailing, 12).frame(minHeight: 36)
                             .foregroundStyle(CalmStyle.ink)
@@ -422,6 +429,12 @@ struct OrganizationChips: View {
         }
         .contentMargins(.horizontal, 20, for: .scrollContent)
         .scrollIndicators(.hidden)
+    }
+
+    /// "Rink · Sun 9 PM" when the group has a date in the next week, else "Rink · 3".
+    private func chipText(_ group: HomeDigest.OrganizationGroup) -> String {
+        if let when = ComingUp.chipLabel(for: group.posts, in: store.comingUp, now: Date()) { return "\(group.name) · \(when)" }
+        return "\(group.name) · \(group.posts.count)"
     }
 }
 

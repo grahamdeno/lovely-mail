@@ -393,6 +393,14 @@ final class FeedStore {
         return digest
     }
 
+    /// Mail with a date still ahead, earliest first (Later-pending mail excluded).
+    var comingUp: [ComingUp.Entry] {
+        let d = derived
+        let clock = Date()
+        let live = d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) }
+        return ComingUp.entries(posts: live, section: { d.assessments[$0.id]?.section ?? .people }, now: clock)
+    }
+
     var waitingCount: Int { derived.active.filter { derived.assessments[$0.id]?.section == .waiting }.count }
     var noteCount: Int { derived.noteCount }
     var topics: [MailTopic] { MailTopic.make(posts: activePosts, sent: sentByMe) }

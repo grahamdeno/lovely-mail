@@ -17,6 +17,7 @@ struct OpenEmailView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     EmailHeader(post: post, organization: organization)
                     EmailContext(post: post, assessment: assessment)
+                    EmailDateRow(post: post)
                     if EmailPresentation.showsSummary(email), !ConversationPresentation.isSensitive(email, summary: post.summary) {
                         (Text("In short: ").fontWeight(.semibold) + Text(post.summary.blurb))
                             .font(.subheadline).foregroundStyle(CalmStyle.secondary)
