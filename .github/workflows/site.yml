@@ -1,0 +1,50 @@
+# Publishes lovely.tangomike.app (the Cloudflare Pages project tangomike-lovely, a Direct Upload) from site/ on main.
+# Each deploy is the whole site. If a page or the Cloudflare secrets are missing, it stops before uploading,
+# so a partial site never replaces the live one.
+name: Website
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+concurrency:
+  group: site
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the site is complete
+        id: build
+        run: |
+          missing=""
+          for f in site/index.html site/support.html site/privacy.html site/404.html site/site.css site/_headers site/img/icon.png; do
+            [ -f "$f" ] || missing="$missing $f"
+          done
+          if [ -n "$missing" ]; then echo "::warning::Not publishing: missing$missing"; echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - name: Publish to Cloudflare Pages
+        if: steps.build.outputs.ok == 'true' && env.HAS_TOKEN == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@3.114.0 pages deploy site --project-name=tangomike-lovely --branch=main --commit-dirty=true
+      - name: No Cloudflare key yet
+        if: steps.build.outputs.ok == 'true' && env.HAS_TOKEN != 'true'
+        run: echo "::warning::Not publishing: add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the repo's secrets."
+      - name: Check the live site
+        if: steps.build.outputs.ok == 'true' && env.HAS_TOKEN == 'true'
+        run: |
+          sleep 20
+          fail=0
+          check() { body=$(curl -fsSL "https://lovely.tangomike.app$1") || { echo "::error::$1 did not load"; fail=1; return; }; echo "$body" | grep -q -- "$2" && echo "::notice::$1 ok" || { echo "::error::$1 is missing: $2"; fail=1; }; }
+          check / "Mail from your people"
+          check /support "Support."
+          check /privacy "Privacy."
+          exit $fail
