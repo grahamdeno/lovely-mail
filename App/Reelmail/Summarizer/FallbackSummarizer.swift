@@ -78,8 +78,9 @@ struct FallbackSummarizer: EmailSummarizer {
     }
 
     static func isSensitive(_ lower: String) -> Bool {
-        ["verification code", "password", "passcode", "one-time code", "social security",
-         "account number", "routing number", "diagnosis", "lab results", "prescription"]
+        // Real secrets only: codes, passwords, keys and account numbers. Ordinary mail keeps its preview.
+        ["verification code", "security code", "one-time code", "your code is", "password reset", "your password",
+         "temporary password", "passcode", "api key", "secret key", "social security", "account number", "routing number"]
             .contains { lower.contains($0) }
     }
 

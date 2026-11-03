@@ -26,6 +26,8 @@ final class LocalTriageRules {
         var otherAddresses: Set<String> = []
         /// Your organization merges and splits: sender address → group key. Added Nov 2026.
         var organizationOverrides: [String: String] = [:]
+        /// Addresses you said are not the same person as someone else with the same name.
+        var separatePeople: Set<String> = []
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -36,6 +38,7 @@ final class LocalTriageRules {
             notWaitingSenders = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingSenders) ?? []
             otherAddresses = try c.decodeIfPresent(Set<String>.self, forKey: .otherAddresses) ?? []
             organizationOverrides = try c.decodeIfPresent([String: String].self, forKey: .organizationOverrides) ?? [:]
+            separatePeople = try c.decodeIfPresent(Set<String>.self, forKey: .separatePeople) ?? []
         }
     }
 
@@ -87,6 +90,17 @@ final class LocalTriageRules {
 
     /// Sender address → organization group key, set by "Merge with…" and "Split this sender out".
     var organizationOverrides: [String: String] { state.organizationOverrides }
+
+    var separatePeople: Set<String> { state.separatePeople }
+
+    @discardableResult
+    func setSeparatePerson(_ address: String, _ value: Bool) -> Bool {
+        let key = Self.normalize(address)
+        guard Self.looksLikeAddress(key) else { return false }
+        var next = state
+        if value { next.separatePeople.insert(key) } else { next.separatePeople.remove(key) }
+        return save(next)
+    }
 
     @discardableResult
     func setOrganization(sender: String, groupKey: String?) -> Bool {

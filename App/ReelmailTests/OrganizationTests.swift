@@ -47,4 +47,30 @@ final class OrganizationTests: XCTestCase {
         XCTAssertTrue(rules.setOrganization(sender: "Funds@Schwab.example", groupKey: "d:fidelity.com"))
         XCTAssertEqual(LocalTriageRules(accountID: "acct", defaults: defaults).organizationOverrides, ["funds@schwab.example": "d:fidelity.com"])
     }
+
+    func testPeopleVersusOrganizations() {
+        XCTAssertTrue(PersonSignals.looksLikePerson(name: "Mattie Pennington", email: "mattie.pennington@nhcs.net", youWrote: true))
+        XCTAssertTrue(PersonSignals.looksLikePerson(name: "James Brendle", email: "james.brendle@ncfbins.com", youWrote: false))
+        XCTAssertTrue(PersonSignals.looksLikePerson(name: "Julia DeNoyer", email: "denoyer.julia@gmail.com", youWrote: false))
+        XCTAssertFalse(PersonSignals.looksLikePerson(name: "National Life Group", email: "admin@nationallife.com", youWrote: false))
+        XCTAssertFalse(PersonSignals.looksLikePerson(name: "St. Andrews Reserve", email: "reply@aptleasing.info", youWrote: false))
+        XCTAssertFalse(PersonSignals.looksLikePerson(name: "sender@getsongbpm.com", email: "sender@getsongbpm.com", youWrote: false))
+        XCTAssertFalse(PersonSignals.looksLikePerson(name: "PISA Recreation", email: "pisa.recreation@gmail.com", youWrote: false))
+        XCTAssertEqual(PersonSignals.mergeKey(for: "Julia DeNoyer"), PersonSignals.mergeKey(for: "julia denoyer"))
+        XCTAssertNil(PersonSignals.mergeKey(for: "Julia"))
+    }
+
+    func testForwardRowTextAndNarrowSecrets() {
+        let me = person("Pat", "pat@lovely.example")
+        let fwd = Email(id: "f", threadId: "t", from: me, to: ["jess@mail.example"], subject: "Fwd: Your Costco.com order is confirmed!",
+                        date: Date(), body: "---------- Forwarded message ---------\nFrom: Costco Orders <orders@costco.example>\nThanks for your order.",
+                        isFromMe: true)
+        XCTAssertEqual(ConversationPresentation.rowText(fwd, summary: nil), "You forwarded: Your Costco.com order is confirmed!")
+        let school = Email(id: "s", threadId: "t2", from: person("Amy Hand", "amy@school.example"), to: ["pat@lovely.example"],
+                           subject: "Attendance", date: Date(), body: "Sure, the transcript is attached here.")
+        XCTAssertFalse(ConversationPresentation.isSensitive(school, summary: nil))
+        let key = Email(id: "k", threadId: "t3", from: person("Song", "sender@song.example"), to: ["pat@lovely.example"],
+                        subject: "Your API key", date: Date(), body: "Here is your API key: 1234")
+        XCTAssertTrue(ConversationPresentation.isSensitive(key, summary: nil))
+    }
 }

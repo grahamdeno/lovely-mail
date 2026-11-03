@@ -7,8 +7,23 @@ struct ConversationPreview: Equatable {
 }
 
 enum ConversationPresentation {
+    /// Hides a preview only for real secrets (codes, passwords, keys, account numbers). Apple Intelligence's own
+    /// "sensitive" guess hid ordinary school mail, so it no longer decides this.
     static func isSensitive(_ email: Email, summary: EmailSummary?) -> Bool {
-        summary?.sensitive == true || FallbackSummarizer.isSensitive((email.subject + "\n" + email.body).lowercased())
+        FallbackSummarizer.isSensitive((email.subject + "\n" + email.body).lowercased())
+    }
+
+    /// One line for a list row. A forward reads "You forwarded: Costco order confirmed", not its raw header block.
+    static func rowText(_ email: Email, summary: EmailSummary?) -> String {
+        let subject = FallbackSummarizer.cleanSubject(email.subject, fallbackBody: "")
+        let own = ReplySignals.authoredText(email.body).trimmingCharacters(in: .whitespacesAndNewlines)
+        let forwarded = email.subject.lowercased().hasPrefix("fwd:") || email.subject.lowercased().hasPrefix("fw:")
+            || email.body.contains("Forwarded message") || email.body.contains("Begin forwarded message")
+        if forwarded, own.count < 3 || own.lowercased().hasPrefix("sent from my") {
+            return (email.isFromMe ? "You forwarded: " : "Forwarded: ") + subject
+        }
+        let p = preview(email, summary: summary)
+        return (email.isFromMe ? "You: " : "") + FallbackSummarizer.firstSentence(of: p.text)
     }
     static func preview(_ email: Email, summary: EmailSummary?) -> ConversationPreview {
         if isSensitive(email, summary: summary) {

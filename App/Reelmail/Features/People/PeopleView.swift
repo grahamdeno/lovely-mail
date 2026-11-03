@@ -56,8 +56,7 @@ struct PeopleView: View {
                                         Text(person.email).font(.caption).foregroundStyle(CalmStyle.secondary)
                                     }
                                     if let latest {
-                                        let preview = ConversationPresentation.preview(latest, summary: store.post(for: latest)?.summary)
-                                        Text((latest.isFromMe ? "You: " : "") + FallbackSummarizer.firstSentence(of: preview.text))
+                                        Text(ConversationPresentation.rowText(latest, summary: store.post(for: latest)?.summary))
                                             .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                                     }
                                 }

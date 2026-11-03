@@ -87,6 +87,10 @@ enum MailTime {
         if seconds < 60 { return "Just now" }
         if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
         if seconds < 86400 { return "\(Int(seconds / 3600)) hr ago" }
+        // This year's dates drop the year: "Oct 28".
+        if Calendar.current.component(.year, from: date) == Calendar.current.component(.year, from: now) {
+            return date.formatted(.dateTime.month(.abbreviated).day())
+        }
         return date.formatted(date: .abbreviated, time: .omitted)
     }
 

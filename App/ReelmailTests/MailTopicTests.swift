@@ -43,7 +43,10 @@ final class MailTopicTests: XCTestCase {
     }
     func testSensitiveSourceConcealsWholeTopic() throws {
         var sensitive = post("private", date: 100)
-        sensitive.summary.sensitive = true
+        // Only real secrets conceal (Nov 2026); the model's own "sensitive" guess no longer does.
+        let e = sensitive.email
+        sensitive.email = Email(id: e.id, threadId: e.threadId, from: e.from, to: e.to, subject: "Your verification code",
+                                date: e.date, body: "Your verification code is 123456")
         let topic = try XCTUnwrap(MailTopic.make(posts: [sensitive, post("public", date: 200)], sent: []).first)
         XCTAssertTrue(topic.sensitive)
         XCTAssertTrue(topic.preview.concealed)
