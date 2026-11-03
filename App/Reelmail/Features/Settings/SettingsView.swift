@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Account, connection state, rules and the Summary Lab.
-struct MyProfileView: View {
+/// Settings: account, addresses, appearance, pictures, rules, testing tools and how Lovely handles mail.
+struct SettingsView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var showingFiltered = false
@@ -20,9 +20,8 @@ struct MyProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Profile").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader).padding(.bottom, 2)
-
+            VStack(alignment: .leading, spacing: 12) {
+                SettingsHeader(text: "Account", first: true)
                 ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail" : "Demo", detail: sourceDetail)
 
                 if store.needsReconnect {
@@ -32,28 +31,33 @@ struct MyProfileView: View {
                         .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
                 }
-                if store.gmailConfigured {
-                    if store.mode == .gmail, !store.needsReconnect {
-                        Button { Task { await store.disconnectGmail() } } label: {
-                            Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
-                        }.buttonStyle(CalmActionStyle())
-                    } else {
-                        Button { Task { await store.connectGmail() } } label: {
-                            Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
-                        }.buttonStyle(CalmActionStyle(prominent: true))
-                    }
+                if store.gmailConfigured, !(store.mode == .gmail && !store.needsReconnect) {
+                    Button { Task { await store.connectGmail() } } label: {
+                        Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
+                    }.buttonStyle(CalmActionStyle(prominent: true))
                 }
                 if let error = store.errorMessage, !store.needsReconnect {
                     Text(error).font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
+                if store.gmailConfigured, store.mode == .gmail, !store.needsReconnect {
+                    // Quiet on purpose: it clears the mail kept on this phone.
+                    Button { Task { await store.disconnectGmail() } } label: {
+                        Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled")
+                            .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
 
-                let status = ModelStatus.current
-                ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
-
-                AppearanceCard()
+                SettingsHeader(text: "Your other addresses")
                 OtherAddressesCard()
+
+                SettingsHeader(text: "Appearance")
+                AppearanceCard()
+
+                SettingsHeader(text: "Pictures")
                 PicturesCard()
 
+                SettingsHeader(text: "Rules")
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
@@ -61,17 +65,19 @@ struct MyProfileView: View {
                     Button { store.restoreAll() } label: { Label("Show hidden mail (\(store.hiddenPosts.count))", systemImage: "eye").frame(maxWidth: .infinity) }
                         .buttonStyle(CalmActionStyle())
                 }
-                Button { router.open(.sortingReview) } label: { Label("Review sorting", systemImage: "checkmark.circle").frame(maxWidth: .infinity) }
-                    .buttonStyle(CalmActionStyle())
-                Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
-                    .buttonStyle(CalmActionStyle())
 
-                Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off above. It changes Gmail in only two ways, both when you ask and both undoable: moving a message to Trash, and marking a message read when you tap Done. It never sends mail, never deletes anything for good, and never changes other labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
+                SettingsHeader(text: "Testing")
+                SettingsRow(title: "Testing tools") { router.open(.testingTools) }
+
+                SettingsHeader(text: "About")
+                let status = ModelStatus.current
+                ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
+                SettingsRow(title: "How Lovely handles your mail") { router.open(.aboutPrivacy) }
             }
-            .padding(20)
+            .padding(.horizontal, 20).padding(.bottom, 24)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Settings").navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
     }
 
@@ -81,12 +87,69 @@ struct MyProfileView: View {
     }
 }
 
+/// A small-caps group title in Settings.
+private struct SettingsHeader: View {
+    let text: String
+    var first = false
+    var body: some View {
+        Text(text.uppercased()).font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            .padding(.top, first ? 4 : 18)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A full-width row that opens another screen.
+private struct SettingsRow: View {
+    let title: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title).font(.body)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+            }
+            .padding(.horizontal, 14).frame(minHeight: 48).frame(maxWidth: .infinity, alignment: .leading)
+            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Review sorting and Summary Lab: tools for checking Lovely, not everyday settings.
+struct TestingToolsView: View {
+    @Environment(Router.self) private var router
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Button { router.open(.sortingReview) } label: { Label("Review sorting", systemImage: "checkmark.circle").frame(maxWidth: .infinity) }
+                    .buttonStyle(CalmActionStyle())
+                Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
+                    .buttonStyle(CalmActionStyle())
+            }.padding(20)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Testing tools").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// The privacy paragraph.
+struct AboutPrivacyView: View {
+    var body: some View {
+        ScrollView {
+            Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off in Settings under Pictures. It changes Gmail in only two ways, both when you ask and both undoable: moving a message to Trash, and marking a message read when you tap Done. It never sends mail, never deletes anything for good, and never changes other labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+                .font(.body).foregroundStyle(CalmStyle.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(20)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("How Lovely handles your mail").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 /// Light, dark, or follow the iPhone's setting.
 struct AppearanceCard: View {
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Appearance").font(.caption).foregroundStyle(CalmStyle.secondary)
             Picker("Appearance", selection: $appearance) {
                 ForEach(Appearance.allCases) { Text($0.title).tag($0) }
             }
@@ -105,7 +168,6 @@ struct PicturesCard: View {
     @State private var images = AvatarImages.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Pictures").font(.caption).foregroundStyle(CalmStyle.secondary)
             Toggle("Photos from your Contacts", isOn: Binding(get: { images.useContacts },
                                                              set: { on in Task { await images.setUseContacts(on) } }))
                 .font(.subheadline)
@@ -129,7 +191,6 @@ struct OtherAddressesCard: View {
     @State private var problem: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Your other addresses").font(.caption).foregroundStyle(CalmStyle.secondary)
             Text("Mail you send yourself from these shows under Notes to self, not Waiting on you.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
             ForEach(store.otherAddresses, id: \.self) { address in

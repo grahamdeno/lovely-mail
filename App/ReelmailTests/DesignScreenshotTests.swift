@@ -61,6 +61,12 @@ final class DesignScreenshotTests: XCTestCase {
         try await capture(NavigationStack { OpenEmailView(postID: waiting.id) }.environment(store).environment(Router()), name: "12-Email-dark", dark: true)
         try await capture(NavigationStack { OpenEmailView(postID: waiting.id) }.environment(store).environment(Router()).dynamicTypeSize(.accessibility2), name: "13-Email-larger-text")
     }
+    func testSettingsAndPeopleScreenshots() async throws {
+        let store = await demoStore()
+        try await capture(NavigationStack { SettingsView() }.environment(store).environment(Router()), name: "14-Settings")
+        let router = Router(); router.tab = .people
+        try await capture(RootView().environment(store).environment(router), name: "15-People-orgs-row")
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()
