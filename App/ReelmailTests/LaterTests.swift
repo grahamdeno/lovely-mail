@@ -56,12 +56,13 @@ final class LaterStoreTests: XCTestCase {
         let store = FeedStore(gmail: client, summarizeOnDevice: false, triageDefaults: defaults, cacheStore: nil)
         await store.load()
         let post = store.posts[0]
-        XCTAssertEqual(store.digest.todo.map(\.id), [post.id])
+        // The fixture message asks something, so it sits in Waiting on you; either way it is on Home.
+        func onHome() -> [String] { store.digest.waiting.map(\.id) + store.digest.todo.map(\.id) }
+        XCTAssertEqual(onHome(), [post.id])
 
         store.putOff(post, until: Date().addingTimeInterval(3600))
         XCTAssertTrue(store.isPutOff(post))
-        XCTAssertTrue(store.digest.todo.isEmpty)
-        XCTAssertTrue(store.digest.waiting.isEmpty)
+        XCTAssertTrue(onHome().isEmpty)
         XCTAssertEqual(store.laterPosts.map(\.post.id), [post.id])
         XCTAssertEqual(store.lastPutOff?.post.id, post.id)
 
@@ -69,7 +70,7 @@ final class LaterStoreTests: XCTestCase {
         store.putOff(post, until: Date().addingTimeInterval(-60))
         XCTAssertFalse(store.isPutOff(post))
         XCTAssertTrue(store.isBackFromLater(post))
-        XCTAssertEqual(store.digest.todo.map(\.id), [post.id])
+        XCTAssertEqual(onHome(), [post.id])
         XCTAssertTrue(store.laterPosts.isEmpty)
 
         store.bringBack(post.id)

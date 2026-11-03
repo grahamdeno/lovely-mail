@@ -45,7 +45,8 @@ final class FeedStore {
          veto: (any CommitmentVeto)? = nil) {
         self.gmail = gmail ?? GmailService()
         self.summarizeOnDevice = summarizeOnDevice
-        self.veto = veto ?? (summarizeOnDevice ? AppleIntelligenceVeto() : nil)
+        let onDevice: (any CommitmentVeto)? = summarizeOnDevice ? AppleIntelligenceVeto() : nil
+        self.veto = veto ?? onDevice
         self.triageDefaults = triageDefaults
         self.cacheStore = cacheStore
         demoRules = LocalTriageRules(accountID: "demo-home-v1", defaults: triageDefaults)
@@ -620,7 +621,7 @@ final class FeedStore {
     /// Commitments you made in mail you sent that nobody has closed. Up to 14 days old.
     var promises: [PromiseRules.Item] {
         PromiseRules.open(sent: sentByMe, inbox: posts.map(\.email), context: derived.context, closed: promisesClosed,
-                          veto: { [verdicts] email, _ in verdicts[VerdictCache.commitKey(email.id)] ?? true }, now: clock())
+                          veto: { [verdicts = self.verdicts] email, _ in verdicts[VerdictCache.commitKey(email.id)] ?? true }, now: clock())
     }
 
     /// Asks you sent that nobody has answered, 3 to 21 days old.

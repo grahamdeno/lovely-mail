@@ -185,3 +185,12 @@ Next steps:
 - Corpus: 7 new cases (p-ask-*, p-courtesy-let-us-know, r-promo-no-keywords, r-newsletter-ai-only). Sprint2Tests covers the rest.
 - Not verified locally (no Xcode here): compile and tests run in CI only. Screenshots and on-device checks are pending.
 - Still open: Waiting on them / You said you would (Sprint 3, design first), Later/snooze, holdout misses w25, u17, r13, u24 (w25 "Remind me" may now pass), structured dates, group reply-all, morning brief.
+
+## Sprint 3 (Nov 3, 2026)
+Design: docs/sprint3-design.md. Stacked on Sprint 2 (PR #22); ships in one release.
+- **You said you would** (Home, up to 3 cards, title opens all): `PromiseRules`. Strict verb pattern, no questions or "if" offers, real recipient, 0 to 14 days, closed by any later message in the thread. Done and Not a promise are local, with Undo. 24-sentence `promise-corpus.json`: 100% precision, 90% recall floor.
+- **Waiting on them** (one quiet row on Home, list screen with Nudge and Got it): `WaitingOnThem`. Your ask, 1 to 3 real recipients, 3 to 21 days old, no answer in loaded mail. Threads with no loaded inbox mail are confirmed with a read-only `threads.get` (metadata only, 20 per refresh); unconfirmed threads stay out. Nudge opens a draft; Lovely never sends.
+- **Later** (clock button on the To do card and email bar, short swipe, list in Settings): local only. Gmail is untouched, so the mail stays unread there. Returns at the top of To do with "Back from Later". `LaterSchedule` is pure and tested with a fixed calendar.
+- **AI veto** (`CommitmentVeto`): on-device model may remove an item the rules found, never add one. No opinion leaves the rules in charge. Verdicts cached in `MailCache.verdicts` (optional).
+- **Gmail:** no new actions or scopes. The only new call is read-only `threadSenders`.
+- **Not done / next:** the "Later" tag on Search and the person page, an open item for Waiting on them on the person page, a Later phone notification (Sprint 4 morning brief). CI is the only compile check so far; no screenshots or device check yet.
