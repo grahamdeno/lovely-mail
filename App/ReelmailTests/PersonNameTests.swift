@@ -172,4 +172,17 @@ final class PersonNameTests: XCTestCase {
         let email = Email(id: "n", threadId: "t", from: from, to: ["pat@lovely.example"], subject: "Garden", date: Date(), body: body)
         XCTAssertEqual(FallbackSummarizer().summarizeSync(SummaryInput(email: email)).category, .newsletter)
     }
+
+    func testNamesBuiltFromAnAddressAreNotPeople() {
+        XCTAssertFalse(PersonSignals.looksLikePerson(name: "DFAS SmartDocs", email: "dfas-smartdocs@mail.example", youWrote: false))
+        XCTAssertFalse(PersonSignals.looksLikePerson(name: "Infinitecampus", email: "noreply@psu.infinitecampus.example", youWrote: false))
+        XCTAssertTrue(PersonSignals.looksLikePerson(name: "Dana Brooks", email: "dana.brooks@school.example", youWrote: false))
+        XCTAssertTrue(PersonSignals.looksLikePerson(name: "DFAS SmartDocs", email: "dfas-smartdocs@mail.example", youWrote: true), "You wrote to them")
+    }
+
+    func testTrackingIdsInLinksAreNotSecrets() {
+        XCTAssertFalse(FallbackSummarizer.isSensitive("your order shipped: https://track.shop.example/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8"))
+        XCTAssertTrue(FallbackSummarizer.isSensitive("here is the token a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8 keep it safe"))
+    }
 }
+

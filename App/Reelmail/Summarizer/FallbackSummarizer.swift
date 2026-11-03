@@ -107,7 +107,9 @@ struct FallbackSummarizer: EmailSummarizer {
         let text = ReplySignals.normalizeQuotes(lower).lowercased()
         if secretPhrases.contains(where: { text.contains($0) }) { return true }
         if secretPatterns.contains(where: { text.range(of: $0, options: .regularExpression) != nil }) { return true }
-        return hasKeyLikeToken(text)
+        // Long ids inside links (tracking, unsubscribe, order pages) are not secrets: check only text outside URLs.
+        let outsideLinks = text.replacingOccurrences(of: #"(https?://|www\.)\S+"#, with: " ", options: .regularExpression)
+        return hasKeyLikeToken(outsideLinks)
     }
 
     /// A run of 32 or more letters and digits with both present: an API key, token or hash.
