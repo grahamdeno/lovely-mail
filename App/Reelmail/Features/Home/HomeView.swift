@@ -2,26 +2,32 @@ import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
+/// Neon (an 80s gel palette: midnight violet, hot pink and electric cyan) replaces both when chosen in Profile.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(light: 0xFBF8F4, dark: 0x17161A)
+    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x120A24)
     /// Cards, pills and fields that sit on the background.
-    static let card = Color(light: 0xFFFFFF, dark: 0x25232A)
-    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA)
-    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC)
-    /// Airmail blue: everything you can tap. White text on it stays readable in both appearances.
-    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8)
-    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots).
-    static let rose = Color(light: 0xD2546E, dark: 0xE0708A)
-    /// Postmark rose for text; passes 4.5:1 on its background in both appearances.
-    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3)
-    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34)
+    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x1F1240)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF7F0FF)
+    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC, neon: 0xBBA8E8)
+    /// Airmail blue: everything you can tap. In Neon, electric cyan.
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x1FE5FF)
+    /// Text and icons on `blue` (white, except dark ink on Neon's bright cyan).
+    static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0x120A24)
+    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, hot pink.
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF2BB4)
+    /// Postmark rose for text; passes 4.5:1 on its background in every palette.
+    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFF7AD0)
+    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x3A2466)
     static let field = card
-    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930)
-    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F)
-    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B)
-    /// The Undo bar: dark in both appearances, with white text.
-    static let toast = Color(light: 0x25222A, dark: 0x3A3842)
+    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x2C1A57)
+    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x3D1F45)
+    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFD36E)
+    /// The Undo bar: dark in every palette, with white text.
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x3A1F72)
+    /// Neon's signature gel stripe: hot pink into cyan. Used for the line under the top bar.
+    static let gel = LinearGradient(colors: [Color(hex: 0xFF2BB4), Color(hex: 0x9B4DFF), Color(hex: 0x1FE5FF)],
+                                    startPoint: .leading, endPoint: .trailing)
 }
 
 /// The italic "lovely" wordmark. Apple's serif (New York) so nothing extra ships with the app.
@@ -39,11 +45,36 @@ struct CalmAvatar: View {
     var size: CGFloat = 40
     /// Rose ring: this person is waiting on you. The only place besides labels that uses rose.
     var waiting = false
+    /// Organizations show their company icon (when fetched); people show their Contacts photo.
+    var organization = false
+    var domain: String? = nil
+    private var images: AvatarImages { AvatarImages.shared }
+
+    private var picture: UIImage? {
+        organization ? images.logo(for: domain ?? OrganizationKey.domain(of: person.email)) : images.contactPhoto(for: person.email)
+    }
+
     var body: some View {
-        Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
-            .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(CalmStyle.blue)
-            .frame(width: size, height: size)
-            .background(CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
+        Group {
+            if let picture {
+                if organization {
+                    Image(uiImage: picture).resizable().scaledToFit()
+                        .frame(width: size * 0.76, height: size * 0.76)
+                        .frame(width: size, height: size)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
+                } else {
+                    Image(uiImage: picture).resizable().scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
+                }
+            } else {
+                Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
+                    .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(organization ? CalmStyle.secondary : CalmStyle.blue)
+                    .frame(width: size, height: size)
+                    .background(organization ? CalmStyle.bubble : CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
+            }
+        }
             .padding(waiting ? 3 : 0)
             .overlay {
                 if waiting { RoundedRectangle(cornerRadius: size * 0.3 + 3).strokeBorder(CalmStyle.rose, lineWidth: 1.75) }
@@ -59,7 +90,7 @@ struct CalmActionStyle: ButtonStyle {
         configuration.label
             .font(.subheadline.weight(.medium))
             .padding(.horizontal, 12).frame(minHeight: 40)
-            .foregroundStyle(prominent ? Color.white : CalmStyle.blue)
+            .foregroundStyle(prominent ? CalmStyle.onBlue : CalmStyle.blue)
             .background(prominent ? CalmStyle.blue : CalmStyle.blue.opacity(0.08), in: Capsule())
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
@@ -145,31 +176,39 @@ struct HomeView: View {
         }
     }
 
-    private func title(_ text: String, _ count: Int, rose: Bool = false) -> some View {
-        DigestTitle(text: text, count: count, rose: rose)
-            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+    /// A section title that opens that section's full list.
+    private func title(_ text: String, _ count: Int, rose: Bool = false, opens key: String? = nil) -> some View {
+        Group {
+            if let key {
+                Button { router.open(.mailList(key)) } label: { DigestTitle(text: text, count: count, rose: rose, chevron: true) }
+                    .buttonStyle(.plain).accessibilityHint("Shows all of them")
+            } else {
+                DigestTitle(text: text, count: count, rose: rose)
+            }
+        }
+        .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
     }
 
     /// The "All" view: what needs you, what's new, people, organizations as groups, then everything older in one row.
     @ViewBuilder private func digest(_ d: HomeDigest) -> some View {
         if !d.waiting.isEmpty {
-            title("Waiting on you", d.waiting.count, rose: true)
+            title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
             rows(d.waiting, compact: false)
         }
         if !d.notes.isEmpty {
-            title("Notes to self", d.notes.count)
+            title("Notes to self", d.notes.count, opens: "notes")
             rows(d.notes, compact: true)
         }
         if !d.new.isEmpty {
-            title("New", d.new.count)
+            title("New", d.new.count, opens: "new")
             rows(d.new, compact: true)
         }
         if !d.people.isEmpty {
-            title("People", d.people.count)
+            title("People", d.people.count, opens: "people")
             rows(d.people, compact: true)
         }
         if !d.organizations.isEmpty {
-            title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count })
+            title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
             OrganizationChips(groups: d.organizations)
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -234,8 +273,16 @@ struct TopBar: View {
     var onFiltered: () -> Void = {}
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                FilterPills()
+            HStack(spacing: 4) {
+                Text(Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    .padding(.leading, 20)
+                Spacer()
+                Button { router.tab = .search } label: {
+                    Image(systemName: "magnifyingglass").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Search mail")
                 Menu {
                     if let account = store.account { Text(account) }
                     Button("Account and settings") { router.tab = .profile }
@@ -249,7 +296,11 @@ struct TopBar: View {
             }
             .padding(.top, 4)
             ZStack {
-                Rectangle().fill(CalmStyle.divider).frame(height: 1)
+                if ThemeState.neon {
+                    Rectangle().fill(CalmStyle.gel).frame(height: 2)
+                } else {
+                    Rectangle().fill(CalmStyle.divider).frame(height: 1)
+                }
                 if store.isLoading || store.isSummarizing {
                     ProgressView().progressViewStyle(.linear).tint(CalmStyle.blue)
                         .accessibilityLabel(store.isLoading ? "Checking for new mail" : "Writing summaries on this iPhone")
@@ -260,54 +311,23 @@ struct TopBar: View {
     }
 }
 
-/// Filter pills. The row scrolls edge to edge so a partly visible pill reads as "more", not as clipping.
-struct FilterPills: View {
-    @Environment(FeedStore.self) private var store
-    private var filters: [FeedFilter] {
-        // "Notes to self" appears once there is something in it.
-        FeedFilter.allCases.filter { $0 != .notes || store.noteCount > 0 || store.filter == .notes }
-    }
-    var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(filters) { f in
-                    let selected = store.filter == f
-                    Button { store.filter = f } label: {
-                        HStack(spacing: 6) {
-                            Text(f.title).lineLimit(1)
-                            if f == .waiting, store.waitingCount > 0 { Text("\(store.waitingCount)").opacity(0.8) }
-                            if f == .notes, store.noteCount > 0 { Text("\(store.noteCount)").opacity(0.8) }
-                        }
-                        .font(.subheadline.weight(.medium))
-                        .fixedSize()
-                        .padding(.horizontal, 14).frame(minHeight: 36)
-                        .foregroundStyle(selected ? Color.white : CalmStyle.secondary)
-                        .background(selected ? CalmStyle.blue : CalmStyle.card, in: Capsule())
-                    }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-        }
-        .contentMargins(.leading, 20, for: .scrollContent)
-        .contentMargins(.trailing, 28, for: .scrollContent)
-        .scrollIndicators(.hidden)
-        // Pills fade out before the profile button instead of running underneath it.
-        .mask(HStack(spacing: 0) {
-            Rectangle()
-            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
-        })
-    }
-}
-
 /// A Home digest heading: "NEW · 3". Rose only for Waiting on you.
 struct DigestTitle: View {
     let text: String
     let count: Int
     var rose = false
+    var chevron = false
     var body: some View {
         HStack(spacing: 6) {
             Text(text.uppercased()).tracking(0.8)
             Text("\(count)").opacity(0.8)
+            if chevron {
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).accessibilityHidden(true)
+            }
         }
+        .frame(minHeight: 32)
+        .contentShape(Rectangle())
         .font(.caption.weight(.semibold))
         .foregroundStyle(rose ? CalmStyle.roseInk : CalmStyle.secondary)
         .padding(.top, 18).padding(.bottom, 2)
@@ -323,9 +343,12 @@ struct OrganizationChips: View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(groups) { group in
-                    Button { router.open(.mailList("org:" + group.id)) } label: {
-                        Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
-                            .padding(.horizontal, 12).frame(minHeight: 36)
+                    Button { router.open(.organization(group.id)) } label: {
+                        HStack(spacing: 8) {
+                            CalmAvatar(person: group.posts[0].email.from, size: 22, organization: true, domain: group.domain)
+                            Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
+                        }
+                            .padding(.leading, 8).padding(.trailing, 12).frame(minHeight: 36)
                             .foregroundStyle(CalmStyle.ink)
                             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 10))
                     }.buttonStyle(.plain)
@@ -343,7 +366,15 @@ struct DigestListView: View {
     let key: String
     private var content: (title: String, posts: [Post]) {
         let d = store.digest
-        if key == "earlier" { return ("Earlier", d.earlier) }
+        switch key {
+        case "earlier": return ("Earlier", d.earlier)
+        case "waiting": return ("Waiting on you", d.waiting)
+        case "notes": return ("Notes to self", d.notes)
+        case "new": return ("New", d.new)
+        case "people": return ("People", d.people)
+        case "organizations": return ("Organizations", d.organizations.flatMap(\.posts).sorted { $0.email.date > $1.email.date })
+        default: break
+        }
         let id = String(key.dropFirst(4))
         let group = d.organizations.first { $0.id == id }
         return (group?.name ?? "Organization", group?.posts ?? [])
@@ -353,7 +384,8 @@ struct DigestListView: View {
         List {
             if c.posts.isEmpty { Text("Nothing here now.").foregroundStyle(CalmStyle.secondary).listRowBackground(CalmStyle.background) }
             ForEach(c.posts) { post in
-                MailRow(post: post, assessment: store.assessment(for: post), compact: true,
+                MailRow(post: post, assessment: store.assessment(for: post), compact: key != "waiting",
+                        onNotWaiting: { store.markNotWaiting(post, wholeSender: $0) },
                         onTrash: { Task { await store.moveToTrash(post) } })
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
                     .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
@@ -489,7 +521,7 @@ struct MailRow: View {
 
     private var compactBody: some View {
         HStack(alignment: .top, spacing: 12) {
-            CalmAvatar(person: post.email.from, size: 30, waiting: waiting)
+            CalmAvatar(person: post.email.from, size: 30, waiting: waiting, organization: !fromPerson && section != .notes)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(compactName).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
@@ -507,7 +539,7 @@ struct MailRow: View {
 
     private var fullBody: some View {
             HStack(alignment: .top, spacing: 12) {
-                CalmAvatar(person: post.email.from, size: 36, waiting: waiting)
+                CalmAvatar(person: post.email.from, size: 36, waiting: waiting, organization: !fromPerson && section != .notes)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(post.email.from.name).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)

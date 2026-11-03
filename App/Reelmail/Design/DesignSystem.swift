@@ -65,13 +65,16 @@ enum RM {
 }
 
 extension Color {
-    /// A color that follows the iPhone's light or dark appearance.
-    init(light: UInt32, dark: UInt32) {
+    /// A color that follows the iPhone's light or dark appearance, or the Neon theme when it is on.
+    init(light: UInt32, dark: UInt32, neon: UInt32? = nil) {
         func ui(_ hex: UInt32) -> UIColor {
             UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
                     blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
         }
-        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) })
+        self.init(uiColor: UIColor { traits in
+            if ThemeState.neon { return ui(neon ?? dark) }
+            return traits.userInterfaceStyle == .dark ? ui(dark) : ui(light)
+        })
     }
 
     init(hex: UInt32, opacity: Double = 1) {
@@ -88,4 +91,9 @@ extension View {
     func rmCorner(_ radius: CGFloat) -> some View {
         clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
+}
+
+/// Which palette is live. Set by the app from the Appearance setting; the root view is rebuilt when it changes.
+enum ThemeState {
+    nonisolated(unsafe) static var neon = false
 }

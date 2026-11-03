@@ -72,7 +72,7 @@ private struct ConversationBubble: View {
     let summary: EmailSummary?
     let grouped: Bool
     @State private var showingDetails = false
-    private var secondaryInk: Color { email.isFromMe ? Color.white.opacity(0.9) : CalmStyle.secondary }
+    private var secondaryInk: Color { email.isFromMe ? CalmStyle.onBlue.opacity(0.85) : CalmStyle.secondary }
     var body: some View {
         let preview = ConversationPresentation.preview(email, summary: summary)
         HStack(alignment: .bottom, spacing: 0) {
@@ -97,7 +97,7 @@ private struct ConversationBubble: View {
                     }.buttonStyle(.plain).accessibilityLabel("Show original email and details")
                 }.foregroundStyle(secondaryInk)
             }
-            .foregroundStyle(email.isFromMe ? Color.white : CalmStyle.ink)
+            .foregroundStyle(email.isFromMe ? CalmStyle.onBlue : CalmStyle.ink)
             .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 4)
             .background(email.isFromMe ? CalmStyle.blue : CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 20))
             .accessibilityElement(children: .contain)
@@ -182,8 +182,13 @@ private struct PersonHeader: View {
             HStack(spacing: 8) {
                 stat("\(profile.total)", profile.since.map { "emails since " + $0.formatted(.dateTime.month(.abbreviated)) } ?? "emails")
                 stat("\(profile.fromYou)", "from you")
-                stat(profile.usualReply.map(PersonProfile.duration) ?? "None", "your usual reply")
+                if let usual = profile.usualReply {
+                    stat(PersonProfile.duration(usual), "your usual reply")
+                } else {
+                    stat("–", profile.fromYou == 0 ? "no replies yet" : "your usual reply")
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
 
             if !profile.open.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -223,7 +228,8 @@ private struct PersonHeader: View {
             Text(value).font(.title3.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
             Text(label).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
         }
-        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+        // Every tile fills the row's height so the three line up even when one label wraps.
+        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }

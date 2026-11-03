@@ -48,6 +48,12 @@ final class DesignScreenshotTests: XCTestCase {
         router.tab = .people
         try await capture(RootView().environment(store).environment(router), name: "09-People-dark", dark: true)
     }
+    func testNeonScreenshot() async throws {
+        let store = await demoStore()
+        ThemeState.neon = true
+        defer { ThemeState.neon = false }
+        try await capture(RootView().environment(store).environment(Router()), name: "10-Home-neon", dark: true)
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()

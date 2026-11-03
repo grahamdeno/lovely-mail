@@ -24,6 +24,8 @@ final class LocalTriageRules {
         var notWaitingSenders: Set<String> = []
         /// Your other addresses, declared by you. Mail from them is "Notes to self". Never inferred from names.
         var otherAddresses: Set<String> = []
+        /// Your organization merges and splits: sender address → group key. Added Nov 2026.
+        var organizationOverrides: [String: String] = [:]
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -33,6 +35,7 @@ final class LocalTriageRules {
             notWaitingMessages = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingMessages) ?? []
             notWaitingSenders = try c.decodeIfPresent(Set<String>.self, forKey: .notWaitingSenders) ?? []
             otherAddresses = try c.decodeIfPresent(Set<String>.self, forKey: .otherAddresses) ?? []
+            organizationOverrides = try c.decodeIfPresent([String: String].self, forKey: .organizationOverrides) ?? [:]
         }
     }
 
@@ -79,6 +82,18 @@ final class LocalTriageRules {
         guard Self.looksLikeAddress(key) else { return false }
         var next = state
         if value { next.otherAddresses.insert(key) } else { next.otherAddresses.remove(key) }
+        return save(next)
+    }
+
+    /// Sender address → organization group key, set by "Merge with…" and "Split this sender out".
+    var organizationOverrides: [String: String] { state.organizationOverrides }
+
+    @discardableResult
+    func setOrganization(sender: String, groupKey: String?) -> Bool {
+        let address = Self.normalize(sender)
+        guard Self.looksLikeAddress(address) else { return false }
+        var next = state
+        next.organizationOverrides[address] = groupKey
         return save(next)
     }
 

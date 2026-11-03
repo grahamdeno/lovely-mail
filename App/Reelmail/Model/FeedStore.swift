@@ -332,8 +332,10 @@ final class FeedStore {
     /// The Home "All" view.
     var digest: HomeDigest {
         let d = derived
+        let overrides = rules.organizationOverrides
         return HomeDigest.make(active: d.active, section: { d.assessments[$0.id]?.section ?? .people },
                                isOrganization: { d.organizationPosts.contains($0.id) },
+                               groupKey: { OrganizationKey.key(for: $0.email.from, overrides: overrides) },
                                now: mode == .gmail ? (lastFetched ?? Date()) : Date())
     }
 
@@ -353,6 +355,43 @@ final class FeedStore {
     var people: [Person] { derived.people }
     /// Senders of automated mail, for the People tab's Organizations view.
     var organizations: [Person] { derived.organizations }
+
+    /// Every organization in loaded mail (not only recent), grouped by company.
+    var organizationGroups: [HomeDigest.OrganizationGroup] {
+        let d = derived
+        let overrides = rules.organizationOverrides
+        return HomeDigest.OrganizationGroup.group(d.active.filter { d.organizationPosts.contains($0.id) && d.assessments[$0.id]?.section != .notes },
+                                                  key: { OrganizationKey.key(for: $0.email.from, overrides: overrides) })
+    }
+
+    func organizationGroup(_ key: String) -> HomeDigest.OrganizationGroup? { organizationGroups.first { $0.id == key } }
+
+    /// "Merge with…": every sender of `group` joins `target`.
+    func merge(_ group: HomeDigest.OrganizationGroup, into target: HomeDigest.OrganizationGroup) {
+        for sender in group.senders { rules.setOrganization(sender: sender.address, groupKey: target.id) }
+        bump()
+    }
+
+    /// "Split this sender out" into its own group, or back to automatic grouping with `nil`.
+    func splitOut(sender: String, _ split: Bool = true) {
+        rules.setOrganization(sender: sender, groupKey: split ? OrganizationKey.splitKey(for: sender) : nil)
+        bump()
+    }
+
+    /// The summary at the top of an organization's page.
+    func profile(for group: HomeDigest.OrganizationGroup) -> PersonProfile {
+        let d = derived
+        let theirs = group.posts.map(\.email)
+        var asks: [String: String] = [:]
+        for email in theirs {
+            if let a = d.assessments[email.id], a.section == .waiting { asks[email.id] = a.ask ?? FallbackSummarizer.firstSentence(of: email.body) }
+        }
+        let addresses = Set(group.senders.map(\.address))
+        let mine = sentByMe.filter { mail in mail.recipients.contains { addresses.contains($0.lowercased()) } }
+        let lead = Person(id: group.id, name: group.name, email: group.senders.first?.address ?? "", hue: 0.5)
+        return PersonProfile.make(person: lead, theirs: theirs, mine: mine, waitingAsk: asks, isOrganization: true,
+                                  now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    }
 
     enum ContactKind: String, CaseIterable, Identifiable {
         case people = "People", organizations = "Organizations", all = "All"

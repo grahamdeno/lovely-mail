@@ -4,13 +4,45 @@ import SwiftUI
 struct ReelmailApp: App {
     @State private var store = FeedStore()
     @State private var router = Router()
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(store)
-                .environment(router)
-                .task { await store.load() }
+            themedRoot()
+        }
+    }
+
+    /// Neon is a palette, not an iOS appearance: the flag is set before the views are built,
+    /// and the whole tree is rebuilt (by id) when the choice changes.
+    private func themedRoot() -> some View {
+        ThemeState.neon = appearance == .neon
+        return RootView()
+            .environment(store)
+            .environment(router)
+            .id(appearance)
+            .preferredColorScheme(appearance.colorScheme)
+            .task { await store.load() }
+    }
+}
+
+/// Light, dark, or follow the iPhone. Chosen in Profile; saved on this phone.
+enum Appearance: String, CaseIterable, Identifiable {
+    case system, light, dark, neon
+    static let storageKey = "lovely.appearance"
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: return "Automatic"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .neon: return "Neon"
+        }
+    }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark, .neon: return .dark
         }
     }
 }
@@ -22,6 +54,9 @@ enum Route: Hashable {
     case sortingReview
     /// "earlier", or "org:<group id>" from the Home digest.
     case mailList(String)
+    /// An organization's page, by group key.
+    case organization(String)
+    case organizationList
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

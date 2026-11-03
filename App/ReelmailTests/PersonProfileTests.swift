@@ -43,8 +43,9 @@ final class PersonProfileTests: XCTestCase {
         let bank = Person(id: "statements@bank.example", name: "First Harbor Bank", email: "statements@bank.example", hue: 0.1)
         let p = PersonProfile.make(person: bank, theirs: [mail("s", from: bank, thread: "t", hoursAgo: 5, body: "Statement ready")],
                                    mine: [], waitingAsk: [:], isOrganization: true, now: now)
-        XCTAssertTrue(p.shortVersion.hasPrefix("An organization, not a person. 1 emails"), p.shortVersion)
+        XCTAssertTrue(p.shortVersion.hasPrefix("First Harbor Bank. 1 email since"), p.shortVersion)
         XCTAssertTrue(p.shortVersion.contains("You've never written back."))
+        XCTAssertTrue(p.shortVersion.hasSuffix("Nothing needs you."), p.shortVersion)
     }
 
     func testHomeDigestFoldsOldMailAndGroupsOrganizations() {

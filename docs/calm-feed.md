@@ -124,3 +124,12 @@ Next steps:
 - Person page header (`PersonProfile`, pure): a blunt short version (emails traded since when, recent topics, your usual reply time, what is open), three numbers, open items both ways (their asks in Waiting, and your own "I'll…" promises from the last 30 days that they have not answered since), and recent topics (cleaned subjects).
 - The short version is rule-based from loaded mail. An Apple Intelligence version is a possible next step; it would only rephrase these facts.
 - Next: tune organization grouping (several addresses per company, e.g. two Fidelity senders, currently group by display name); "New" depends on Gmail's unread flag.
+
+## Organizations by company, logos and Contacts photos (after 1011)
+- Organizations group by company domain (`OrganizationKey`): mail.fidelity.com and shareholderdocs.fidelity.com are one group. Shared sending services (Gmail, Hide My Email relay, newsletter, form and school/app platforms) group by display name. The group name is the most common display name. Owner overrides: "Merge" on an organization page, "Split this sender out" per sender; saved per account in the triage rules (`organizationOverrides`).
+- Organization page: logo, name, domain, short version, three numbers (emails, last 30 days, need you), Needs you, mail by section, and Senders (each address with its count and per-sender rules).
+- Logos: fetched from the company's own site (apple-touch-icon, then favicon), cached in Caches, failures retried after a week; never for people, shared domains or fictional domains. Profile toggle "Company logos" (on by default).
+- People photos: from Contacts only, matched by email on the phone, opt in from Profile (system permission prompt). Never fetched from the internet: matching people by name online is unreliable and would publish who emails you.
+- Home has no filter chip row any more (owner, Nov 2): the top shows the date, a search button and the account button; each digest section title ("WAITING ON YOU · 2 ›") opens that section's full list.
+- People tab has no switch (owner, Nov 2): one list, people first, then an "ORGANIZATIONS · N ›" section showing the five most recent (all matches while searching); the title opens the full organization list.
+- Neon theme (owner, Nov 2): Profile > Appearance offers Automatic, Light, Dark, Neon. Neon is a third palette in CalmStyle (midnight violet ground, electric cyan for anything tappable with dark text on it, hot pink for Waiting) plus a pink-to-cyan gel line under the top bar.
