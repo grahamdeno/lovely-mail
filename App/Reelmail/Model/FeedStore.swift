@@ -220,6 +220,8 @@ final class FeedStore {
         var people: [Person] = []
         /// Senders of automated mail: companies, schools' systems, apps.
         var organizations: [Person] = []
+        /// Post ids from organizations: automated mail and blind-copy lists.
+        var organizationPosts: Set<String> = []
         var waitingPeople: Set<String> = []
         var unreadPeople: Set<String> = []
         var duplicateNames: Set<String> = []
@@ -278,6 +280,7 @@ final class FeedStore {
             if d.waitingPeople.contains(p.id) { waiting.append(p) } else { rest.append(p) }
         }
         d.people = waiting + rest
+        for post in d.active where isOrganization(post) { d.organizationPosts.insert(post.id) }
         for post in d.active where isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
             let p = post.email.from
             guard seenIDs.insert(p.id).inserted else { continue }
@@ -326,6 +329,14 @@ final class FeedStore {
         }
     }
 
+    /// The Home "All" view.
+    var digest: HomeDigest {
+        let d = derived
+        return HomeDigest.make(active: d.active, section: { d.assessments[$0.id]?.section ?? .people },
+                               isOrganization: { d.organizationPosts.contains($0.id) },
+                               now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    }
+
     var waitingCount: Int { derived.active.filter { derived.assessments[$0.id]?.section == .waiting }.count }
     var noteCount: Int { derived.noteCount }
     var topics: [MailTopic] { MailTopic.make(posts: activePosts, sent: sentByMe) }
@@ -361,6 +372,19 @@ final class FeedStore {
     func lastContact(_ person: Person) -> Date { derived.lastContact[person.id] ?? .distantPast }
     func posts(from person: Person) -> [Post] { posts.filter { $0.email.from.id == person.id } }
     func conversation(with person: Person) -> [Email] { Self.thread(for: person, in: derived) }
+
+    /// The summary at the top of a person's page.
+    func profile(for person: Person) -> PersonProfile {
+        let d = derived
+        let theirs = d.theirs[person.id] ?? []
+        var asks: [String: String] = [:]
+        for email in theirs {
+            if let a = d.assessments[email.id], a.section == .waiting { asks[email.id] = a.ask ?? FallbackSummarizer.firstSentence(of: email.body) }
+        }
+        return PersonProfile.make(person: person, theirs: theirs, mine: d.sentTo[person.email] ?? [], waitingAsk: asks,
+                                  isOrganization: d.organizations.contains(where: { $0.id == person.id }),
+                                  now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+    }
     func post(for email: Email) -> Post? { derived.postsByID[email.id] }
     func search(_ query: String) -> [Post] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()

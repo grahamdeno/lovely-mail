@@ -29,6 +29,7 @@ struct RootView: View {
                     case .thread(let p): ThreadView(person: p)
                     case .summaryLab: SummaryLabView()
                     case .sortingReview: SortingReviewView()
+                    case .mailList(let key): DigestListView(key: key)
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

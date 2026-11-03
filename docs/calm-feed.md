@@ -117,3 +117,10 @@ Next steps:
 - Known holdout misses (untuned): an imperative ask with no ask phrase, an out-of-office reply that names a weekday (goes to Coming up), a delivery notice from a plain tracking address, a newsletter with only "you are receiving this".
 - UI: dark mode (palette follows the iPhone), People tab People / Organizations / All, filter pills fade before the profile button.
 - Owner step: add graham.denoyer@ipta.com in Profile > Your other addresses.
+
+## Home digest and person page (owner approved the mockup, Nov 2, 2026)
+- Home "All" is now a digest (`HomeDigest`, pure): Waiting on you (full rows), Notes to self (recent), New (unread, last two weeks), People (people, last two weeks), Organizations (automated mail and blind-copy lists, one button per sender name with a count), and Earlier (everything older than two weeks, one row that opens a list). Pills: All, Waiting, Notes to self, People, Organizations.
+- Rows outside Waiting are compact: one line of preview; organizations show "Name · Section".
+- Person page header (`PersonProfile`, pure): a blunt short version (emails traded since when, recent topics, your usual reply time, what is open), three numbers, open items both ways (their asks in Waiting, and your own "I'll…" promises from the last 30 days that they have not answered since), and recent topics (cleaned subjects).
+- The short version is rule-based from loaded mail. An Apple Intelligence version is a possible next step; it would only rephrase these facts.
+- Next: tune organization grouping (several addresses per company, e.g. two Fidelity senders, currently group by display name); "New" depends on Gmail's unread flag.

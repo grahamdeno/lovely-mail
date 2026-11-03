@@ -30,18 +30,18 @@ enum FeedSection: Int, CaseIterable, Identifiable, Comparable {
     }
 }
 
-/// Home filter pills. `all` shows every section in priority order.
+/// Home filter pills. `all` is the digest (Waiting, New, People, Organizations, Earlier);
+/// the others list their sections in priority order.
 enum FeedFilter: String, CaseIterable, Identifiable {
-    case all, waiting, notes, people, updates, reading
+    case all, waiting, notes, people, organizations
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: return "All"
-        case .waiting: return "Waiting on you"
+        case .waiting: return "Waiting"
         case .notes: return "Notes to self"
         case .people: return "People"
-        case .updates: return "Updates"
-        case .reading: return "Reading"
+        case .organizations: return "Organizations"
         }
     }
     func includes(_ section: FeedSection) -> Bool {
@@ -50,9 +50,62 @@ enum FeedFilter: String, CaseIterable, Identifiable {
         case .waiting: return section == .waiting
         case .notes: return section == .notes
         case .people: return section == .people || section == .waiting
-        case .updates: return section == .updates || section == .dated
-        case .reading: return section == .reading
+        case .organizations: return section == .dated || section == .updates || section == .reading
         }
+    }
+}
+
+/// The Home "All" view: what needs you, what's new, the people you hear from, organizations grouped by sender,
+/// and everything older folded into one row. Pure, so it is tested without views.
+struct HomeDigest {
+    /// Mail older than this folds into Earlier (Waiting and new mail never do).
+    static let recentWindow: TimeInterval = 14 * 86_400
+
+    struct OrganizationGroup: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let posts: [Post]
+        var latest: Date { posts.map(\.email.date).max() ?? .distantPast }
+        static func == (a: Self, b: Self) -> Bool { a.id == b.id && a.posts.map(\.id) == b.posts.map(\.id) }
+    }
+
+    var waiting: [Post] = []
+    var notes: [Post] = []
+    var new: [Post] = []
+    var people: [Post] = []
+    var organizations: [OrganizationGroup] = []
+    var earlier: [Post] = []
+
+    /// `isOrganization`: automated mail, or a list sent as a blind copy.
+    static func make(active: [Post], section: (Post) -> FeedSection, isOrganization: (Post) -> Bool, now: Date) -> HomeDigest {
+        var d = HomeDigest()
+        var groups: [String: (name: String, posts: [Post])] = [:]
+        for post in active.sorted(by: { $0.email.date > $1.email.date }) {
+            let s = section(post)
+            if s == .waiting { d.waiting.append(post); continue }
+            let recent = now.timeIntervalSince(post.email.date) <= recentWindow
+            if s == .notes, recent { d.notes.append(post); continue }
+            if !recent { d.earlier.append(post); continue }
+            if post.email.isUnread { d.new.append(post); continue }
+            if isOrganization(post) || s != .people {
+                let name = organizationName(post.email.from)
+                groups[name.lowercased(), default: (name, [])].posts.append(post)
+            } else {
+                d.people.append(post)
+            }
+        }
+        d.organizations = groups.map { OrganizationGroup(id: $0.key, name: $0.value.name, posts: $0.value.posts) }
+            .sorted { $0.latest == $1.latest ? $0.name < $1.name : $0.latest > $1.latest }
+        return d
+    }
+
+    /// The sender's display name, or its domain when the name is only an address.
+    static func organizationName(_ person: Person) -> String {
+        let name = person.name.trimmingCharacters(in: .whitespaces)
+        if !name.isEmpty, !name.contains("@") { return name }
+        let domain = person.email.split(separator: "@").last.map(String.init) ?? person.email
+        let parts = domain.split(separator: ".")
+        return parts.count >= 2 ? String(parts[parts.count - 2]).capitalized : domain
     }
 }
 
