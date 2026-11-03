@@ -123,12 +123,16 @@ enum SenderSignals {
         "hello", "updates", "trips", "care", "office", "accounts", "info", "support", "notifications",
         "notification", "alerts", "alert", "newsletter", "team", "marketing", "sales", "orders", "service",
         "customerservice", "help", "mailer", "mailer-daemon", "postmaster", "digest", "community",
+        "invoice", "invoices", "receipt", "ebill", "confirmation", "confirmations", "reminders", "appointments",
+        "statements", "returns",
     ]
     private static let fragments = ["noreply", "no-reply", "donotreply", "do-not-reply", "notification", "mailer", "newsletter", "unsubscribe", "bounce", "auto-", "automated"]
 
     static func looksAutomated(address: String) -> Bool {
         let local = address.split(separator: "@").first.map { String($0).lowercased() } ?? ""
         if exactLocalParts.contains(local) { return true }
+        // Machine-made sender ids such as se-32-54555085-24931459@send.example.
+        if local.range(of: #"\d{6,}"#, options: .regularExpression) != nil { return true }
         return fragments.contains { local.contains($0) }
     }
 

@@ -70,8 +70,8 @@ struct TriageContext {
     var now: Date
 
     init(myAddresses: Set<String> = [], otherAddresses: Set<String> = [], replies: [String: Date] = [:], now: Date = Date()) {
-        self.myAddresses = Set(myAddresses.map { $0.lowercased() })
-        self.otherAddresses = Set(otherAddresses.map { $0.lowercased() })
+        self.myAddresses = Set(myAddresses.map(Self.canonical))
+        self.otherAddresses = Set(otherAddresses.map(Self.canonical))
         self.replies = replies
         self.now = now
     }
@@ -84,22 +84,34 @@ struct TriageContext {
         self.init(myAddresses: addresses, otherAddresses: Set(otherAddresses), replies: FeedTriage.latestReplies(in: sent), now: now)
     }
 
+    /// Gmail ignores dots and anything after "+" in the part before the @, so graham.denoyer@gmail.com
+    /// and grahamdenoyer@gmail.com are the same inbox. Other providers are compared as written.
+    static func canonical(_ address: String) -> String {
+        let lower = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let parts = lower.split(separator: "@", maxSplits: 1).map(String.init)
+        guard parts.count == 2, parts[1] == "gmail.com" || parts[1] == "googlemail.com" else { return lower }
+        let local = parts[0].split(separator: "+", maxSplits: 1).first.map(String.init) ?? parts[0]
+        return local.replacingOccurrences(of: ".", with: "") + "@gmail.com"
+    }
+
     func isMine(_ email: Email) -> Bool {
-        email.isFromMe || myAddresses.contains(email.from.email.lowercased())
+        email.isFromMe || myAddresses.contains(Self.canonical(email.from.email))
     }
 
     /// From another address you declared yours.
     func isNoteToSelf(_ email: Email) -> Bool {
-        !isMine(email) && otherAddresses.contains(email.from.email.lowercased())
+        !isMine(email) && otherAddresses.contains(Self.canonical(email.from.email))
     }
 
-    enum Addressing: Equatable { case direct, copied, group }
+    /// `blindCopy`: no visible recipients, or addressed only to the sender itself (a list sent as a blind copy).
+    enum Addressing: Equatable { case direct, copied, group, blindCopy }
 
     func addressing(of email: Email) -> Addressing {
-        let to = email.to.map { $0.lowercased() }
+        let to = email.to.map(Self.canonical)
+        if to.isEmpty || to == [Self.canonical(email.from.email)] { return .blindCopy }
         if myAddresses.isEmpty { return to.count > Self.maxDirectRecipients ? .group : .direct }
         if to.contains(where: myAddresses.contains) { return to.count > Self.maxDirectRecipients ? .group : .direct }
-        if email.cc.map({ $0.lowercased() }).contains(where: myAddresses.contains) { return .copied }
+        if email.cc.map(Self.canonical).contains(where: myAddresses.contains) { return .copied }
         // You are not visible on the message: a forwarding alias (one recipient) or a blind copy to many.
         return to.count == 1 ? .direct : .group
     }
@@ -143,6 +155,7 @@ enum FeedTriage {
             let text = email.subject + "\n" + email.body
             if MailKind.isMarketing(text) { return TriageAssessment(section: .reading, reason: "Promotion or marketing mail") }
             if MailKind.isShipping(text) { return TriageAssessment(section: .updates, reason: why + "; shipping or delivery") }
+            if MailKind.isReceipt(text) { return TriageAssessment(section: .updates, reason: why + "; a receipt or finished service") }
             let dated = !post.summary.dates.isEmpty || MailKind.mentionsDay(text)
                 || [.school, .travel, .events].contains(post.summary.category)
             return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)
@@ -161,6 +174,7 @@ enum FeedTriage {
         switch context.addressing(of: email) {
         case .copied: return TriageAssessment(section: .people, reason: "You were copied, not asked directly.", ask: ask)
         case .group: return TriageAssessment(section: .people, reason: "Sent to a group of \(email.to.count).", ask: ask)
+        case .blindCopy: return TriageAssessment(section: .people, reason: "Sent to a list as a blind copy, not to you directly.", ask: ask)
         case .direct: break
         }
         let age = context.now.timeIntervalSince(email.date)
@@ -206,6 +220,10 @@ enum MailKind {
     static func isMarketing(_ text: String) -> Bool { let l = text.lowercased(); return marketing.contains { l.contains($0) } }
     /// Shipping and delivery notices carry dates, but nothing you need to show up for.
     static func isShipping(_ text: String) -> Bool { let l = text.lowercased(); return shipping.contains { l.contains($0) } }
+    private static let receipt = ["receipt", "completed service", "has been paid", "payment received", "received your payment",
+                                  "thank you for your payment", "refund"]
+    /// Receipts and finished services name past days ("on Wednesday (10/28)"); they are not coming up.
+    static func isReceipt(_ text: String) -> Bool { let l = text.lowercased(); return receipt.contains { l.contains($0) } }
     static func mentionsDay(_ text: String) -> Bool {
         text.lowercased().range(of: dayPattern, options: .regularExpression) != nil
     }
@@ -245,6 +263,9 @@ enum ReplySignals {
             if line == "--" || line == "-- " || line.hasPrefix("—") && line.count < 4 { break }
             if line.range(of: #"^On .+ wrote:$"#, options: .regularExpression) != nil { break }
             if line.hasPrefix("-----Original Message-----") || line.hasPrefix("From: ") && kept.count > 2 { break }
+            // A forwarded message is someone else's words (Gmail and Apple Mail markers).
+            if line.range(of: #"^-{2,}\s*Forwarded message\s*-{2,}"#, options: .regularExpression) != nil
+                || line == "Begin forwarded message:" { break }
             if line.hasPrefix(">") { continue }
             let lower = line.lowercased()
             if lower.contains("unsubscribe") || lower.contains("http://") || lower.contains("https://") { continue }
@@ -263,6 +284,8 @@ enum ReplySignals {
         "to view the message", "view it online", "reply above this line", "you are receiving this",
         "you received this email because", "manage your notification", "notification settings",
         "verification code", "security code", "one-time code", "your code is", "passcode",
+        "automatic reply", "auto-reply", "autoreply", "out of office", "out of the office",
+        "has been scheduled for", "you are scheduled for",
     ]
     /// Booking systems: "Reply C to confirm", "Reply Y to confirm or N to cancel".
     private static let replyCode = #"\breply [a-z]{1,3} to (confirm|cancel)"#

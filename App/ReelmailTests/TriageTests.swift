@@ -141,6 +141,29 @@ final class TriageTests: XCTestCase {
         XCTAssertFalse(reloaded.isNotWaiting(messageID: "m2", sender: "z@lovely.example"))
     }
 
+    /// Gmail delivers graham.denoyer@gmail.com and grahamdenoyer@gmail.com to the same inbox.
+    func testGmailDotsAndPlusTagsAreTheSameAddress() {
+        XCTAssertEqual(TriageContext.canonical("Graham.Denoyer+news@Gmail.com"), "grahamdenoyer@gmail.com")
+        XCTAssertEqual(TriageContext.canonical("first.last@work.example"), "first.last@work.example")
+        let ctx = TriageContext(myAddresses: ["grahamdenoyer@gmail.com"], now: now)
+        let mail = Email(id: "g", threadId: "t", from: person("Pat", "Graham.Denoyer@gmail.com"), to: ["graham.denoyer@gmail.com"],
+                         subject: "Note", date: now, body: "Groceries")
+        XCTAssertTrue(ctx.isMine(mail))
+    }
+
+    func testBlindCopyBlastIsNotWaiting() {
+        let league = person("Rec League", "rec.league@mail.example")
+        let a = assess(post("bcc", from: league, to: ["rec.league@mail.example"], body: "Hi Families,\nCan everyone bring a snack?"))
+        XCTAssertEqual(a.section, .people)
+        XCTAssertTrue(a.reason.contains("blind copy"), a.reason)
+    }
+
+    func testQuestionAboveAForwardIsTheAskAndTheForwardIsIgnored() {
+        let body = "Do I need this, and is the card up to date?\n\n---------- Forwarded message ---------\nFrom: Hostly <no-reply@hostly.example>\nPlease do not reply."
+        XCTAssertEqual(ReplySignals.authoredText(body), "Do I need this, and is the card up to date?\n")
+        XCTAssertEqual(assess(post("fwd", from: maya, body: body)).section, .waiting)
+    }
+
     func testRowTimeIsCompact() {
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
         let base = Date(timeIntervalSince1970: 1_793_534_400) // 2026-11-01 12:00 UTC
