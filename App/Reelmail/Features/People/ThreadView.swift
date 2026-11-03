@@ -10,7 +10,8 @@ struct ThreadView: View {
         let latestIncoming = messages.last { !$0.isFromMe }.flatMap { store.post(for: $0) }
         ScrollView {
             LazyVStack(spacing: 10) {
-                PersonHeader(person: person, profile: store.profile(for: person), waiting: store.needsReply(person))
+                PersonHeader(person: person, profile: store.profile(for: person), waiting: store.needsReply(person),
+                             addresses: store.addresses(of: person), onSeparate: { store.separate(address: $0) })
                     .padding(.bottom, 8)
                 Text(store.mode == .sample ? "Demo · fictional conversation" : "Recent mail with \(person.firstName)")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.bottom, 4)
@@ -160,6 +161,8 @@ private struct PersonHeader: View {
     let person: Person
     let profile: PersonProfile
     let waiting: Bool
+    var addresses: [String] = []
+    var onSeparate: (String) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -168,6 +171,15 @@ private struct PersonHeader: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(person.name).font(.title2.weight(.bold)).lineLimit(2)
                     Text(person.email).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1).textSelection(.enabled)
+                    // Same name from other addresses: shown together, with a way to undo it.
+                    ForEach(addresses.filter { $0.lowercased() != person.email.lowercased() }, id: \.self) { other in
+                        Menu {
+                            Button("Not the same person") { onSeparate(other) }
+                        } label: {
+                            Text("Also " + other).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                        }
+                        .accessibilityHint("Shows the option to keep this address separate")
+                    }
                 }
             }
 

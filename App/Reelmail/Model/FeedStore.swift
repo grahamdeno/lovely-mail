@@ -222,6 +222,8 @@ final class FeedStore {
         var organizations: [Person] = []
         /// Post ids from organizations: automated mail and blind-copy lists.
         var organizationPosts: Set<String> = []
+        /// One person with several addresses (same full name): canonical id → every Person it stands for.
+        var aliases: [String: [Person]] = [:]
         var waitingPeople: Set<String> = []
         var unreadPeople: Set<String> = []
         var duplicateNames: Set<String> = []
@@ -266,20 +268,39 @@ final class FeedStore {
             if post.email.isUnread { d.unreadPeople.insert(post.email.from.id) }
             if a.section == .waiting { d.waitingPeople.insert(post.email.from.id) }
         }
-        for mail in sentByMe { for address in Set(mail.recipients) { d.sentTo[address, default: []].append(mail) } }
+        for mail in sentByMe { for address in Set(mail.recipients.map { $0.lowercased() }) { d.sentTo[address, default: []].append(mail) } }
 
         var seenIDs = Set<String>()
         var waiting: [Person] = []; var rest: [Person] = []
-        // Lists sent as a blind copy (team and league announcements) count as organizations, not people.
+        let wrote = Set(d.sentTo.keys.map(TriageContext.canonical))
+        // Organizations: automated mail, lists sent as a blind copy, and senders who don't read as a person
+        // (you've never written to them and the name is a company's: "National Life Group", an address alone).
         func isOrganization(_ post: Post) -> Bool {
-            d.automated.contains(post.id) || context.addressing(of: post.email) == .blindCopy
+            if d.automated.contains(post.id) || context.addressing(of: post.email) == .blindCopy { return true }
+            let from = post.email.from
+            return !PersonSignals.looksLikePerson(name: from.name, email: from.email,
+                                                  youWrote: wrote.contains(TriageContext.canonical(from.email)))
         }
+        var byName: [String: String] = [:]
+        let separate = rules.separatePeople
         for post in d.active where !isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
             let p = post.email.from
             guard seenIDs.insert(p.id).inserted else { continue }
+            // Same full name from another address: the same person (unless you said otherwise).
+            if !separate.contains(p.email.lowercased()), let key = PersonSignals.mergeKey(for: p.name) {
+                if let canonical = byName[key] { d.aliases[canonical, default: []].append(p); continue }
+                byName[key] = p.id
+            }
+            d.aliases[p.id] = [p]
             if d.waitingPeople.contains(p.id) { waiting.append(p) } else { rest.append(p) }
         }
-        d.people = waiting + rest
+        // A merged person is waiting or unread when any of their addresses is.
+        for (canonical, persons) in d.aliases where persons.count > 1 {
+            if persons.contains(where: { d.waitingPeople.contains($0.id) }) { d.waitingPeople.insert(canonical) }
+            if persons.contains(where: { d.unreadPeople.contains($0.id) }) { d.unreadPeople.insert(canonical) }
+        }
+        let waitingIDs = d.waitingPeople
+        d.people = (waiting + rest).sorted { waitingIDs.contains($0.id) && !waitingIDs.contains($1.id) }
         for post in d.active where isOrganization(post) { d.organizationPosts.insert(post.id) }
         for post in d.active where isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
             let p = post.email.from
@@ -294,8 +315,18 @@ final class FeedStore {
     }
 
     private static func thread(for person: Person, in d: Derived) -> [Email] {
-        ((d.theirs[person.id] ?? []) + (d.sentTo[person.email] ?? [])).sorted { $0.date < $1.date }
+        let persons = d.aliases[person.id] ?? [person]
+        var seen = Set<String>()
+        return persons.flatMap { (d.theirs[$0.id] ?? []) + (d.sentTo[$0.email.lowercased()] ?? []) }
+            .filter { seen.insert($0.id).inserted }
+            .sorted { $0.date < $1.date }
     }
+
+    /// Every address a person writes from, when several were merged by name.
+    func addresses(of person: Person) -> [String] { (derived.aliases[person.id] ?? [person]).map(\.email) }
+
+    /// "Not the same person": stop merging this address into someone with the same name.
+    func separate(address: String) { rules.setSeparatePerson(address, true); bump() }
 
     /// Who you are and what you replied to, measured against the last refresh (or now, before one).
     var triageContext: TriageContext { derived.context }
@@ -415,12 +446,15 @@ final class FeedStore {
     /// The summary at the top of a person's page.
     func profile(for person: Person) -> PersonProfile {
         let d = derived
-        let theirs = d.theirs[person.id] ?? []
+        let persons = d.aliases[person.id] ?? [person]
+        let theirs = persons.flatMap { d.theirs[$0.id] ?? [] }
         var asks: [String: String] = [:]
         for email in theirs {
             if let a = d.assessments[email.id], a.section == .waiting { asks[email.id] = a.ask ?? FallbackSummarizer.firstSentence(of: email.body) }
         }
-        return PersonProfile.make(person: person, theirs: theirs, mine: d.sentTo[person.email] ?? [], waitingAsk: asks,
+        var seenMine = Set<String>()
+        let mine = persons.flatMap { d.sentTo[$0.email.lowercased()] ?? [] }.filter { seenMine.insert($0.id).inserted }
+        return PersonProfile.make(person: person, theirs: theirs, mine: mine, waitingAsk: asks,
                                   isOrganization: d.organizations.contains(where: { $0.id == person.id }),
                                   now: mode == .gmail ? (lastFetched ?? Date()) : Date())
     }

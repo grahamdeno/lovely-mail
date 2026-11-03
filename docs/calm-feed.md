@@ -133,3 +133,10 @@ Next steps:
 - Home has no filter chip row any more (owner, Nov 2): the top shows the date, a search button and the account button; each digest section title ("WAITING ON YOU · 2 ›") opens that section's full list.
 - People tab has no switch (owner, Nov 2): one list, people first, then an "ORGANIZATIONS · N ›" section showing the five most recent (all matches while searching); the title opens the full organization list.
 - Neon theme (owner, Nov 2): Profile > Appearance offers Automatic, Light, Dark, Neon. Neon is a third palette in CalmStyle (midnight violet ground, electric cyan for anything tappable with dark text on it, hot pink for Waiting) plus a pink-to-cyan gel line under the top bar.
+
+## People screen fixes (after 1012, Nov 2, 2026)
+- Person or organization: a sender not plainly automated is a person if you've written to them, writes from a personal mailbox (gmail and the like) without a company word in the name, or has a two-to-four word capitalized name with no company word ("Group", "Reserve", "Recreation", "Services"...). Otherwise an organization. Rule: `PersonSignals`.
+- Previews hide only real secrets (codes, passwords, keys, account numbers). Apple Intelligence's own "sensitive" guess no longer hides mail.
+- Forwards read "You forwarded: <subject>" in list rows.
+- Same full name from two addresses is one person; the person page lists "Also <address>" with "Not the same person" (saved per account).
+- This year's dates drop the year.

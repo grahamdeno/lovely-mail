@@ -56,3 +56,40 @@ enum OrganizationKey {
         return domain(ofKey: key) ?? "Organization"
     }
 }
+
+/// Person or organization, for senders whose mail isn't plainly automated (Gmail files plenty of company mail
+/// as personal). Pure, so it is tested.
+enum PersonSignals {
+    /// Words that mark a company, office or group rather than a person.
+    static let organizationWords: Set<String> = [
+        "group", "inc", "inc.", "llc", "llc.", "ltd", "co", "co.", "company", "corp", "corporation", "bank", "insurance",
+        "services", "service", "support", "team", "reserve", "apartments", "apartment", "residences", "academy",
+        "school", "schools", "clinic", "church", "store", "shop", "office", "admissions", "health", "center", "centre",
+        "foundation", "association", "club", "league", "recreation", "department", "university", "college", "county",
+        "city", "the", "customer", "billing", "orders", "news", "newsletter", "hoa", "pta", "district", "agency",
+        "partners", "studio", "studios", "media", "app", "family", "families", "community", "program", "camp",
+    ]
+    static let freeMail: Set<String> = ["gmail.com", "googlemail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com",
+                                        "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com", "msn.com"]
+
+    /// You've written to them, or their name reads like a person's (or they write from a personal mailbox).
+    static func looksLikePerson(name: String, email: String, youWrote: Bool) -> Bool {
+        if youWrote { return true }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        let words = trimmed.lowercased().split(whereSeparator: { $0 == " " || $0 == "," }).map(String.init)
+        if words.contains(where: organizationWords.contains) { return false }
+        let domain = email.lowercased().split(separator: "@").last.map(String.init) ?? ""
+        if trimmed.isEmpty || trimmed.contains("@") { return freeMail.contains(domain) }
+        if freeMail.contains(domain) { return true }
+        // "Amy Hand", "James Brendle", "Hand, Amy": two to four capitalized words.
+        let original = trimmed.split(whereSeparator: { $0 == " " || $0 == "," }).map(String.init)
+        return (2...4).contains(original.count) && original.allSatisfy { $0.first?.isUppercase == true }
+    }
+
+    /// "julia denoyer" for a two-to-four word name, used to treat one person's two addresses as one.
+    static func mergeKey(for name: String) -> String? {
+        let words = name.lowercased().split(whereSeparator: { $0 == " " || $0 == "," }).map(String.init)
+        guard (2...4).contains(words.count), !name.contains("@") else { return nil }
+        return words.sorted().joined(separator: " ")
+    }
+}
