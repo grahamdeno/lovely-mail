@@ -12,7 +12,7 @@ enum ComingUp {
         var id: String { post.id }
     }
 
-    /// One entry per message, earliest date first. Sections that are not about you doing something on a day
+    /// One entry per conversation, earliest date first. Sections that are not about you doing something on a day
     /// (Reading, Updates, Notes to self) are left out.
     static func entries(posts: [Post], section: (Post) -> FeedSection, now: Date, calendar: Calendar = .current) -> [Entry] {
         posts.compactMap { post -> Entry? in
@@ -21,6 +21,13 @@ enum ComingUp {
             guard let first = MailDates.extract(post.email, now: now, calendar: calendar).first else { return nil }
             return Entry(post: post, date: first)
         }
+        .reduce(into: [String: Entry]()) { byThread, entry in
+            // One entry per conversation, from its newest message that has a date ahead.
+            let thread = entry.post.email.threadId
+            if let existing = byThread[thread], existing.post.email.date >= entry.post.email.date { return }
+            byThread[thread] = entry
+        }
+        .values
         .sorted { $0.date.start < $1.date.start }
     }
 

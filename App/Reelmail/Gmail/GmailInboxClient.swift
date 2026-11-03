@@ -54,6 +54,8 @@ extension GmailInboxClient {
 struct ThreadSender: Equatable, Sendable {
     var address: String
     var date: Date
+    /// An out-of-office or other automatic reply, which is not an answer.
+    var isAutoReply: Bool = false
 }
 
 extension GmailService: GmailInboxClient {}

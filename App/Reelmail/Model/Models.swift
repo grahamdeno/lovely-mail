@@ -46,13 +46,20 @@ struct Email: Identifiable, Hashable, Sendable, Codable {
     /// Gmail filed it under its Promotions tab. Optional so mail cached before this field still decodes.
     var promotionalMark: Bool?
     var isPromotional: Bool { promotionalMark ?? false }
+    /// The mail's own headers say it is an automatic reply. Optional so mail cached before this field still decodes.
+    var autoReplyMark: Bool?
+    var isMarkedAutoReply: Bool { autoReplyMark ?? false }
+    /// Out-of-office and other automatic replies: by header, subject or wording.
+    var isAutoReply: Bool { AutoReply.isAutoReply(self) }
 
     init(id: String, threadId: String, from: Person, to: [String], cc: [String] = [], subject: String, date: Date,
-         body: String, isUnread: Bool = true, isFromMe: Bool = false, bulk: Bool = false, promotional: Bool = false) {
+         body: String, isUnread: Bool = true, isFromMe: Bool = false, bulk: Bool = false, promotional: Bool = false,
+         autoReply: Bool = false) {
         self.id = id; self.threadId = threadId; self.from = from; self.to = to; self.cc = cc
         self.subject = subject; self.date = date; self.body = body
         self.isUnread = isUnread; self.isFromMe = isFromMe; self.bulk = bulk
         self.promotionalMark = promotional ? true : nil
+        self.autoReplyMark = autoReply ? true : nil
     }
 
     var isAutomated: Bool { bulk || from.isAutomated }

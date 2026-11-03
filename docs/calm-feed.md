@@ -206,5 +206,14 @@ Design: docs/sprint4-design.md. Stacked on Sprint 3 (PR #23); ships in one relea
 
 - **Shipped:** Sprints 2, 3 and 4 merged to testflight together on Nov 3, 2026 as build 1017.
 
-## Sprint 5 (planned, Nov 3, 2026)
-Design: docs/sprint5-design.md. Trust pass before the first device check: auto-replies, delivery notices, the r13 newsletter miss, new honest holdout cases, a dates corpus, one Coming up entry per conversation, the Sprint 3 leftovers, and a test brief in Testing tools. Not built yet.
+## Sprint 5 (Nov 3, 2026)
+Design: docs/sprint5-design.md. Based on testflight (build 1017). A trust pass before the first device check.
+- **Auto-replies** (`AutoReply`): by header (`Auto-Submitted: auto-replied`, `X-Autoreply`, `X-Autorespond`), subject prefix (Automatic reply, Out of office, OOO, Away) or two body phrases. They sort to Updates ("Automatic reply"), never close Waiting on them or You said you would (inbox mail and the read-only thread lookup both skip them), and yield no dates. `Auto-Submitted: auto-generated` is left alone on purpose: it is a system notice, not a reply (design said "anything but no"; this is narrower).
+- **Delivery notices** (`DeliveryNotice`): a delivery phrase plus an automated signal or a shipping sender word (tracking, shipping, orders, ...) goes to Updates ("Delivery update") and yields no dates. A person writing "it was delivered, thanks" stays with People.
+- **Newsletters:** bulk mail with a list footer ("You are receiving this email because...") is Reading even when it names days, unless it is school, travel or plans mail. This fixes holdout r13 (its category was never Newsletter, so the Newsletter rule never ran).
+- **Dates:** `dates-corpus.json` (30 fictional sentences, every date each should yield) with precision 95% and recall 85% floors. Rule changes: skip forwarded and quoted header lines (Sent:, From:, On ... wrote:), skip offer sentences (50% off, sale), number pairs after Version, page, step and similar, and a weekday written before its own date ("Thursday, Nov 12") is one date, not two. Coming up shows one entry per conversation, from its newest message with a date ahead.
+- **Sprint 3 leftovers:** a "Later · tomorrow 9 AM" tag on mail you put off, wherever it still shows (Search, organization and person lists, conversation bubbles); a "You asked 5 days ago" row with Nudge and Got it at the top of a person's page.
+- **Testing tools > Morning brief:** shows the next brief as it would read now (or that it would be skipped) and sends a test in 5 seconds under its own id. It does not turn the brief on.
+- **Gmail:** no new actions or scopes. The thread lookup still reads metadata only; it now also asks for the Subject, Auto-Submitted, X-Autoreply and X-Autorespond headers.
+- **Measurement:** 8 new fictional holdout cases (`h5-*`) were committed first. SCORECARD before and after are in the PR. The three holdouts fixed by looking at them (u17, r13, u24) moved to the tuning set.
+- **Not done / next:** device check of build 1017 and this sprint; Google verification path (needs a separate Google Cloud project; the owner presses Publish and Submit).

@@ -237,6 +237,10 @@ enum FeedTriage {
         // newsletter or receipt.
         if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
+        // Out-of-office and other automatic replies are never a person asking something, and never an answer.
+        if email.isAutoReply { return TriageAssessment(section: .updates, reason: "Automatic reply") }
+        // A delivery phrase plus an automated signal or a shipping sender (a person saying "it was delivered" is not one).
+        if !email.isPromotional, DeliveryNotice.isDeliveryNotice(email) { return TriageAssessment(section: .updates, reason: "Delivery update") }
         // A newsletter needs list evidence: Gmail's signals (tab, list headers, bulk precedence, system address) or a
         // list footer in the text. A person's mail that merely mentions a newsletter is not one.
         if post.summary.category == .newsletter, email.isAutomated || ReplySignals.hasListFooter(email.body) { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
@@ -246,6 +250,11 @@ enum FeedTriage {
             if MailKind.isMarketing(text) { return TriageAssessment(section: .reading, reason: "Promotion or marketing mail") }
             if MailKind.isShipping(text) { return TriageAssessment(section: .updates, reason: why + "; shipping or delivery") }
             if MailKind.isReceipt(text) { return TriageAssessment(section: .updates, reason: why + "; a receipt or finished service") }
+            // Bulk mail with a list footer ("You are receiving this email because...") is reading, even when it names days,
+            // unless it is school, travel or plans mail.
+            if email.bulk, ReplySignals.hasListFooter(email.body), ![.school, .travel, .events].contains(post.summary.category) {
+                return TriageAssessment(section: .reading, reason: "Newsletter or mailing list")
+            }
             let dated = !post.summary.dates.isEmpty || MailKind.mentionsDay(text)
                 || [.school, .travel, .events].contains(post.summary.category)
             return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)
