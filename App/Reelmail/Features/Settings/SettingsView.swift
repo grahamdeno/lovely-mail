@@ -65,6 +65,21 @@ struct SettingsView: View {
                     Button { store.restoreAll() } label: { Label("Show hidden mail (\(store.hiddenPosts.count))", systemImage: "eye").frame(maxWidth: .infinity) }
                         .buttonStyle(CalmActionStyle())
                 }
+                let later = store.laterPosts
+                if !later.isEmpty {
+                    SettingsHeader(text: "Later (\(later.count))")
+                    ForEach(later, id: \.post.id) { item in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                Text("Back " + LaterSchedule.label(item.until, now: Date())).font(.caption).foregroundStyle(CalmStyle.secondary)
+                            }
+                            Spacer(minLength: 8)
+                            Button("Bring back now") { store.bringBack(item.post.id) }
+                                .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
+                        }
+                    }
+                }
 
                 SettingsHeader(text: "Testing")
                 SettingsRow(title: "Testing tools") { router.open(.testingTools) }

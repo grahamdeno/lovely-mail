@@ -57,6 +57,9 @@ enum Route: Hashable {
     /// An organization's page, by group key.
     case organization(String)
     case organizationList
+    /// Everything you promised, and everything you asked that has no answer yet.
+    case promises
+    case waitingOnThem
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools
@@ -94,6 +97,8 @@ final class Router {
     var tab: AppTab = .home
     /// Post id whose draft-reply sheet is showing.
     var draftPostID: String?
+    /// A nudge or follow-up draft showing.
+    var nudge: NudgeRequest?
 
     func open(_ route: Route) { path.append(route) }
 }

@@ -19,6 +19,11 @@ struct GmailMessage: Decodable {
     let payload: Part?
 }
 
+/// users/me/threads/{id}?format=metadata. Read-only.
+struct GmailThreadResponse: Decodable {
+    let messages: [GmailMessage]?
+}
+
 struct GmailListResponse: Decodable {
     struct Ref: Decodable { let id: String; let threadId: String }
     let messages: [Ref]?

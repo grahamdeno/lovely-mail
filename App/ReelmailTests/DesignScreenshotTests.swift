@@ -67,6 +67,20 @@ final class DesignScreenshotTests: XCTestCase {
         let router = Router(); router.tab = .people
         try await capture(RootView().environment(store).environment(router), name: "15-People-orgs-row")
     }
+    func testSprint3Screenshots() async throws {
+        let client = Sprint3ScreenshotClient()
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil,
+                              veto: nil)
+        await store.load()
+        await store.sentCheck?.value
+        XCTAssertEqual(store.promises.count, 1)
+        XCTAssertEqual(store.waitingOnThem.count, 1)
+        try await capture(RootView().environment(store).environment(Router()), name: "16-Home-promises-and-waiting")
+        try await capture(NavigationStack { WaitingOnThemListView() }.environment(store).environment(Router()), name: "17-Waiting-on-them-list")
+        // The same unread mail, put off and now back.
+        store.putOff(store.posts[0], until: Date().addingTimeInterval(-60))
+        try await capture(RootView().environment(store).environment(Router()), name: "18-Home-back-from-Later")
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()
@@ -117,5 +131,30 @@ private final class ScreenshotInboxClient: GmailInboxClient {
     func untrash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
     func markRead(messageID: String) async throws { XCTFail("Screenshot capture must never change Gmail") }
     func markUnread(messageID: String) async throws { XCTFail("Screenshot capture must never change Gmail") }
+    func signOut() {}
+}
+
+/// Fictional signed-in mailbox for Sprint 3 screenshots: one unread message, one ask you sent, one promise you made.
+@MainActor
+private final class Sprint3ScreenshotClient: GmailInboxClient {
+    let config = GmailConfig(clientID: "123-fixture.apps.googleusercontent.com")
+    var isSignedIn: Bool { true }
+    func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot {
+        let now = Date()
+        let owner = Person(id: "pat@lovely.example", name: "Pat Owner", email: "pat@lovely.example", hue: 0.5)
+        let dana = Person(id: "dana.reyes@mail.example", name: "Dana Reyes", email: "dana.reyes@mail.example", hue: 0.3)
+        let unread = Email(id: "u1", threadId: "tu1", from: dana, to: ["pat@lovely.example"], subject: "Carnival volunteers",
+                           date: now.addingTimeInterval(-3 * 86_400), body: "The volunteer list is posted in the front hall.", isUnread: true)
+        let ask = Email(id: "s1", threadId: "ts1", from: owner, to: ["Sam Ortiz <sam.ortiz@mail.example>"], subject: "Roster",
+                        date: now.addingTimeInterval(-5 * 86_400), body: "Hi Sam,\nCan you send the roster by Friday?", isUnread: false, isFromMe: true)
+        let promise = Email(id: "s2", threadId: "ts2", from: owner, to: ["Lee Park <lee.park@mail.example>"], subject: "Signed form",
+                            date: now.addingTimeInterval(-2 * 86_400), body: "Thanks Lee.\nI'll send the signed form tonight.", isUnread: false, isFromMe: true)
+        return MailboxSnapshot(account: "pat@lovely.example", inbox: [unread], sent: [ask, promise], fetchedAt: now)
+    }
+    func trash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
+    func untrash(messageID: String) async throws { XCTFail("Screenshot capture must never trash") }
+    func markRead(messageID: String) async throws { XCTFail("Screenshot capture must never change Gmail") }
+    func markUnread(messageID: String) async throws { XCTFail("Screenshot capture must never change Gmail") }
+    func signIn() async throws {}
     func signOut() {}
 }

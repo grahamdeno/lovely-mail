@@ -64,6 +64,11 @@ struct OpenEmailView: View {
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                     .buttonStyle(CalmActionStyle()).lineLimit(1)
             }
+            if post.email.isUnread {
+                LaterMenu(post: post, onPut: { leave() }) {
+                    Image(systemName: "clock").font(.body.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(width: 44, height: 44)
+                }
+            }
             Spacer(minLength: 0)
             Button { Task { await store.moveToTrash(post) }; leave() } label: {
                 Image(systemName: "trash").font(.body.weight(.medium)).foregroundStyle(CalmStyle.roseInk)

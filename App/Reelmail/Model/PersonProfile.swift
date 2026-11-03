@@ -20,9 +20,6 @@ struct PersonProfile: Equatable {
     let open: [OpenItem]
     let topics: [String]
 
-    /// Phrases in your own mail that commit you to something.
-    private static let promisePhrases = ["i'll ", "i will ", "i can send", "will send", "i'll get", "let me check",
-                                         "i'll call", "i'll follow up", "i'll have", "i'll be sending"]
     static let promiseWindow: TimeInterval = 30 * 86_400
 
     /// `theirs`: their mail to you. `mine`: your mail to them. `waitingAsk`: the ask for each of their messages
@@ -106,22 +103,9 @@ struct PersonProfile: Equatable {
         return "\(Int((hours / 24).rounded())) days"
     }
 
+    /// Uses the strict commitment rules (PromiseRules), not the old loose phrase list.
     static func promiseSentence(in body: String) -> String? {
-        let text = ReplySignals.authoredText(body)
-        for line in text.components(separatedBy: .newlines) {
-            var current = ""
-            for ch in line + "." {
-                current.append(ch)
-                guard ".!?".contains(ch) else { continue }
-                let sentence = current.trimmingCharacters(in: .whitespaces)
-                current = ""
-                let lower = " " + sentence.lowercased().replacingOccurrences(of: "\u{2019}", with: "'")
-                if sentence.count >= 8, promisePhrases.contains(where: { lower.contains(" " + $0) }) {
-                    return sentence.count > 120 ? String(sentence.prefix(117)) + "…" : sentence
-                }
-            }
-        }
-        return nil
+        PromiseRules.sentence(in: body)
     }
 
     private static func median(_ values: [TimeInterval]) -> TimeInterval? {
