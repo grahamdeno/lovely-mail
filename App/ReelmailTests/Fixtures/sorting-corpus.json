@@ -964,7 +964,7 @@
   },
   {
    "id": "u17",
-   "split": "holdout",
+   "split": "tune",
    "expect": "updates",
    "name": "ShipCo",
    "email": "tracking@shipco.example",
@@ -1117,7 +1117,7 @@
   },
   {
    "id": "r13",
-   "split": "holdout",
+   "split": "tune",
    "expect": "reading",
    "name": "Weeknight Recipes",
    "email": "recipes@weeknight.example",
@@ -1243,7 +1243,7 @@
   },
   {
    "id": "u24",
-   "split": "holdout",
+   "split": "tune",
    "expect": "updates",
    "name": "Shop Merch",
    "email": "orders.desk@shop.example",
