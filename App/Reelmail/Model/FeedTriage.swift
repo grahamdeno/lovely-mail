@@ -241,7 +241,9 @@ enum ReplySignals {
                                "some help", "can we", "could we", "when can", "when are you", "please send",
                                "please let", "please call", "please review", "please sign", "please respond",
                                "hoping you could", "hoping you can", "was hoping you", "would love your",
-                               "would appreciate", "could use your"]
+                               "would appreciate", "could use your",
+                               // A business asking you to act on its site counts as waiting on you (owner's call, Nov 2).
+                               "please log", "log onto", "log on to", "esign", "please complete", "please fill", "please pay"]
 
     /// Sentences that sound like asks but are courtesy or rhetoric: "Let me know if you have any questions",
     /// "Feel free to call me", "Can you believe this weather".

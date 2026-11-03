@@ -1273,6 +1273,28 @@
    "body": "You are scheduled for the following event: Sunday at 9:00 PM, Rink 1.",
    "daysAgo": 1,
    "why": "league scheduler"
+  },
+  {
+   "id": "w30",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Tandy at Harbor Flats",
+   "email": "harborflats.reply.office@leasing.example",
+   "subject": "eSign your lease",
+   "body": "Hi Pat, the renewed lease is ready to eSign. Please log onto our website and eSign it today, thanks!!\nTandy | Harbor Flats",
+   "daysAgo": 1,
+   "why": "owner: a business asking you to act on its site is Waiting"
+  },
+  {
+   "id": "w31",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Front Desk at Oak Dental",
+   "email": "frontdesk.oak@dentalmail.example",
+   "subject": "Forms",
+   "body": "Hi Pat, please complete the new patient forms on our website before Thursday.",
+   "daysAgo": 1,
+   "why": "owner: site asks are Waiting"
   }
  ]
 }

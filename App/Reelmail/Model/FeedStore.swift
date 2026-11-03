@@ -268,13 +268,17 @@ final class FeedStore {
 
         var seenIDs = Set<String>()
         var waiting: [Person] = []; var rest: [Person] = []
-        for post in d.active where !d.automated.contains(post.id) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
+        // Lists sent as a blind copy (team and league announcements) count as organizations, not people.
+        func isOrganization(_ post: Post) -> Bool {
+            d.automated.contains(post.id) || context.addressing(of: post.email) == .blindCopy
+        }
+        for post in d.active where !isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
             let p = post.email.from
             guard seenIDs.insert(p.id).inserted else { continue }
             if d.waitingPeople.contains(p.id) { waiting.append(p) } else { rest.append(p) }
         }
         d.people = waiting + rest
-        for post in d.active where d.automated.contains(post.id) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
+        for post in d.active where isOrganization(post) && d.assessments[post.id]?.section != .notes && !context.isMine(post.email) {
             let p = post.email.from
             guard seenIDs.insert(p.id).inserted else { continue }
             d.organizations.append(p)
