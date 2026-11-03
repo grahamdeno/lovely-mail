@@ -182,8 +182,13 @@ private struct PersonHeader: View {
             HStack(spacing: 8) {
                 stat("\(profile.total)", profile.since.map { "emails since " + $0.formatted(.dateTime.month(.abbreviated)) } ?? "emails")
                 stat("\(profile.fromYou)", "from you")
-                stat(profile.usualReply.map(PersonProfile.duration) ?? "None", "your usual reply")
+                if let usual = profile.usualReply {
+                    stat(PersonProfile.duration(usual), "your usual reply")
+                } else {
+                    stat("–", profile.fromYou == 0 ? "no replies yet" : "your usual reply")
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
 
             if !profile.open.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -223,7 +228,8 @@ private struct PersonHeader: View {
             Text(value).font(.title3.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
             Text(label).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
         }
-        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+        // Every tile fills the row's height so the three line up even when one label wraps.
+        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }

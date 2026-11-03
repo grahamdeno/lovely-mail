@@ -94,6 +94,7 @@ struct OrganizationView: View {
                 stat("\(recent)", "last 30 days")
                 stat("\(needsYou)", "need you")
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -102,7 +103,8 @@ struct OrganizationView: View {
             Text(value).font(.title3.weight(.bold)).lineLimit(1)
             Text(label).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
         }
-        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+        // Every tile fills the row's height so the three line up even when one label wraps.
+        .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
