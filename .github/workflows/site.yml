@@ -37,7 +37,8 @@ jobs:
         run: npx --yes wrangler@3.114.0 pages deploy site --project-name=tangomike-lovely --branch=main --commit-dirty=true
       - name: No Cloudflare key yet
         if: steps.build.outputs.ok == 'true' && env.HAS_TOKEN != 'true'
-        run: echo "::warning::Not publishing: add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the repo's secrets."
+        run: |
+          echo "::warning::Not publishing: add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the repo's secrets."
       - name: Check the live site
         if: steps.build.outputs.ok == 'true' && env.HAS_TOKEN == 'true'
         run: |
