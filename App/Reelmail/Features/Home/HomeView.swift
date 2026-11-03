@@ -169,6 +169,7 @@ struct HomeView: View {
         }
         .animation(.easeOut(duration: 0.2), value: undo?.id)
         .onChange(of: store.lastDone?.id) { _, _ in if let post = store.lastDone { offer(.done(post)) } }
+        .onChange(of: store.lastTrashed?.id) { _, _ in if let post = store.lastTrashed { offer(.trash(post)) } }
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
     }
 

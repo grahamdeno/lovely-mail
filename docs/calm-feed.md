@@ -150,3 +150,8 @@ Next steps:
 - Pending: device check of Done on the real inbox; screenshots come from CI.
 - Build 1014 on the real inbox showed "To do 0": all 17 unread messages were in the Updates and Promotions tabs, none in Primary, and the unread list used the Primary query. Fix: the unread list is `is:unread in:inbox`, every tab. Read mail still comes from Primary only.
 
+
+## Email screen redesign (owner, Nov 3, 2026)
+- Owner: "The UI here has a lot to be asked for." The old screen was wider than the phone (the fixed-size button row pushed text off both edges), links and phone numbers weren't tappable, two large "Not waiting" buttons outweighed the email, a summary repeated short mail, and a footnote explained the buttons.
+- Now: sender row (tap for the conversation), subject, "Oct 26 · 8 days ago", To/Cc only when someone besides you is on it (full lists then, so group mail keeps recipients); one line "Waiting on you: <their ask>" with a small Not waiting; the email with tappable web, email, phone and street addresses (detected on the phone, `EmailPresentation`); "In short" only for bodies over 600 characters. Bottom bar: Reply, Done (unread only), Trash, and "…" (Open in Gmail, conversation, sender rules, Hide). Title is the sender. Trash from here offers Undo on Home.
+- Pending: device check; screenshots 11-13 come from CI.

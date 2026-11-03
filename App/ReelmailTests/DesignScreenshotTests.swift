@@ -54,6 +54,13 @@ final class DesignScreenshotTests: XCTestCase {
         defer { ThemeState.neon = false }
         try await capture(RootView().environment(store).environment(Router()), name: "10-Home-neon", dark: true)
     }
+    func testEmailScreenshots() async throws {
+        let store = await demoStore()
+        let waiting = try XCTUnwrap(store.needsReplyPosts.first)
+        try await capture(NavigationStack { OpenEmailView(postID: waiting.id) }.environment(store).environment(Router()), name: "11-Email-waiting")
+        try await capture(NavigationStack { OpenEmailView(postID: waiting.id) }.environment(store).environment(Router()), name: "12-Email-dark", dark: true)
+        try await capture(NavigationStack { OpenEmailView(postID: waiting.id) }.environment(store).environment(Router()).dynamicTypeSize(.accessibility2), name: "13-Email-larger-text")
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()
