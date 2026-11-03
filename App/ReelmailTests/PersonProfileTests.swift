@@ -57,15 +57,36 @@ final class PersonProfileTests: XCTestCase {
         let bank = Person(id: "statements@bank.example", name: "First Harbor Bank", email: "statements@bank.example", hue: 0.1)
         let posts = [post("w", dana, daysAgo: 1, unread: false), post("n", dana, daysAgo: 1, unread: true),
                      post("p", dana, daysAgo: 2, unread: false), post("o1", bank, daysAgo: 3, unread: false),
-                     post("o2", bank, daysAgo: 4, unread: false), post("old", dana, daysAgo: 30, unread: false)]
+                     post("o2", bank, daysAgo: 4, unread: false), post("old", dana, daysAgo: 30, unread: false),
+                     post("oldUnread", bank, daysAgo: 60, unread: true)]
         let d = HomeDigest.make(active: posts, section: { $0.id == "w" ? .waiting : ($0.email.from.id == bank.id ? .updates : .people) },
                                 isOrganization: { $0.email.from.id == bank.id }, now: now)
         XCTAssertEqual(d.waiting.map(\.id), ["w"])
-        XCTAssertEqual(d.new.map(\.id), ["n"])
+        XCTAssertEqual(d.todo.map(\.id), ["oldUnread", "n"], "Unread is the to-do, oldest first, however old")
         XCTAssertEqual(d.people.map(\.id), ["p"])
         XCTAssertEqual(d.organizations.map(\.name), ["First Harbor Bank"])
         XCTAssertEqual(d.organizations.first?.posts.count, 2)
-        XCTAssertEqual(d.earlier.map(\.id), ["old"])
+        XCTAssertEqual(d.earlier.map(\.id), ["old"], "Only read mail folds into Earlier")
+        XCTAssertEqual(HomeDigest.age(of: now.addingTimeInterval(-21 * 86_400), now: now), "3 weeks")
+        XCTAssertEqual(HomeDigest.age(of: now.addingTimeInterval(-3 * 86_400), now: now), "3 days")
         XCTAssertEqual(HomeDigest.organizationName(Person(id: "x", name: "x@getsongbpm.com", email: "sender@getsongbpm.com", hue: 0)), "Getsongbpm")
+    }
+
+    func testFirstNameKeepsTitlesAndArticlesWhole() {
+        XCTAssertEqual(Person(id: "a", name: "St. Andrews Reserve", email: "a@x.example", hue: 0).firstName, "St. Andrews Reserve")
+        XCTAssertEqual(Person(id: "b", name: "Dr. Patel", email: "b@x.example", hue: 0).firstName, "Dr. Patel")
+        XCTAssertEqual(Person(id: "c", name: "The Rink", email: "c@x.example", hue: 0).firstName, "The Rink")
+        XCTAssertEqual(Person(id: "d", name: "Dana Brooks", email: "d@x.example", hue: 0).firstName, "Dana")
+    }
+
+    func testUnreadStateComesFromGmailEachRefresh() {
+        func e(_ id: String, unread: Bool) -> Email {
+            Email(id: id, threadId: id, from: dana, to: [me.email], subject: "S", date: now, body: "Hi", isUnread: unread)
+        }
+        let cached = [e("readElsewhere", unread: true), e("stillUnread", unread: true), e("markedUnread", unread: false)]
+        let fresh = GmailService.applyUnread(cached, unread: ["stillUnread", "markedUnread"], complete: true)
+        XCTAssertEqual(fresh.map(\.isUnread), [false, true, true])
+        let partial = GmailService.applyUnread(cached, unread: ["markedUnread"], complete: false)
+        XCTAssertEqual(partial.map(\.isUnread), [true, true, true], "An incomplete unread list never marks mail read")
     }
 }

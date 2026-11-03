@@ -89,6 +89,7 @@ final class FeedStore {
     private func loadSample() {
         bump()
         mode = .sample; account = nil; accountRules = nil; needsReconnect = false
+        loadDoneCount()
         sentByMe = SampleData.sentByMe
         let fallback = FallbackSummarizer()
         posts = SampleData.emails.map { Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0))) }
@@ -142,8 +143,8 @@ final class FeedStore {
         inboxTruncated = cache.snapshot.inboxTruncated
         let fallback = FallbackSummarizer()
         posts = cache.snapshot.inbox.map { email in
-            var e = email; if cache.seen.contains(email.id) { e.isUnread = false }
-            return Post(email: e, summary: cache.summaries[email.id] ?? fallback.summarizeSync(SummaryInput(email: email)))
+            // Unread comes from Gmail only. (Older versions marked mail read in Lovely when you opened it; that is ignored.)
+            Post(email: email, summary: cache.summaries[email.id] ?? fallback.summarizeSync(SummaryInput(email: email)))
         }
     }
 
@@ -155,6 +156,7 @@ final class FeedStore {
             for pending in pendingOtherAddresses { accountRules?.setOtherAddress(pending, true) }
             pendingOtherAddresses = []
             accountReview = SortingReview(accountID: "gmail-" + MailCache.accountKey(address), defaults: triageDefaults)
+            loadDoneCount()
         }
     }
 
@@ -500,6 +502,79 @@ final class FeedStore {
         errorMessage = "That message was not moved to Trash. \(error.localizedDescription)"
     }
 
+    // MARK: Done (mark read in Gmail; approved 2026-11-02)
+
+    /// The last message marked Done, so a screen can offer Undo.
+    private(set) var lastDone: Post?
+
+    /// Your to-do is your unread mail. Done marks the message read in Gmail, so the list matches Gmail
+    /// everywhere. It leaves the to-do at once; if Gmail refuses, it comes back and the reason is shown.
+    /// Opening a message never marks it read. In demo mode this only changes the fictional message.
+    func markDone(_ post: Post) async {
+        guard setUnread(post.id, false) else { return }
+        countDone(+1)
+        lastDone = post
+        persist()
+        guard mode == .gmail else { return }
+        do { try await gmail.markRead(messageID: post.id) }
+        catch {
+            setUnread(post.id, true); countDone(-1); persist()
+            if lastDone?.id == post.id { lastDone = nil }
+            changeFailed(error)
+            errorMessage = "That message is still unread in Gmail. \(error.localizedDescription)"
+        }
+    }
+
+    /// Undo for `markDone`: unread again in Gmail, back on the to-do.
+    func undoDone(_ post: Post) async {
+        if mode == .gmail {
+            do { try await gmail.markUnread(messageID: post.id) }
+            catch { errorMessage = "Gmail could not mark that message unread again. Mark it unread in Gmail to put it back. \(error.localizedDescription)"; return }
+        }
+        if setUnread(post.id, true) { countDone(-1) }
+        if lastDone?.id == post.id { lastDone = nil }
+        persist()
+    }
+
+    func isTodo(_ post: Post) -> Bool { posts.first { $0.id == post.id }?.email.isUnread ?? false }
+
+    @discardableResult
+    private func setUnread(_ id: String, _ unread: Bool) -> Bool {
+        guard let i = posts.firstIndex(where: { $0.id == id }), posts[i].email.isUnread != unread else { return false }
+        bump()
+        posts[i].email.isUnread = unread
+        return true
+    }
+
+    /// How many to-dos you've marked Done today, on this phone. Resets each day.
+    var doneToday: Int { doneDay == Self.dayKey(Date()) ? doneCount : 0 }
+    private var doneDay = ""
+    private var doneCount = 0
+    private var doneKey: String { "lovely.doneToday." + (mode == .gmail ? MailCache.accountKey(account ?? "") : "demo") }
+    private func loadDoneCount() {
+        let saved = triageDefaults.dictionary(forKey: doneKey)
+        doneDay = saved?["day"] as? String ?? ""
+        doneCount = saved?["count"] as? Int ?? 0
+    }
+    private func countDone(_ delta: Int) {
+        doneCount = max(0, doneToday + delta)
+        doneDay = Self.dayKey(Date())
+        triageDefaults.set(["day": doneDay, "count": doneCount], forKey: doneKey)
+    }
+    private static func dayKey(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    private func changeFailed(_ error: Error) {
+        guard let e = error as? GmailService.GmailError else { return }
+        switch e {
+        case .needsTrashPermission: needsTrashPermission = true
+        case .sessionExpired, .notSignedIn: needsReconnect = true
+        default: break
+        }
+    }
+
     // MARK: Your other addresses
 
     /// Addresses you said are yours. Mail from them is "Notes to self". Saved on this phone, per account.
@@ -531,11 +606,6 @@ final class FeedStore {
     func hide(_ post: Post) { hidden.insert(post.id); persist() }
     func unhide(_ post: Post) { hidden.remove(post.id); persist() }
     func restoreAll() { hidden.removeAll(); persist() }
-    func markRead(_ post: Post) {
-        bump()
-        if let i = posts.firstIndex(where: { $0.id == post.id }) { posts[i].email.isUnread = false }
-        if seen.insert(post.id).inserted { persist() }
-    }
     /// Your correction: this message (or everything from this sender) is not waiting on you. Local only.
     func markNotWaiting(_ post: Post, wholeSender: Bool) {
         guard mode == .sample || accountRules != nil else { return }

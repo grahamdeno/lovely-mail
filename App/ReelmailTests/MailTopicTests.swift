@@ -105,5 +105,7 @@ private final class TopicDemoClient: GmailInboxClient {
     func signIn() async throws { XCTFail("No sign-in in topic demo tests") }
     func trash(messageID: String) async throws { XCTFail("No Gmail changes in topic demo tests") }
     func untrash(messageID: String) async throws { XCTFail("No Gmail changes in topic demo tests") }
+    func markRead(messageID: String) async throws { XCTFail("No Gmail changes in topic demo tests") }
+    func markUnread(messageID: String) async throws { XCTFail("No Gmail changes in topic demo tests") }
     func signOut() {}
 }

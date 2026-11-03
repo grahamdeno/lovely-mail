@@ -18,6 +18,8 @@ struct MailboxSnapshot: Codable, Equatable {
 /// How much to import. Bounded on purpose; see docs/calm-feed.md.
 struct ImportLimits: Equatable {
     var inboxMessages = 120
+    /// Unread inbox messages are all loaded, however old, up to this many. Unread is your to-do list.
+    var unreadMessages = 300
     var sentMessages = 60
     /// Only sent mail newer than this is imported (days).
     var sentWindowDays = 90
@@ -31,9 +33,12 @@ protocol GmailInboxClient: AnyObject {
     var isSignedIn: Bool { get }
     /// Imports the mailbox. `known` lets the client skip downloading messages it already has.
     func fetchMailbox(known: MailboxSnapshot?, limits: ImportLimits) async throws -> MailboxSnapshot
-    /// Moves one message to Gmail's Trash. The only change the app makes to the mailbox.
+    /// Moves one message to Gmail's Trash, and back. Approved 2026-11-01.
     func trash(messageID: String) async throws
     func untrash(messageID: String) async throws
+    /// Marks one message read ("Done"), and unread again to undo it. Approved 2026-11-02. Only the UNREAD label.
+    func markRead(messageID: String) async throws
+    func markUnread(messageID: String) async throws
     func signIn() async throws
     func signOut()
 }

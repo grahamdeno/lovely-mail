@@ -66,7 +66,7 @@ struct MyProfileView: View {
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
 
-                Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off above. The one change it can make is moving a message to Gmail's Trash when you swipe it there, and you can undo that. It never sends mail, never deletes anything for good, and never changes labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+                Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off above. It changes Gmail in only two ways, both when you ask and both undoable: moving a message to Trash, and marking a message read when you tap Done. It never sends mail, never deletes anything for good, and never changes other labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
             }
             .padding(20)
