@@ -72,7 +72,7 @@ private struct ConversationBubble: View {
     let summary: EmailSummary?
     let grouped: Bool
     @State private var showingDetails = false
-    private var secondaryInk: Color { email.isFromMe ? Color.white.opacity(0.9) : CalmStyle.secondary }
+    private var secondaryInk: Color { email.isFromMe ? CalmStyle.onBlue.opacity(0.85) : CalmStyle.secondary }
     var body: some View {
         let preview = ConversationPresentation.preview(email, summary: summary)
         HStack(alignment: .bottom, spacing: 0) {
@@ -97,7 +97,7 @@ private struct ConversationBubble: View {
                     }.buttonStyle(.plain).accessibilityLabel("Show original email and details")
                 }.foregroundStyle(secondaryInk)
             }
-            .foregroundStyle(email.isFromMe ? Color.white : CalmStyle.ink)
+            .foregroundStyle(email.isFromMe ? CalmStyle.onBlue : CalmStyle.ink)
             .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 4)
             .background(email.isFromMe ? CalmStyle.blue : CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 20))
             .accessibilityElement(children: .contain)

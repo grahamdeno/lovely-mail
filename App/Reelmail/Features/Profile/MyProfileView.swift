@@ -91,7 +91,9 @@ struct AppearanceCard: View {
                 ForEach(Appearance.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            Text("Automatic follows your iPhone's light and dark setting.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(appearance == .neon ? "Midnight violet, hot pink and electric cyan. Totally tubular."
+                                     : "Automatic follows your iPhone's light and dark setting.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))

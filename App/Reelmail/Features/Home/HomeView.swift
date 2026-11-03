@@ -2,26 +2,32 @@ import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
+/// Neon (an 80s gel palette: midnight violet, hot pink and electric cyan) replaces both when chosen in Profile.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(light: 0xFBF8F4, dark: 0x17161A)
+    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x120A24)
     /// Cards, pills and fields that sit on the background.
-    static let card = Color(light: 0xFFFFFF, dark: 0x25232A)
-    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA)
-    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC)
-    /// Airmail blue: everything you can tap. White text on it stays readable in both appearances.
-    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8)
-    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots).
-    static let rose = Color(light: 0xD2546E, dark: 0xE0708A)
-    /// Postmark rose for text; passes 4.5:1 on its background in both appearances.
-    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3)
-    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34)
+    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x1F1240)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF7F0FF)
+    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC, neon: 0xBBA8E8)
+    /// Airmail blue: everything you can tap. In Neon, electric cyan.
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x1FE5FF)
+    /// Text and icons on `blue` (white, except dark ink on Neon's bright cyan).
+    static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0x120A24)
+    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, hot pink.
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF2BB4)
+    /// Postmark rose for text; passes 4.5:1 on its background in every palette.
+    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFF7AD0)
+    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x3A2466)
     static let field = card
-    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930)
-    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F)
-    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B)
-    /// The Undo bar: dark in both appearances, with white text.
-    static let toast = Color(light: 0x25222A, dark: 0x3A3842)
+    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x2C1A57)
+    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x3D1F45)
+    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFD36E)
+    /// The Undo bar: dark in every palette, with white text.
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x3A1F72)
+    /// Neon's signature gel stripe: hot pink into cyan. Used for the line under the top bar.
+    static let gel = LinearGradient(colors: [Color(hex: 0xFF2BB4), Color(hex: 0x9B4DFF), Color(hex: 0x1FE5FF)],
+                                    startPoint: .leading, endPoint: .trailing)
 }
 
 /// The italic "lovely" wordmark. Apple's serif (New York) so nothing extra ships with the app.
@@ -84,7 +90,7 @@ struct CalmActionStyle: ButtonStyle {
         configuration.label
             .font(.subheadline.weight(.medium))
             .padding(.horizontal, 12).frame(minHeight: 40)
-            .foregroundStyle(prominent ? Color.white : CalmStyle.blue)
+            .foregroundStyle(prominent ? CalmStyle.onBlue : CalmStyle.blue)
             .background(prominent ? CalmStyle.blue : CalmStyle.blue.opacity(0.08), in: Capsule())
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
@@ -290,7 +296,11 @@ struct TopBar: View {
             }
             .padding(.top, 4)
             ZStack {
-                Rectangle().fill(CalmStyle.divider).frame(height: 1)
+                if ThemeState.neon {
+                    Rectangle().fill(CalmStyle.gel).frame(height: 2)
+                } else {
+                    Rectangle().fill(CalmStyle.divider).frame(height: 1)
+                }
                 if store.isLoading || store.isSummarizing {
                     ProgressView().progressViewStyle(.linear).tint(CalmStyle.blue)
                         .accessibilityLabel(store.isLoading ? "Checking for new mail" : "Writing summaries on this iPhone")
