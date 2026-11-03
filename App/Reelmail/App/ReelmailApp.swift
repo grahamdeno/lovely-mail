@@ -98,6 +98,8 @@ final class Router {
     var tab: AppTab = .home
     /// Post id whose draft-reply sheet is showing.
     var draftPostID: String?
+    /// Open the draft sheet with Reply all selected.
+    var draftReplyAll = false
     /// A nudge or follow-up draft showing.
     var nudge: NudgeRequest?
 
