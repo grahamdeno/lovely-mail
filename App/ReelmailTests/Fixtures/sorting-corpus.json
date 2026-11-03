@@ -1295,6 +1295,83 @@
    "body": "Hi Pat, please complete the new patient forms on our website before Thursday.",
    "daysAgo": 1,
    "why": "owner: site asks are Waiting"
+  },
+  {
+   "id": "fp-outlook-quote",
+   "split": "tune",
+   "expect": "people",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Re: Forms",
+   "body": "Received, thanks.\n________________________________\nFrom: Pat Owner\nSent: Monday\nTo: Dana\nSubject: Forms\n\nCan you send me the form?",
+   "daysAgo": 1,
+   "why": "a one-line reply above an Outlook quote: the quoted ask is the owner's own"
+  },
+  {
+   "id": "fp-reaction",
+   "split": "tune",
+   "expect": "people",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Dana reacted to your message",
+   "body": "Dana Reyes reacted to your message:\n\n“Can you send me the form by Friday?”",
+   "daysAgo": 1,
+   "why": "a reaction notice quotes the owner's own message"
+  },
+  {
+   "id": "tp-outlook-ask",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Re: Permission slip",
+   "body": "Can you sign the permission slip by Friday?\n\nFrom: Pat Owner\nSent: Monday\nTo: Dana\nSubject: Permission slip\n\nHere it is, attached.",
+   "daysAgo": 1,
+   "why": "a real ask above an Outlook header block still counts"
+  },
+  {
+   "id": "c-additional-questions",
+   "split": "tune",
+   "expect": "people",
+   "name": "Marcus Cole",
+   "email": "mcole@mail.example",
+   "subject": "Re: Draft",
+   "body": "Hi Pat,\nThe draft is in the shared folder.\nPlease let me know if you have any additional questions.\nMarcus",
+   "daysAgo": 1,
+   "why": "courtesy, not an ask"
+  },
+  {
+   "id": "c-curly-hesitate",
+   "split": "tune",
+   "expect": "people",
+   "name": "Priya Nair",
+   "email": "priya@nairdesign.example",
+   "subject": "Thanks",
+   "body": "Hi Pat,\nThanks for the update. Please don’t hesitate to let me know.\nPriya",
+   "daysAgo": 1,
+   "why": "a curly apostrophe must not defeat the courtesy rule"
+  },
+  {
+   "id": "m-group-email",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Carnival Committee",
+   "email": "carnival.committee@mail.example",
+   "subject": "Volunteer list posted",
+   "body": "Hello everyone,\nThe volunteer list for the spring carnival is posted in the front hall.\nThis is a group email, please reply to sender only.",
+   "daysAgo": 1,
+   "why": "group notice with a machine footer"
+  },
+  {
+   "id": "m-calendar-accepted",
+   "split": "tune",
+   "expect": "updates",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Accepted: Sprint review",
+   "body": "Dana Reyes has accepted this invitation.",
+   "daysAgo": 1,
+   "why": "calendar auto-response"
   }
  ]
 }

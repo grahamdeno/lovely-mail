@@ -337,30 +337,85 @@ enum ReplySignals {
     private static let courtesy = [#"let me know if you (have any questions|need anything|need any)"#,
                                    #"let me know if (there is|there's) anything"#, #"if you have any questions"#,
                                    #"feel free to"#, #"(don't|do not) hesitate"#, #"if anything comes up"#,
-                                   #"can you believe"#, #"would you believe"#, #"who knew"#, #"guess what"#]
+                                   #"can you believe"#, #"would you believe"#, #"who knew"#, #"guess what"#,
+                                   #"any (additional|further|other) questions"#, #"feel welcome to"#,
+                                   #"let me know if (you need|there's|there is) anything( else)?"#]
 
     static func isCourtesy(_ sentence: String) -> Bool {
-        let lower = sentence.lowercased()
+        let lower = normalizeQuotes(sentence).lowercased()
         return courtesy.contains { lower.range(of: $0, options: .regularExpression) != nil }
+    }
+
+    /// Curly quotes and apostrophes to straight ones, so "don’t" matches "don't" in every phrase rule.
+    static func normalizeQuotes(_ text: String) -> String {
+        var out = text
+        for (curly, straight) in [("\u{2019}", "'"), ("\u{2018}", "'"), ("\u{201C}", "\""), ("\u{201D}", "\"")] {
+            out = out.replacingOccurrences(of: curly, with: straight)
+        }
+        return out
+    }
+
+    /// True when a "From:" line opens an Outlook-style header block: "Sent:", "Date:", "To:" or "Subject:"
+    /// follows within the next three lines.
+    private static func opensHeaderBlock(_ lines: [String], at index: Int) -> Bool {
+        guard lines[index].hasPrefix("From:") else { return false }
+        let following = lines.dropFirst(index + 1).prefix(3)
+        return following.contains { line in
+            ["Sent:", "Date:", "To:", "Subject:"].contains { line.hasPrefix($0) }
+        }
+    }
+
+    /// Where the author's own words end: signatures, quoted replies, forwards, reactions.
+    private static func endsAuthoredText(_ lines: [String], at index: Int, kept: Int) -> Bool {
+        let line = lines[index]
+        if line == "--" || line == "-- " || line.hasPrefix("\u{2014}") && line.count < 4 { return true }
+        if line.range(of: #"^On .+ wrote:$"#, options: .regularExpression) != nil { return true }
+        // Gmail wraps long attributions: "On Mon, Nov 2, 2026 at 3:00 PM Dana <dana@x.example>" then "wrote:".
+        if line.hasPrefix("On "), index + 1 < lines.count, lines[index + 1].hasPrefix("wrote:") { return true }
+        if line.hasPrefix("-----Original Message-----") || line.hasPrefix("From: ") && kept > 2 { return true }
+        // Outlook: a line of underscores, then From / Sent / To / Subject.
+        if line.range(of: #"^_{10,}"#, options: .regularExpression) != nil { return true }
+        if opensHeaderBlock(lines, at: index) { return true }
+        // "Dana reacted to your message:" is followed by the quoted message.
+        if line.range(of: #"^.{1,60}\s+reacted (to|with) .*(message|text)"#, options: [.regularExpression, .caseInsensitive]) != nil { return true }
+        // A forwarded message is someone else's words (Gmail and Apple Mail markers).
+        if line.range(of: #"^-{2,}\s*Forwarded message\s*-{2,}"#, options: .regularExpression) != nil
+            || line == "Begin forwarded message:" { return true }
+        return false
+    }
+
+    /// The author's own words, quotes and signatures removed, links and unsubscribe lines kept.
+    /// Summaries use this so a newsletter still reads as one.
+    static func authoredBody(_ body: String) -> String {
+        authoredLines(body, dropLinks: false)
+    }
+
+    private static func authoredLines(_ body: String, dropLinks: Bool) -> String {
+        let lines = body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+        var kept: [String] = []
+        for index in lines.indices {
+            let line = lines[index]
+            if endsAuthoredText(lines, at: index, kept: kept.count) { break }
+            if line.hasPrefix(">") { continue }
+            if dropLinks {
+                let lower = line.lowercased()
+                if lower.contains("unsubscribe") || lower.contains("http://") || lower.contains("https://") { continue }
+            }
+            kept.append(line)
+        }
+        return kept.joined(separator: "\n")
     }
 
     /// The author's own words: no quoted earlier mail, no signature block, no link-heavy footer lines.
     static func authoredText(_ body: String) -> String {
-        var kept: [String] = []
-        for raw in body.components(separatedBy: .newlines) {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            if line == "--" || line == "-- " || line.hasPrefix("—") && line.count < 4 { break }
-            if line.range(of: #"^On .+ wrote:$"#, options: .regularExpression) != nil { break }
-            if line.hasPrefix("-----Original Message-----") || line.hasPrefix("From: ") && kept.count > 2 { break }
-            // A forwarded message is someone else's words (Gmail and Apple Mail markers).
-            if line.range(of: #"^-{2,}\s*Forwarded message\s*-{2,}"#, options: .regularExpression) != nil
-                || line == "Begin forwarded message:" { break }
-            if line.hasPrefix(">") { continue }
-            let lower = line.lowercased()
-            if lower.contains("unsubscribe") || lower.contains("http://") || lower.contains("https://") { continue }
-            kept.append(line)
-        }
-        return kept.joined(separator: "\n")
+        authoredLines(body, dropLinks: true)
+    }
+
+    /// What a summarizer reads: the author's words, or the whole body when they wrote almost nothing
+    /// (a bare forward, "FYI").
+    static func summaryBody(_ body: String) -> String {
+        let own = authoredBody(body)
+        return own.trimmingCharacters(in: .whitespacesAndNewlines).count < 40 ? body : own
     }
 
     /// Phrases that mark machine-sent mail even when the sender address looks personal
@@ -375,12 +430,17 @@ enum ReplySignals {
         "verification code", "security code", "one-time code", "your code is", "passcode",
         "automatic reply", "auto-reply", "autoreply", "out of office", "out of the office",
         "has been scheduled for", "you are scheduled for",
+        "this is a group email", "please reply to sender only",
     ]
+    /// Calendar auto-responses: "Accepted: Sprint review".
+    private static let machineSubjectPrefixes = ["accepted:", "declined:", "tentative:", "new time proposed:", "invitation:"]
     /// Booking systems: "Reply C to confirm", "Reply Y to confirm or N to cancel".
     private static let replyCode = #"\breply [a-z]{1,3} to (confirm|cancel)"#
 
     static func isMachineText(subject: String, body: String) -> Bool {
-        let lower = (subject + "\n" + authoredText(body)).lowercased()
+        let lower = normalizeQuotes(subject + "\n" + authoredText(body)).lowercased()
+        let head = subject.trimmingCharacters(in: .whitespaces).lowercased()
+        if machineSubjectPrefixes.contains { head.hasPrefix($0) } { return true }
         return machinePhrases.contains { lower.contains($0) } || lower.range(of: replyCode, options: .regularExpression) != nil
     }
 
@@ -402,7 +462,7 @@ enum ReplySignals {
         for raw in candidates {
             let sentence = raw.trimmingCharacters(in: .whitespaces)
             guard sentence.count >= 6, !isCourtesy(sentence) else { continue }
-            let lower = sentence.lowercased()
+            let lower = normalizeQuotes(sentence).lowercased()
             let asks = sentence.hasSuffix("?") && sentence.range(of: #"[A-Za-z][^.!?]{2,}\?$"#, options: .regularExpression) != nil
             if asks || Self.asks.contains(where: { lower.contains($0) }) {
                 return sentence.count > 140 ? String(sentence.prefix(137)) + "…" : sentence
@@ -414,7 +474,7 @@ enum ReplySignals {
     static func needsReply(body: String, automated: Bool, category: PostCategory) -> Bool {
         guard !automated, category != .newsletter else { return false }
         let text = authoredText(body)
-        let lower = text.lowercased()
+        let lower = normalizeQuotes(text).lowercased()
         if asks.contains(where: { lower.contains($0) }) { return true }
         // A question mark counts only when it ends a sentence the author wrote.
         return text.range(of: #"[A-Za-z][^.!?\n]{2,}\?(\s|$)"#, options: .regularExpression) != nil

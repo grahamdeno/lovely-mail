@@ -82,6 +82,8 @@ struct AppleIntelligenceSummarizer: EmailSummarizer {
     You turn one email into a short post for a calm, social-style inbox feed.
     Be factual and neutral. Never invent details that are not in the email.
     Write the headline in at most 8 words and the blurb in at most 25 words.
+    The reader is the person who received this email. Address the reader as "you": write "asks you for help",
+    never the reader's own name (a reply to the reader is not "<name> asks for help").
     Do not repeat codes, passwords or account numbers; if the email has them, mark it sensitive.
     """
 

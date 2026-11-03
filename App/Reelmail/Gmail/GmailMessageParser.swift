@@ -68,17 +68,63 @@ enum GmailMessageParser {
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// "Maya Chen <maya@example.com>" -> Person.
+    /// "Maya Chen <maya@example.com>" -> Person. Without a display name the name comes from the address.
     static func person(fromHeader value: String) -> Person {
         var name = value
-        var address = value
+        var rawAddress = value
         if let lt = value.firstIndex(of: "<"), let gt = value.firstIndex(of: ">"), lt < gt {
-            address = String(value[value.index(after: lt)..<gt])
-            name = String(value[..<lt]).trimmingCharacters(in: CharacterSet(charactersIn: " \""))
+            rawAddress = String(value[value.index(after: lt)..<gt])
+            name = String(value[..<lt]).trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
         }
-        address = address.trimmingCharacters(in: .whitespaces).lowercased()
-        if name.isEmpty || name == value { name = address.split(separator: "@").first.map(String.init) ?? address }
+        rawAddress = rawAddress.trimmingCharacters(in: .whitespaces)
+        let address = rawAddress.lowercased()
+        if name.isEmpty || name == value { name = displayName(fromAddress: rawAddress) } else { name = firstLast(name) }
         return Person(id: address, name: name, email: address, hue: stableHue(address))
+    }
+
+    /// Local parts that say nothing about who sends: the company's domain names the sender instead.
+    private static let genericLocalParts: Set<String> = [
+        "noreply", "no-reply", "donotreply", "do-not-reply", "info", "admin", "notifications", "notification",
+        "mail", "hello", "support", "team", "news",
+    ]
+
+    /// A readable name from an address with no display name. "DFAS-SmartDocs@x.example" -> "DFAS SmartDocs",
+    /// "pisa.recreation@x.example" -> "Pisa Recreation", "noreply@psu650nc.mg.infinitecampus.org" -> "Infinitecampus".
+    static func displayName(fromAddress address: String) -> String {
+        let parts = address.split(separator: "@", maxSplits: 1).map(String.init)
+        let local = parts.first.map { $0.split(separator: "+", maxSplits: 1).first.map(String.init) ?? $0 } ?? address
+        if genericLocalParts.contains(local.lowercased()), parts.count == 2, let label = registrableLabel(of: parts[1]) {
+            return label.prefix(1).uppercased() + String(label.dropFirst()).lowercased()
+        }
+        let words = local.split(whereSeparator: { $0 == "-" || $0 == "_" || $0 == "." }).map(String.init)
+        guard !words.isEmpty else { return address }
+        return words.map { (word: String) -> String in
+            word.contains(where: { $0.isUppercase }) ? word : word.prefix(1).uppercased() + String(word.dropFirst())
+        }.joined(separator: " ")
+    }
+
+    /// The label before the public suffix: "mg.infinitecampus.org" -> "infinitecampus", "mail.example.co.uk" -> "example".
+    static func registrableLabel(of domain: String) -> String? {
+        let labels = domain.lowercased().split(separator: ".").map(String.init)
+        guard let last = labels.last else { return nil }
+        if labels.count >= 3, OrganizationKey.twoPartSuffixes.contains(labels.suffix(2).joined(separator: ".")) {
+            return labels[labels.count - 3]
+        }
+        return labels.count >= 2 ? labels[labels.count - 2] : last
+    }
+
+    /// "Brooks, Dana" -> "Dana Brooks". Only a person-shaped "Last, First": one comma, two parts of one or two
+    /// words, no organization words, no address.
+    static func firstLast(_ name: String) -> String {
+        let pieces = name.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard pieces.count == 2, !name.contains("@") else { return name }
+        let last = pieces[0].split(separator: " ").map(String.init)
+        let first = pieces[1].split(separator: " ").map(String.init)
+        guard (1...2).contains(last.count), (1...2).contains(first.count) else { return name }
+        let suffixes: Set<String> = ["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "md", "phd", "esq", "esq."]
+        let all = (last + first).map { $0.lowercased() }
+        if all.contains(where: { PersonSignals.organizationWords.contains($0) || suffixes.contains($0) }) { return name }
+        return pieces[1] + " " + pieces[0]
     }
 
     /// Deterministic across launches (Swift's hashValue is randomized per process).

@@ -14,9 +14,11 @@ struct SummaryInput: Sendable, Hashable {
         self.body = body
     }
 
+    /// The body is the author's own words (quoted replies, signatures and forwards removed), or the whole
+    /// body when they wrote almost nothing.
     init(email: Email) {
         self.init(sender: email.from.name, senderIsAutomated: email.from.isAutomated,
-                  subject: email.subject, body: email.body)
+                  subject: email.subject, body: ReplySignals.summaryBody(email.body))
     }
 
     /// Parse "From: / Subject:" headers out of pasted text, if present.
