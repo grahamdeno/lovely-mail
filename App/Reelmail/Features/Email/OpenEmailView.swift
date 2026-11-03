@@ -17,6 +17,7 @@ struct OpenEmailView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     EmailHeader(post: post, organization: organization)
                     EmailContext(post: post, assessment: assessment)
+                    EmailDateRow(post: post)
                     if EmailPresentation.showsSummary(email), !ConversationPresentation.isSensitive(email, summary: post.summary) {
                         (Text("In short: ").fontWeight(.semibold) + Text(post.summary.blurb))
                             .font(.subheadline).foregroundStyle(CalmStyle.secondary)
@@ -77,6 +78,11 @@ struct OpenEmailView: View {
             .accessibilityLabel("Move to Gmail Trash")
             Menu {
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
+                if ReplyRecipients.offersReplyAll(post.email, mine: Set([store.account ?? ""] + store.otherAddresses).subtracting([""]), organization: organization) {
+                    Button { router.draftReplyAll = true; router.draftPostID = post.id } label: {
+                        Label("Reply all", systemImage: "arrowshape.turn.up.left.2")
+                    }
+                }
                 if !organization {
                     Button { router.open(.thread(post.email.from)) } label: {
                         Label("Conversation with \(post.email.from.firstName)", systemImage: "bubble.left")

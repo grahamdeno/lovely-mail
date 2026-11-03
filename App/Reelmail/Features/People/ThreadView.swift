@@ -28,7 +28,7 @@ struct ThreadView: View {
                             .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
                             .multilineTextAlignment(.center).padding(.horizontal, 24).padding(.bottom, 4)
                     }
-                    ConversationBubble(email: email, summary: summary,
+                    ConversationBubble(email: email, mine: Set([store.account ?? ""] + store.otherAddresses).subtracting([""]), summary: summary,
                         grouped: ConversationPresentation.groups(email, after: previous))
                 }
             }.padding(16)
@@ -73,6 +73,7 @@ struct ThreadView: View {
 
 private struct ConversationBubble: View {
     let email: Email
+    let mine: Set<String>
     let summary: EmailSummary?
     let grouped: Bool
     @State private var showingDetails = false
@@ -82,8 +83,8 @@ private struct ConversationBubble: View {
         HStack(alignment: .bottom, spacing: 0) {
             if email.isFromMe { Spacer(minLength: 36) }
             VStack(alignment: .leading, spacing: 6) {
-                if email.to.count > 1 {
-                    Label("Additional recipients · see source", systemImage: "person.2")
+                if let caption = ReplyRecipients.caption(email, mine: mine) ?? (email.to.count > 1 ? "Additional recipients \u{00B7} see source" : nil) {
+                    Label(caption, systemImage: "person.2")
                         .font(.caption).foregroundStyle(secondaryInk)
                 }
                 if let label = preview.label {

@@ -81,6 +81,22 @@ final class DesignScreenshotTests: XCTestCase {
         store.putOff(store.posts[0], until: Date().addingTimeInterval(-60))
         try await capture(RootView().environment(store).environment(Router()), name: "18-Home-back-from-Later")
     }
+    /// Sprint 4: fictional mail only. Views that need a dated or group message are captured when the demo mail has one.
+    func testSprint4Screenshots() async throws {
+        let store = await demoStore()
+        let router = Router()
+        try await capture(NavigationStack { ComingUpListView() }.environment(store).environment(router), name: "19-Coming-up-list")
+        if let entry = store.comingUp.first {
+            try await capture(NavigationStack { OpenEmailView(postID: entry.post.id) }.environment(store).environment(router), name: "20-Email-with-date-row")
+        }
+        let mine = Set([store.account ?? ""] + store.otherAddresses).subtracting([""])
+        if let group = store.posts.first(where: { ReplyRecipients.offersReplyAll($0.email, mine: mine, organization: store.isAutomated($0)) }) {
+            let replyAll = Router(); replyAll.draftReplyAll = true
+            try await capture(DraftReplySheet(post: group).environment(store).environment(replyAll), name: "21-Draft-reply-all")
+        }
+        try await capture(NavigationStack { SettingsView() }.environment(store).environment(router), name: "22-Settings-morning-brief")
+        try await capture(BriefOfferCard().padding(20).background(CalmStyle.background).environment(store), name: "23-Home-brief-offer")
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()

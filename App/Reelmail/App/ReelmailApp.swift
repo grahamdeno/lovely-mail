@@ -2,9 +2,16 @@ import SwiftUI
 
 @main
 struct ReelmailApp: App {
-    @State private var store = FeedStore()
+    @State private var store: FeedStore
     @State private var router = Router()
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let store = FeedStore()
+        _store = State(initialValue: store)
+        MorningBriefScheduler.register(store: store)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +29,11 @@ struct ReelmailApp: App {
             .id(appearance)
             .preferredColorScheme(appearance.colorScheme)
             .task { await store.load() }
+            // The brief is rebuilt from the mail loaded right now after each refresh and when the app leaves the screen.
+            .onChange(of: store.lastFetched) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { Task { await MorningBriefScheduler.reschedule(store: store) } }
+            }
     }
 }
 
@@ -60,6 +72,7 @@ enum Route: Hashable {
     /// Everything you promised, and everything you asked that has no answer yet.
     case promises
     case waitingOnThem
+    case comingUp
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools
@@ -97,6 +110,8 @@ final class Router {
     var tab: AppTab = .home
     /// Post id whose draft-reply sheet is showing.
     var draftPostID: String?
+    /// Open the draft sheet with Reply all selected.
+    var draftReplyAll = false
     /// A nudge or follow-up draft showing.
     var nudge: NudgeRequest?
 
