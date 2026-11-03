@@ -57,6 +57,9 @@ struct SettingsView: View {
                 SettingsHeader(text: "Pictures")
                 PicturesCard()
 
+                SettingsHeader(text: "Morning brief")
+                MorningBriefCard()
+
                 SettingsHeader(text: "Rules")
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
@@ -99,6 +102,54 @@ struct SettingsView: View {
     private var rulesSummary: String {
         let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
         return filtered == 0 ? "No senders filtered" : (filtered == 1 ? "1 sender filtered" : "\(filtered) senders filtered")
+    }
+}
+
+/// Morning brief: off until switched on. Counts only on the lock screen unless names are turned on.
+struct MorningBriefCard: View {
+    @Environment(FeedStore.self) private var store
+    @AppStorage(BriefSettings.enabledKey) private var enabled = false
+    @AppStorage(BriefSettings.minutesKey) private var minutes = BriefSettings.defaultMinutes
+    @AppStorage(BriefSettings.namesKey) private var names = false
+    @State private var declined = false
+
+    private var time: Binding<Date> {
+        Binding(get: { Calendar.current.date(byAdding: .minute, value: minutes, to: Calendar.current.startOfDay(for: Date())) ?? Date() },
+                set: { let c = Calendar.current.dateComponents([.hour, .minute], from: $0); minutes = (c.hour ?? 7) * 60 + (c.minute ?? 30) })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("Send a morning brief", isOn: Binding(get: { enabled }, set: { turn($0) }))
+            if declined {
+                Text("Notifications are off for Lovely. Turn them on in the Settings app.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            if enabled {
+                DatePicker("Time", selection: time, displayedComponents: .hourAndMinute)
+                Toggle("Show names in the brief", isOn: $names)
+                Text("Names can appear on your lock screen.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            Text("A short note with counts, built on this iPhone from mail already loaded. It skips mornings with nothing to say.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+        .onChange(of: minutes) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
+        .onChange(of: names) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
+    }
+
+    private func turn(_ on: Bool) {
+        guard on else {
+            enabled = false; declined = false
+            Task { await MorningBriefScheduler.reschedule(store: store) }
+            return
+        }
+        Task {
+            let granted = await MorningBriefScheduler.requestPermission()
+            enabled = granted; declined = !granted
+            UserDefaults.standard.set(true, forKey: BriefSettings.offerSeenKey)
+            await MorningBriefScheduler.reschedule(store: store)
+        }
     }
 }
 

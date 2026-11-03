@@ -2,9 +2,16 @@ import SwiftUI
 
 @main
 struct ReelmailApp: App {
-    @State private var store = FeedStore()
+    @State private var store: FeedStore
     @State private var router = Router()
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let store = FeedStore()
+        _store = State(initialValue: store)
+        MorningBriefScheduler.register(store: store)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +29,11 @@ struct ReelmailApp: App {
             .id(appearance)
             .preferredColorScheme(appearance.colorScheme)
             .task { await store.load() }
+            // The brief is rebuilt from the mail loaded right now after each refresh and when the app leaves the screen.
+            .onChange(of: store.lastFetched) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { Task { await MorningBriefScheduler.reschedule(store: store) } }
+            }
     }
 }
 

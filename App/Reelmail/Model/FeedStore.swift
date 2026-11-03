@@ -401,6 +401,18 @@ final class FeedStore {
         return ComingUp.entries(posts: live, section: { d.assessments[$0.id]?.section ?? .people }, now: clock)
     }
 
+    /// The brief for the morning at `fire`, from the mail loaded now. Later items that come due before then count as back.
+    func morningBrief(at fire: Date, showNames: Bool) -> MorningBrief? {
+        let d = digest
+        let now = Date()
+        let activeIDs = Set(derived.active.map(\.id))
+        let due = laterUntil.filter { activeIDs.contains($0.key) && LaterSchedule.isPending($0.value, now: now) && $0.value <= fire }.count
+        let back = laterUntil.filter { activeIDs.contains($0.key) && !LaterSchedule.isPending($0.value, now: now) }.count + due
+        let today = comingUp.filter { Calendar.current.isDate($0.date.start, inSameDayAs: fire) }
+        return MorningBrief.make(waiting: d.waiting, todo: d.todo.count + due, promises: promises.count, today: today,
+                                 backFromLater: back, showNames: showNames)
+    }
+
     var waitingCount: Int { derived.active.filter { derived.assessments[$0.id]?.section == .waiting }.count }
     var noteCount: Int { derived.noteCount }
     var topics: [MailTopic] { MailTopic.make(posts: activePosts, sent: sentByMe) }

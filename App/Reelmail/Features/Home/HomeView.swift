@@ -132,6 +132,8 @@ struct HomeView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var undo: UndoAction?
+    @AppStorage(BriefSettings.offerSeenKey) private var briefOfferSeen = false
+    @AppStorage(BriefSettings.enabledKey) private var briefEnabled = false
 
     private let rowInsets = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
 
@@ -255,6 +257,11 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 0, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
+            BriefOfferCard()
+                .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 8, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
     }
 
