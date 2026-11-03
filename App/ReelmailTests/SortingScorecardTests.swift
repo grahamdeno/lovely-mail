@@ -23,6 +23,7 @@ final class SortingScorecardTests: XCTestCase {
         var to: [String]?
         var cc: [String]?
         var bulk: Bool?
+        var promotional: Bool?
         var repliedDaysAgo: Double?
     }
 
@@ -63,7 +64,7 @@ final class SortingScorecardTests: XCTestCase {
             let from = Person(id: c.email, name: c.name, email: c.email, hue: 0.3)
             let email = Email(id: c.id, threadId: "t-" + c.id, from: from, to: c.to ?? [corpus.me], cc: c.cc ?? [],
                               subject: c.subject, date: now.addingTimeInterval(-c.daysAgo * 86_400), body: c.body,
-                              bulk: c.bulk ?? false)
+                              bulk: c.bulk ?? false, promotional: c.promotional ?? false)
             let post = Post(email: email, summary: fallback.summarizeSync(SummaryInput(email: email)))
             let result = FeedTriage.assess(post, route: .inbox, context: context)
             for key in [c.split, "all"] {

@@ -43,12 +43,16 @@ struct Email: Identifiable, Hashable, Sendable, Codable {
     /// Bulk, notification or list mail according to Gmail's own signals (category tabs, list headers)
     /// plus the address shape. Automated mail never counts as a person waiting on you.
     var bulk: Bool = false
+    /// Gmail filed it under its Promotions tab. Optional so mail cached before this field still decodes.
+    var promotionalMark: Bool?
+    var isPromotional: Bool { promotionalMark ?? false }
 
     init(id: String, threadId: String, from: Person, to: [String], cc: [String] = [], subject: String, date: Date,
-         body: String, isUnread: Bool = true, isFromMe: Bool = false, bulk: Bool = false) {
+         body: String, isUnread: Bool = true, isFromMe: Bool = false, bulk: Bool = false, promotional: Bool = false) {
         self.id = id; self.threadId = threadId; self.from = from; self.to = to; self.cc = cc
         self.subject = subject; self.date = date; self.body = body
         self.isUnread = isUnread; self.isFromMe = isFromMe; self.bulk = bulk
+        self.promotionalMark = promotional ? true : nil
     }
 
     var isAutomated: Bool { bulk || from.isAutomated }

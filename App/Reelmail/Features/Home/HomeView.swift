@@ -103,11 +103,17 @@ enum UndoAction: Equatable {
     case notWaiting(Post)
     case trash(Post)
     case done(Post)
+    case later(Post, Date)
+    case promise(id: String, text: String)
+    case waitingGone(id: String)
     var text: String {
         switch self {
         case .notWaiting: return "Moved out of Waiting on you"
         case .trash: return "Moved to Gmail Trash"
         case .done: return "Done. Marked read in Gmail"
+        case .later(_, let date): return "Later: " + LaterSchedule.label(date, now: Date())
+        case .promise(_, let text): return text
+        case .waitingGone: return "Removed from Waiting on them"
         }
     }
     var id: String {
@@ -115,6 +121,9 @@ enum UndoAction: Equatable {
         case .notWaiting(let p): return "nw-" + p.id
         case .trash(let p): return "tr-" + p.id
         case .done(let p): return "dn-" + p.id
+        case .later(let p, _): return "lt-" + p.id
+        case .promise(let id, _): return "pr-" + id
+        case .waitingGone(let id): return "wg-" + id
         }
     }
 }
@@ -123,6 +132,8 @@ struct HomeView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var undo: UndoAction?
+    @AppStorage(BriefSettings.offerSeenKey) private var briefOfferSeen = false
+    @AppStorage(BriefSettings.enabledKey) private var briefEnabled = false
 
     private let rowInsets = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
 
@@ -169,6 +180,9 @@ struct HomeView: View {
         .animation(.easeOut(duration: 0.2), value: undo?.id)
         .onChange(of: store.lastDone?.id) { _, _ in if let post = store.lastDone { offer(.done(post)) } }
         .onChange(of: store.lastTrashed?.id) { _, _ in if let post = store.lastTrashed { offer(.trash(post)) } }
+        .onChange(of: store.lastPutOff?.post.id) { _, _ in if let item = store.lastPutOff { offer(.later(item.post, item.until)) } }
+        .onChange(of: store.lastPromiseClosed?.id) { _, _ in if let item = store.lastPromiseClosed { offer(.promise(id: item.id, text: item.text)) } }
+        .onChange(of: store.lastWaitingDismissed) { _, _ in if let id = store.lastWaitingDismissed { offer(.waitingGone(id: id)) } }
     }
 
     @ViewBuilder private func rows(_ posts: [Post], compact: Bool, showAge: Bool = false) -> some View {
@@ -201,6 +215,7 @@ struct HomeView: View {
             title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
             rows(d.waiting, compact: false)
         }
+        youSaidYouWould()
         todo(d.todo)
         if !d.notes.isEmpty {
             title("Notes to self", d.notes.count, opens: "notes")
@@ -209,6 +224,18 @@ struct HomeView: View {
         if !d.people.isEmpty {
             title("People", d.people.count, opens: "people")
             rows(d.people, compact: true)
+        }
+        let watching = store.waitingOnThem
+        if !watching.isEmpty {
+            WaitingOnThemRow(count: watching.count)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
+        if !soon.isEmpty {
+            ComingUpRow(count: soon.count)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         if !d.organizations.isEmpty {
             title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
@@ -230,6 +257,26 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 0, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
+            BriefOfferCard()
+                .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 8, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+    }
+
+    /// What you told people you would do, from mail you sent. Up to three; the rest open from the title.
+    @ViewBuilder private func youSaidYouWould() -> some View {
+        let promises = store.promises
+        if !promises.isEmpty {
+            Button { router.open(.promises) } label: { DigestTitle(text: "You said you would", count: promises.count, chevron: true) }
+                .buttonStyle(.plain).accessibilityHint("Shows all of them")
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            ForEach(promises.prefix(3)) { item in
+                PromiseCard(item: item)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 6, trailing: 20))
+                    .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            }
         }
     }
 
@@ -289,6 +336,9 @@ struct HomeView: View {
         case .notWaiting(let post): store.undoNotWaiting(post)
         case .trash(let post): Task { await store.restoreFromTrash(post) }
         case .done(let post): Task { await store.undoDone(post) }
+        case .later(let post, _): store.bringBack(post.id)
+        case .promise(let id, _): store.reopenPromise(id)
+        case .waitingGone(let id): store.restoreWaiting(id)
         }
         undo = nil
     }
@@ -366,6 +416,7 @@ struct DigestTitle: View {
 /// One button per organization ("National Life Group · 3"); tap to see its mail.
 struct OrganizationChips: View {
     @Environment(Router.self) private var router
+    @Environment(FeedStore.self) private var store
     let groups: [HomeDigest.OrganizationGroup]
     var body: some View {
         ScrollView(.horizontal) {
@@ -374,7 +425,7 @@ struct OrganizationChips: View {
                     Button { router.open(.organization(group.id)) } label: {
                         HStack(spacing: 8) {
                             CalmAvatar(person: group.posts[0].email.from, size: 22, organization: true, domain: group.domain)
-                            Text("\(group.name) · \(group.posts.count)").font(.subheadline.weight(.medium)).lineLimit(1)
+                            Text(chipText(group)).font(.subheadline.weight(.medium)).lineLimit(1)
                         }
                             .padding(.leading, 8).padding(.trailing, 12).frame(minHeight: 36)
                             .foregroundStyle(CalmStyle.ink)
@@ -385,6 +436,12 @@ struct OrganizationChips: View {
         }
         .contentMargins(.horizontal, 20, for: .scrollContent)
         .scrollIndicators(.hidden)
+    }
+
+    /// "Rink · Sun 9 PM" when the group has a date in the next week, else "Rink · 3".
+    private func chipText(_ group: HomeDigest.OrganizationGroup) -> String {
+        if let when = ComingUp.chipLabel(for: group.posts, in: store.comingUp, now: Date()) { return "\(group.name) · \(when)" }
+        return "\(group.name) · \(group.posts.count)"
     }
 }
 
@@ -486,9 +543,15 @@ struct StatusNotices: View {
             } else if store.needsTrashPermission {
                 notice("Lovely needs your OK to change mail in Gmail (Trash and Done). It can't send mail or delete anything for good. Reconnect and allow it.", button: "Reconnect Gmail")
             } else if let error = store.errorMessage {
-                Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
-                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
+                    if store.refreshFailed {
+                        Button("Try again") { Task { await store.load() } }
+                            .buttonStyle(CalmActionStyle(prominent: true)).disabled(store.isLoading)
+                    }
+                }
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
             }
             if let error = store.rules.persistenceError {
                 Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(CalmStyle.secondary)
@@ -625,6 +688,9 @@ private struct MailRowActions: ViewModifier {
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive, action: onTrash) { Label("Trash", systemImage: "trash") }
             Button { store.hide(post) } label: { Label("Hide", systemImage: "eye.slash") }.tint(CalmStyle.secondary)
+            if post.email.isUnread, let tomorrow = LaterSchedule.options(now: Date()).first(where: { $0.title == "Tomorrow" }) {
+                Button { store.putOff(post, until: tomorrow.date) } label: { Label("Later", systemImage: "clock") }.tint(CalmStyle.blue)
+            }
             if waiting {
                 Button { onNotWaiting(false) } label: { Label("Not waiting", systemImage: "checkmark.circle") }.tint(CalmStyle.roseInk)
             }
@@ -731,8 +797,10 @@ struct NextUpCard: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    Text(stale ? "Still need this? Unread \(HomeDigest.age(of: post.email.date, now: Date()))."
-                               : "Unread \(HomeDigest.age(of: post.email.date, now: Date())).")
+                    Text((store.isBackFromLater(post) ? "Back from Later. " : "")
+                         + (stale ? "Still need this? Unread \(HomeDigest.age(of: post.email.date, now: Date()))."
+                                  : "Unread \(HomeDigest.age(of: post.email.date, now: Date())).")
+                    )
                         .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -744,6 +812,10 @@ struct NextUpCard: View {
                 Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark").labelStyle(.titleAndIcon) }
                     .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
                     .accessibilityHint("Marks it read in Gmail")
+                LaterMenu(post: post) {
+                    Image(systemName: "clock").font(.body.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                        .frame(minWidth: 44, minHeight: 40)
+                }
                 if !organization {
                     Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left").labelStyle(.titleAndIcon) }
                         .buttonStyle(CalmActionStyle()).lineLimit(1)

@@ -6,7 +6,9 @@ struct DraftReplySheet: View {
     @Environment(FeedStore.self) private var store
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
+    @Environment(Router.self) private var router
     let post: Post
+    @State private var replyAll = false
 
     @State private var draft = ""
     @State private var engine: SummaryEngine = .fallback
@@ -21,7 +23,16 @@ struct DraftReplySheet: View {
                 Text(engine == .appleIntelligence ? "Written on this iPhone" : "Starter text")
                     .font(.caption).foregroundStyle(CalmStyle.secondary)
             }
-            Text("To \(post.email.from.name) · \(GmailCompose.replySubject(post.email.subject))")
+            if offersReplyAll {
+                Picker("Reply to", selection: $replyAll) {
+                    Text("Reply").tag(false)
+                    Text("Reply all").tag(true)
+                }
+                .pickerStyle(.segmented)
+            }
+            Text(ReplyRecipients.summaryLine(plan, email: post.email))
+                .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+            Text(GmailCompose.replySubject(post.email.subject))
                 .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
 
             ZStack {
@@ -52,7 +63,13 @@ struct DraftReplySheet: View {
         .presentationDetents([.medium, .large])
         .presentationCornerRadius(24)
         
-        .task { await makeDraft() }
+        .task { replyAll = router.draftReplyAll && offersReplyAll; router.draftReplyAll = false; await makeDraft() }
+    }
+
+    private var mine: Set<String> { Set([store.account ?? ""] + store.otherAddresses).subtracting([""]) }
+    private var offersReplyAll: Bool { ReplyRecipients.offersReplyAll(post.email, mine: mine, organization: store.isAutomated(post)) }
+    private var plan: ReplyRecipients.Plan {
+        replyAll && offersReplyAll ? ReplyRecipients.replyAll(post.email, mine: mine) : ReplyRecipients.reply(post.email)
     }
 
     private var myName: String {
@@ -74,10 +91,10 @@ struct DraftReplySheet: View {
 
     private func openInGmail() {
         let subject = GmailCompose.replySubject(post.email.subject)
-        let to = post.email.from.email
-        guard let app = GmailCompose.appURL(to: to, subject: subject, body: draft) else { return }
+        let to = plan.toLine, cc = plan.ccLine
+        guard let app = GmailCompose.appURL(to: to, cc: cc, subject: subject, body: draft) else { return }
         openURL(app) { accepted in
-            if !accepted, let web = GmailCompose.webURL(to: to, subject: subject, body: draft) {
+            if !accepted, let web = GmailCompose.webURL(to: to, cc: cc, subject: subject, body: draft) {
                 openURL(web)
             }
         }

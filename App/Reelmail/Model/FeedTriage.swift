@@ -237,9 +237,12 @@ enum FeedTriage {
         // newsletter or receipt.
         if context.isMine(email) { return TriageAssessment(section: .notes, reason: "You sent this to yourself") }
         if context.isNoteToSelf(email) { return TriageAssessment(section: .notes, reason: "From your other address, " + email.from.email) }
-        if post.summary.category == .newsletter { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
+        // A newsletter needs list evidence: Gmail's signals (tab, list headers, bulk precedence, system address) or a
+        // list footer in the text. A person's mail that merely mentions a newsletter is not one.
+        if post.summary.category == .newsletter, email.isAutomated || ReplySignals.hasListFooter(email.body) { return TriageAssessment(section: .reading, reason: "Newsletter or mailing list") }
         if let why = automatedReason(email) {
             let text = email.subject + "\n" + email.body
+            if email.isPromotional { return TriageAssessment(section: .reading, reason: "Gmail filed this under Promotions") }
             if MailKind.isMarketing(text) { return TriageAssessment(section: .reading, reason: "Promotion or marketing mail") }
             if MailKind.isShipping(text) { return TriageAssessment(section: .updates, reason: why + "; shipping or delivery") }
             if MailKind.isReceipt(text) { return TriageAssessment(section: .updates, reason: why + "; a receipt or finished service") }
@@ -329,17 +332,20 @@ enum ReplySignals {
                                "please let", "please call", "please review", "please sign", "please respond",
                                "hoping you could", "hoping you can", "was hoping you", "would love your",
                                "would appreciate", "could use your",
+                               // Plain asks without a question mark (Sprint 2).
+                               "i need the", "remind me", "keep me posted", "let us know", "see if you have",
+                               "see if you had", "touch base",
                                // A business asking you to act on its site counts as waiting on you (owner's call, Nov 2).
                                "please log", "log onto", "log on to", "esign", "please complete", "please fill", "please pay"]
 
     /// Sentences that sound like asks but are courtesy or rhetoric: "Let me know if you have any questions",
     /// "Feel free to call me", "Can you believe this weather".
-    private static let courtesy = [#"let me know if you (have any questions|need anything|need any)"#,
-                                   #"let me know if (there is|there's) anything"#, #"if you have any questions"#,
+    private static let courtesy = [#"let (me|us) know if you (have any questions|need anything|need any)"#,
+                                   #"let (me|us) know if (there is|there's) anything"#, #"if you have any questions"#,
                                    #"feel free to"#, #"(don't|do not) hesitate"#, #"if anything comes up"#,
                                    #"can you believe"#, #"would you believe"#, #"who knew"#, #"guess what"#,
                                    #"any (additional|further|other) questions"#, #"feel welcome to"#,
-                                   #"let me know if (you need|there's|there is) anything( else)?"#]
+                                   #"let (me|us) know if (you need|there's|there is) anything( else)?"#]
 
     static func isCourtesy(_ sentence: String) -> Bool {
         let lower = normalizeQuotes(sentence).lowercased()
@@ -432,6 +438,15 @@ enum ReplySignals {
         "has been scheduled for", "you are scheduled for",
         "this is a group email", "please reply to sender only",
     ]
+    private static let listFooterPhrases = ["unsubscribe", "view this email in your browser", "view in browser", "view it in your browser",
+                                            "update preferences", "manage preferences", "you are receiving this", "you received this email because"]
+
+    /// True when the text carries a mailing-list footer ("Unsubscribe", "View this email in your browser").
+    static func hasListFooter(_ body: String) -> Bool {
+        let lower = normalizeQuotes(body).lowercased()
+        return listFooterPhrases.contains { lower.contains($0) }
+    }
+
     /// Calendar auto-responses: "Accepted: Sprint review".
     private static let machineSubjectPrefixes = ["accepted:", "declined:", "tentative:", "new time proposed:", "invitation:"]
     /// Booking systems: "Reply C to confirm", "Reply Y to confirm or N to cancel".

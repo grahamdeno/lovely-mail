@@ -140,6 +140,21 @@ final class GmailService: NSObject {
         return GmailMessageParser.email(from: message, account: account)
     }
 
+    /// The senders and dates of every message in a thread (headers only, no bodies). Read-only.
+    func threadSenders(threadID: String) async throws -> [ThreadSender] {
+        guard let id = threadID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed), !id.isEmpty else { throw GmailError.badCallback }
+        var c = URLComponents(string: Self.api + "/threads/" + id)!
+        c.queryItems = [URLQueryItem(name: "format", value: "metadata"),
+                        URLQueryItem(name: "metadataHeaders", value: "From"),
+                        URLQueryItem(name: "metadataHeaders", value: "Date")]
+        let thread: GmailThreadResponse = try await get(c.url!)
+        return (thread.messages ?? []).map { message in
+            let from = GmailMessageParser.person(fromHeader: GmailMessageParser.header("From", in: message) ?? "").email
+            let millis = Double(message.internalDate ?? "") ?? 0
+            return ThreadSender(address: from.lowercased(), date: Date(timeIntervalSince1970: millis / 1000))
+        }
+    }
+
     /// Downloads only messages not already in `known`, a few at a time. If Google's per-minute quota still
     /// refuses a message after waiting, that message is skipped (and fetched on the next refresh) instead of
     /// discarding everything that did load. Returns the emails and how many were skipped.

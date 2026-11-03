@@ -19,6 +19,8 @@ final class FeedStore {
     private(set) var lastFetched: Date?
     private(set) var inboxTruncated = false
     var errorMessage: String?
+    /// True when the last refresh failed, so Home can offer Try again.
+    private(set) var refreshFailed = false
     var filter: FeedFilter = .all
     private(set) var hidden: Set<String> = []
     private(set) var seen: Set<String> = []
@@ -35,11 +37,16 @@ final class FeedStore {
     private let cacheStore: MailCacheStore?
     private var summaries: [String: EmailSummary] = [:]
     private var revision = 0
+    /// The on-device second opinion for You said you would / Waiting on them. Nil: the rules alone decide.
+    private let veto: (any CommitmentVeto)?
 
     init(gmail: (any GmailInboxClient)? = nil, summarizeOnDevice: Bool = true,
-         triageDefaults: UserDefaults = .standard, cacheStore: MailCacheStore? = .standard) {
+         triageDefaults: UserDefaults = .standard, cacheStore: MailCacheStore? = .standard,
+         veto: (any CommitmentVeto)? = nil) {
         self.gmail = gmail ?? GmailService()
         self.summarizeOnDevice = summarizeOnDevice
+        let onDevice: (any CommitmentVeto)? = summarizeOnDevice ? AppleIntelligenceVeto() : nil
+        self.veto = veto ?? onDevice
         self.triageDefaults = triageDefaults
         self.cacheStore = cacheStore
         demoRules = LocalTriageRules(accountID: "demo-home-v1", defaults: triageDefaults)
@@ -76,7 +83,7 @@ final class FeedStore {
     private func performLoad() async {
         revision += 1
         let current = revision
-        isLoading = true; isSummarizing = false; errorMessage = nil
+        isLoading = true; isSummarizing = false; errorMessage = nil; refreshFailed = false
         defer { if revision == current { isLoading = false } }
         if gmail.isSignedIn || mode == .gmail {
             await loadGmail(revision: current)
@@ -89,7 +96,7 @@ final class FeedStore {
     private func loadSample() {
         bump()
         mode = .sample; account = nil; accountRules = nil; needsReconnect = false
-        loadDoneCount()
+        loadDoneCount(); loadLater(); loadMailLists()
         sentByMe = SampleData.sentByMe
         let fallback = FallbackSummarizer()
         posts = SampleData.emails.map { Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0))) }
@@ -113,7 +120,8 @@ final class FeedStore {
             if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             if let e = error as? GmailService.GmailError, e.needsReconnect { needsReconnect = true }
             if case GmailService.GmailError.mailAccessNotGranted = error { needsMailAccess = true }
-            errorMessage = "Gmail could not refresh. Previously loaded mail, if any, is unchanged. \(error.localizedDescription)"
+            errorMessage = RefreshProblem.message(for: error)
+            refreshFailed = true
             return
         }
         guard current == revision else { return }
@@ -128,9 +136,15 @@ final class FeedStore {
         }
         let live = Set(posts.map(\.id))
         summaries = summaries.filter { live.contains($0.key) }
+        pruneLater()
         persist()
         await upgradeSummaries(revision: current)
+        // Runs after the refresh finishes, so the progress bar does not wait on it.
+        sentCheck = Task { await self.checkSentMail(revision: current) }
     }
+
+    /// The follow-up work after a refresh (thread lookups and the on-device opinion). Tests await it.
+    private(set) var sentCheck: Task<Void, Never>?
 
     private func apply(_ cache: MailCache) {
         bump()
@@ -138,6 +152,7 @@ final class FeedStore {
         summaries = cache.summaries
         hidden = cache.hidden
         seen = cache.seen
+        verdicts = cache.verdicts ?? [:]
         sentByMe = cache.snapshot.sent
         lastFetched = cache.snapshot.fetchedAt
         inboxTruncated = cache.snapshot.inboxTruncated
@@ -156,7 +171,7 @@ final class FeedStore {
             for pending in pendingOtherAddresses { accountRules?.setOtherAddress(pending, true) }
             pendingOtherAddresses = []
             accountReview = SortingReview(accountID: "gmail-" + MailCache.accountKey(address), defaults: triageDefaults)
-            loadDoneCount()
+            loadDoneCount(); loadLater(); loadMailLists()
         }
     }
 
@@ -165,7 +180,7 @@ final class FeedStore {
         guard mode == .gmail, let account, let cacheStore else { return }
         let snapshot = MailboxSnapshot(account: account, inbox: posts.map(\.email), sent: sentByMe,
                                        fetchedAt: lastFetched ?? Date(), inboxTruncated: inboxTruncated)
-        let cache = MailCache(snapshot: snapshot, summaries: summaries, hidden: hidden, seen: seen)
+        let cache = MailCache(snapshot: snapshot, summaries: summaries, hidden: hidden, seen: seen, verdicts: verdicts)
         do { try cacheStore.save(cache) } catch { errorMessage = "Loaded mail could not be saved on this phone. It will reload next time." }
     }
 
@@ -366,10 +381,36 @@ final class FeedStore {
     var digest: HomeDigest {
         let d = derived
         let overrides = rules.organizationOverrides
-        return HomeDigest.make(active: d.active, section: { d.assessments[$0.id]?.section ?? .people },
-                               isOrganization: { d.organizationPosts.contains($0.id) },
-                               groupKey: { OrganizationKey.key(for: $0.email.from, overrides: overrides) },
-                               now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+        let clock = Date()
+        // Mail put off with Later is off Home until its time; mail that has come back goes first in To do.
+        var digest = HomeDigest.make(active: d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) },
+                                     section: { d.assessments[$0.id]?.section ?? .people },
+                                     isOrganization: { d.organizationPosts.contains($0.id) },
+                                     groupKey: { OrganizationKey.key(for: $0.email.from, overrides: overrides) },
+                                     now: mode == .gmail ? (lastFetched ?? Date()) : Date())
+        let back = Set(laterUntil.filter { !LaterSchedule.isPending($0.value, now: clock) }.keys)
+        if !back.isEmpty { digest.todo = digest.todo.filter { back.contains($0.id) } + digest.todo.filter { !back.contains($0.id) } }
+        return digest
+    }
+
+    /// Mail with a date still ahead, earliest first (Later-pending mail excluded).
+    var comingUp: [ComingUp.Entry] {
+        let d = derived
+        let clock = Date()
+        let live = d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) }
+        return ComingUp.entries(posts: live, section: { d.assessments[$0.id]?.section ?? .people }, now: clock)
+    }
+
+    /// The brief for the morning at `fire`, from the mail loaded now. Later items that come due before then count as back.
+    func morningBrief(at fire: Date, showNames: Bool) -> MorningBrief? {
+        let d = digest
+        let now = Date()
+        let activeIDs = Set(derived.active.map(\.id))
+        let due = laterUntil.filter { activeIDs.contains($0.key) && LaterSchedule.isPending($0.value, now: now) && $0.value <= fire }.count
+        let back = laterUntil.filter { activeIDs.contains($0.key) && !LaterSchedule.isPending($0.value, now: now) }.count + due
+        let today = comingUp.filter { Calendar.current.isDate($0.date.start, inSameDayAs: fire) }
+        return MorningBrief.make(waiting: d.waiting, todo: d.todo.count + due, promises: promises.count, today: today,
+                                 backFromLater: back, showNames: showNames)
     }
 
     var waitingCount: Int { derived.active.filter { derived.assessments[$0.id]?.section == .waiting }.count }
@@ -462,12 +503,25 @@ final class FeedStore {
     }
     func post(for email: Email) -> Post? { derived.postsByID[email.id] }
     func search(_ query: String) -> [Post] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return [] }
-        return activePosts.filter {
-            $0.email.from.name.lowercased().contains(q) || $0.email.subject.lowercased().contains(q)
-                || $0.summary.headline.lowercased().contains(q) || $0.email.body.lowercased().contains(q)
-        }.sorted { $0.email.date > $1.email.date }
+        let tokens = MailSearch.tokens(query)
+        guard !tokens.isEmpty else { return [] }
+        return activePosts.filter { MailSearch.matches($0, tokens: tokens) }.sorted { $0.email.date > $1.email.date }
+    }
+
+    /// People whose name or address matches, most recent contact first.
+    func searchPeople(_ query: String) -> [Person] {
+        let tokens = MailSearch.tokens(query)
+        guard !tokens.isEmpty else { return [] }
+        return derived.people.filter { MailSearch.matches($0, tokens: tokens) }
+            .sorted { lastContact($0) > lastContact($1) }
+    }
+
+    /// Organizations whose name, domain or any sending address matches, A to Z.
+    func searchOrganizations(_ query: String) -> [HomeDigest.OrganizationGroup] {
+        let tokens = MailSearch.tokens(query)
+        guard !tokens.isEmpty else { return [] }
+        return organizationGroups.filter { MailSearch.matches($0, tokens: tokens) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     // MARK: Trash (the only change Lovely makes to Gmail, and only when you ask)
@@ -565,6 +619,126 @@ final class FeedStore {
         doneDay = Self.dayKey(Date())
         triageDefaults.set(["day": doneDay, "count": doneCount], forKey: doneKey)
     }
+    // MARK: You said you would / Waiting on them (local; reads only)
+
+    /// On-device verdicts, by "commit-<id>" or "ask-<id>". A missing verdict means no opinion; `false` removes the item.
+    private(set) var verdicts: [String: Bool] = [:]
+    /// Thread lookups from this session, by thread id. Read-only; cleared on each full refresh.
+    private(set) var threadChecks: [String: [ThreadSender]] = [:]
+    private var promisesClosed: Set<String> = []
+    private var waitingDismissed: Set<String> = []
+    /// The last item removed, so Home can offer Undo.
+    private(set) var lastPromiseClosed: (id: String, text: String)?
+    private(set) var lastWaitingDismissed: String?
+
+    private var accountKeyForLists: String { mode == .gmail ? MailCache.accountKey(account ?? "") : "demo" }
+    private func loadMailLists() {
+        promisesClosed = Set(triageDefaults.stringArray(forKey: "lovely.promises.closed." + accountKeyForLists) ?? [])
+        waitingDismissed = Set(triageDefaults.stringArray(forKey: "lovely.waitingOnThem.dismissed." + accountKeyForLists) ?? [])
+    }
+    private func clock() -> Date { derived.context.now }
+
+    /// Commitments you made in mail you sent that nobody has closed. Up to 14 days old.
+    var promises: [PromiseRules.Item] {
+        PromiseRules.open(sent: sentByMe, inbox: posts.map(\.email), context: derived.context, closed: promisesClosed,
+                          veto: { [verdicts = self.verdicts] email, _ in verdicts[VerdictCache.commitKey(email.id)] ?? true }, now: clock())
+    }
+
+    /// Asks you sent that nobody has answered, 3 to 21 days old.
+    var waitingOnThem: [WaitingOnThem.Item] {
+        let context = derived.context
+        let candidates = WaitingOnThem.candidates(sent: sentByMe, context: context, dismissed: waitingDismissed, now: clock())
+        return WaitingOnThem.open(candidates: candidates, inbox: posts.map(\.email), context: context, lookups: threadChecks)
+            .filter { verdicts[VerdictCache.askKey($0.id)] ?? true }
+    }
+
+    func closePromise(_ item: PromiseRules.Item, notAPromise: Bool = false) {
+        promisesClosed.insert(item.id); lastPromiseClosed = (item.id, notAPromise ? "Not a promise" : "Marked done")
+        triageDefaults.set(Array(promisesClosed), forKey: "lovely.promises.closed." + accountKeyForLists)
+    }
+    func reopenPromise(_ id: String) {
+        promisesClosed.remove(id)
+        triageDefaults.set(Array(promisesClosed), forKey: "lovely.promises.closed." + accountKeyForLists)
+    }
+    func dismissWaiting(_ item: WaitingOnThem.Item) {
+        waitingDismissed.insert(item.id); lastWaitingDismissed = item.id
+        triageDefaults.set(Array(waitingDismissed), forKey: "lovely.waitingOnThem.dismissed." + accountKeyForLists)
+    }
+    func restoreWaiting(_ id: String) {
+        waitingDismissed.remove(id)
+        triageDefaults.set(Array(waitingDismissed), forKey: "lovely.waitingOnThem.dismissed." + accountKeyForLists)
+    }
+
+    /// After a refresh: confirm unanswered asks with read-only thread lookups (at most 20), then ask the on-device
+    /// model for its opinion on what is left. Both only ever remove items.
+    private func checkSentMail(revision current: Int) async {
+        guard mode == .gmail else { return }
+        let context = derived.context
+        let candidates = WaitingOnThem.candidates(sent: sentByMe, context: context, dismissed: waitingDismissed, now: clock())
+        let inbox = posts.map(\.email)
+        // Fresh answers each refresh, swapped in at the end so items do not flicker while the lookups run.
+        var fresh: [String: [ThreadSender]] = [:]
+        for item in WaitingOnThem.lookupTargets(candidates: candidates, inbox: inbox, already: []) {
+            guard current == revision else { return }
+            if let senders = try? await gmail.threadSenders(threadID: item.email.threadId) {
+                fresh[item.email.threadId] = senders
+            }
+        }
+        threadChecks = fresh
+        guard let veto, current == revision else { return }
+        for item in promises where verdicts[VerdictCache.commitKey(item.id)] == nil {
+            if let verdict = await veto.isCommitment(item.text) { verdicts[VerdictCache.commitKey(item.id)] = verdict }
+        }
+        for item in waitingOnThem where verdicts[VerdictCache.askKey(item.id)] == nil {
+            if let verdict = await veto.asksRecipient(item.email.body) { verdicts[VerdictCache.askKey(item.id)] = verdict }
+        }
+        persist()
+    }
+
+    // MARK: Later (local only; Gmail is not changed)
+
+    /// Message id → when it comes back. A time in the past means it has come back and is waiting at the top of To do.
+    private(set) var laterUntil: [String: Date] = [:]
+    private var laterKey: String { "lovely.later." + (mode == .gmail ? MailCache.accountKey(account ?? "") : "demo") }
+    private func loadLater() {
+        let saved = triageDefaults.dictionary(forKey: laterKey) as? [String: Double] ?? [:]
+        laterUntil = saved.mapValues { Date(timeIntervalSince1970: $0) }
+    }
+    private func saveLater() {
+        triageDefaults.set(laterUntil.mapValues(\.timeIntervalSince1970), forKey: laterKey)
+    }
+    /// Drops entries for messages that are gone or no longer unread (read in Gmail, done, trashed).
+    private func pruneLater() {
+        let unread = Set(posts.filter(\.email.isUnread).map(\.id))
+        let kept = LaterSchedule.pruned(laterUntil, keeping: unread)
+        if kept.count != laterUntil.count { laterUntil = kept; saveLater() }
+    }
+    /// The last message put off, so a screen can offer Undo.
+    private(set) var lastPutOff: (post: Post, until: Date)?
+    func putOff(_ post: Post, until date: Date) {
+        laterUntil[post.id] = date
+        lastPutOff = (post, date)
+        saveLater()
+    }
+    func bringBack(_ id: String) {
+        guard laterUntil.removeValue(forKey: id) != nil else { return }
+        saveLater()
+    }
+    func isPutOff(_ post: Post, now: Date = Date()) -> Bool {
+        laterUntil[post.id].map { LaterSchedule.isPending($0, now: now) } ?? false
+    }
+    func isBackFromLater(_ post: Post, now: Date = Date()) -> Bool {
+        laterUntil[post.id].map { !LaterSchedule.isPending($0, now: now) } ?? false
+    }
+    /// Messages put off and not back yet, soonest first.
+    var laterPosts: [(post: Post, until: Date)] {
+        let now = Date()
+        return posts.compactMap { post in
+            guard let until = laterUntil[post.id], LaterSchedule.isPending(until, now: now) else { return nil }
+            return (post, until)
+        }.sorted { $0.until < $1.until }
+    }
+
     private static func dayKey(_ date: Date) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
         return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"

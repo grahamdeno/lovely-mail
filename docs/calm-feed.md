@@ -175,3 +175,31 @@ Next steps:
 - **SCORECARD before (sprint/1, CI):** tune 88/88, holdout 28/32, all 116/120; Waiting (all) precision 100%, recall 97%.
 - **SCORECARD after (PR 19, CI):** tune 95/95, holdout 28/32, all 123/127; Waiting (all) precision 100%, recall 97%. 134 tests, 0 failures. Holdout misses unchanged (w25, u17, r13, u24).
 - **Side effect to watch:** an address-built name such as "DFAS SmartDocs" is two capitalized words, so People vs Organizations may treat it as a person; the 32+ token rule can match long tracking ids. A test fixture sender called `sender@` became a system address, so the test now uses `pal@`.
+
+## Sprint 2 (Nov 3, 2026)
+- Search tab: People and Organizations groups (best five each) above Mail. Every word of the query must match somewhere (name, address, subject, summary, body), in any order. Rules live in `MailSearch`.
+- Reading: Gmail's Promotions tab (`CATEGORY_PROMOTIONS`) sends mail to Reading even with no marketing words (`Email.promotionalMark`, optional so older caches decode). A `.newsletter` category now needs list signals (`email.isAutomated`); a person's mail that mentions a newsletter is no longer filed as one.
+- Stub bodies: when the text/plain part is under 200 characters and the HTML has more, the stripped HTML is used (`GmailMessageParser.preferred`).
+- Plain asks added: "i need the", "remind me", "keep me posted", "let us know", "see if you have/had", "touch base". "Let us know if you have any questions" stays a courtesy.
+- Refresh errors: `RefreshProblem` gives a short plain message (offline, slow down, Gmail trouble, other), says loaded mail is unchanged, and Home shows Try again. No demo mail is substituted.
+- Corpus: 7 new cases (p-ask-*, p-courtesy-let-us-know, r-promo-no-keywords, r-newsletter-ai-only). Sprint2Tests covers the rest.
+- Not verified locally (no Xcode here): compile and tests run in CI only. Screenshots and on-device checks are pending.
+- Still open: Waiting on them / You said you would (Sprint 3, design first), Later/snooze, holdout misses w25, u17, r13, u24 (w25 "Remind me" may now pass), structured dates, group reply-all, morning brief.
+
+## Sprint 3 (Nov 3, 2026)
+Design: docs/sprint3-design.md. Stacked on Sprint 2 (PR #22); ships in one release.
+- **You said you would** (Home, up to 3 cards, title opens all): `PromiseRules`. Strict verb pattern, no questions or "if" offers, real recipient, 0 to 14 days, closed by any later message in the thread. Done and Not a promise are local, with Undo. 24-sentence `promise-corpus.json`: 100% precision, 90% recall floor.
+- **Waiting on them** (one quiet row on Home, list screen with Nudge and Got it): `WaitingOnThem`. Your ask, 1 to 3 real recipients, 3 to 21 days old, no answer in loaded mail. Threads with no loaded inbox mail are confirmed with a read-only `threads.get` (metadata only, 20 per refresh); unconfirmed threads stay out. Nudge opens a draft; Lovely never sends.
+- **Later** (clock button on the To do card and email bar, short swipe, list in Settings): local only. Gmail is untouched, so the mail stays unread there. Returns at the top of To do with "Back from Later". `LaterSchedule` is pure and tested with a fixed calendar.
+- **AI veto** (`CommitmentVeto`): on-device model may remove an item the rules found, never add one. No opinion leaves the rules in charge. Verdicts cached in `MailCache.verdicts` (optional).
+- **Gmail:** no new actions or scopes. The only new call is read-only `threadSenders`.
+- **Not done / next:** the "Later" tag on Search and the person page, an open item for Waiting on them on the person page, a Later phone notification (Sprint 4 morning brief). CI is the only compile check so far; no screenshots or device check yet.
+
+## Sprint 4 (Nov 3, 2026)
+Design: docs/sprint4-design.md. Stacked on Sprint 3 (PR #23); ships in one release.
+- **Dates:** `MailDates` (pure) reads dates and times from the subject and the author's own words, resolved from the day the mail was sent, within 120 days, skipping receipts and quoted text. The email screen shows the first date with Add to Calendar and a "+N more" menu. Home has a quiet "Coming up · N this week" row that opens a list grouped Today, Tomorrow, This week, Later. Organization chips read "Rink · Sun 9 PM" when a date is in the next 7 days.
+- **Add to Calendar:** Apple's Add Event sheet (`EKEventEditViewController`). No calendar permission and no usage-description key; Lovely never reads the calendar. Title is the cleaned subject (60 characters at most), notes are "From <sender> in Lovely." and never the body, location is the first street address on the phone's data detector.
+- **Reply all:** `ReplyRecipients` (pure). Sender first, then the original To, then Cc; your addresses and repeats removed. Offered only when someone besides you and the sender is on the mail, never for organization mail. Draft sheet has a Reply | Reply all control and a "To … · Cc …" line; the "…" menu has Reply all; group messages show "With Sam, Lee and 2 others" in the conversation. The compose link gained an optional `cc`. Lovely still never sends.
+- **Morning brief:** off until switched on (Settings, or a one-time Home card after the first Done). Local notification at 7:30 AM by default, counts only unless "Show names in the brief" is on, skipped when empty. Rebuilt after each refresh and when the app goes to the background; a background refresh task (`com.grahamdeno.reelmail.morning`) asks iOS to wake the app about an hour earlier. iOS decides whether it runs. Info.plist gained `UIBackgroundModes: fetch` and `BGTaskSchedulerPermittedIdentifiers`. No notification actions.
+- **Gmail:** no new actions, scopes or credential changes (the Keychain already uses AfterFirstUnlockThisDeviceOnly).
+- **Not done / next:** the date row only uses the first date for Add to Calendar's default; no calendar read, so no conflict check. The brief cannot run if iOS never grants background time (it then shows what was loaded last). Owner device check of notifications, the Add Event sheet and Reply all in Gmail is pending. CI is the only compile check; screenshots 19 to 23 come from CI.

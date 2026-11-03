@@ -1372,6 +1372,85 @@
    "body": "Dana Reyes has accepted this invitation.",
    "daysAgo": 1,
    "why": "calendar auto-response"
+  },
+  {
+   "id": "p-ask-need-the",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Permission slip",
+   "body": "Hi Pat,\nI need the signed permission slip by Thursday.",
+   "daysAgo": 1,
+   "why": "plain ask: I need the"
+  },
+  {
+   "id": "p-ask-keep-posted",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Priya Nair",
+   "email": "priya@nairdesign.example",
+   "subject": "Roof estimate",
+   "body": "Hi Pat,\nKeep me posted on the roof estimate.",
+   "daysAgo": 1,
+   "why": "plain ask: keep me posted"
+  },
+  {
+   "id": "p-ask-touch-base",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Spring schedule",
+   "body": "Hi Pat,\nWe should touch base about the spring schedule.",
+   "daysAgo": 1,
+   "why": "plain ask: touch base"
+  },
+  {
+   "id": "p-ask-let-us-know",
+   "split": "tune",
+   "expect": "waiting",
+   "name": "Priya Nair",
+   "email": "priya@nairdesign.example",
+   "subject": "Visit dates",
+   "body": "Hi Pat,\nLet us know which dates work for the visit.",
+   "daysAgo": 1,
+   "why": "plain ask: let us know"
+  },
+  {
+   "id": "p-courtesy-let-us-know",
+   "split": "tune",
+   "expect": "people",
+   "name": "Dana Reyes",
+   "email": "dana.reyes@mail.example",
+   "subject": "Photos",
+   "body": "Hi Pat,\nThanks for the photos, they came out great.\nLet us know if you have any questions.",
+   "daysAgo": 1,
+   "why": "courtesy, not an ask"
+  },
+  {
+   "id": "r-promo-no-keywords",
+   "split": "tune",
+   "expect": "reading",
+   "name": "Harbor Goods",
+   "email": "news@harborgoods.example",
+   "subject": "Your picks are ready",
+   "body": "A few things we think you would like, chosen from what you looked at last week.",
+   "daysAgo": 1,
+   "why": "Gmail Promotions label, no marketing words",
+   "bulk": true,
+   "promotional": true
+  },
+  {
+   "id": "r-newsletter-ai-only",
+   "split": "tune",
+   "expect": "people",
+   "name": "Sam Ortiz",
+   "email": "sam.ortiz@mail.example",
+   "subject": "Club newsletter draft",
+   "body": "Here is the newsletter draft for the club. Sharing it for your records.",
+   "daysAgo": 1,
+   "why": "person mentions a newsletter; no list signals"
   }
  ]
 }
