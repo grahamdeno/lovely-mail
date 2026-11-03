@@ -4,13 +4,36 @@ import SwiftUI
 struct ReelmailApp: App {
     @State private var store = FeedStore()
     @State private var router = Router()
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(store)
                 .environment(router)
+                .preferredColorScheme(appearance.colorScheme)
                 .task { await store.load() }
+        }
+    }
+}
+
+/// Light, dark, or follow the iPhone. Chosen in Profile; saved on this phone.
+enum Appearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+    static let storageKey = "lovely.appearance"
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: return "Automatic"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
         }
     }
 }

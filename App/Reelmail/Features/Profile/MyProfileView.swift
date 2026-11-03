@@ -50,6 +50,7 @@ struct MyProfileView: View {
                 let status = ModelStatus.current
                 ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
 
+                AppearanceCard()
                 OtherAddressesCard()
                 PicturesCard()
 
@@ -77,6 +78,23 @@ struct MyProfileView: View {
     private var rulesSummary: String {
         let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
         return filtered == 0 ? "No senders filtered" : (filtered == 1 ? "1 sender filtered" : "\(filtered) senders filtered")
+    }
+}
+
+/// Light, dark, or follow the iPhone's setting.
+struct AppearanceCard: View {
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Appearance").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Picker("Appearance", selection: $appearance) {
+                ForEach(Appearance.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Text("Automatic follows your iPhone's light and dark setting.").font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
