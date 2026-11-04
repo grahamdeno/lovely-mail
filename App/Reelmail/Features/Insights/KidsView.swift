@@ -62,6 +62,9 @@ struct KidView: View {
     let kidID: String
     @State private var summaries: [String: [String]] = [:]
     @State private var working: Set<String> = []
+    @State private var shoeboxPreview: ActionPreview?
+    @State private var shoeboxSender: String?
+    @State private var shoeboxNote: String?
 
     var body: some View {
         let kid = InsightSettings().load().kids.first { $0.id == kidID }
@@ -80,6 +83,9 @@ struct KidView: View {
                                     Text(item.reasons.joined(separator: " · ")).font(.caption2).foregroundStyle(CalmStyle.secondary)
                                 }
                             }.buttonStyle(.plain)
+                            if store.actions != nil {
+                                Button("Send this sender to Shoebox") { Task { await prepareShoebox(item.post.email.from.email) } }.font(.subheadline)
+                            }
                             if item.post.email.body.count > 1_500 {
                                 if let list = summaries[item.id] {
                                     ForEach(list, id: \.self) { Text("• " + $0).font(.subheadline) }
@@ -100,6 +106,21 @@ struct KidView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle(kid?.name ?? "Kid").navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $shoeboxPreview) { p in
+            ActionPreviewSheet(preview: p, confirmTitle: "Create rule") { confirmed in
+                if let sender = shoeboxSender, let box = ShoeboxRule.address() { store.sendSenderToShoebox(sender: sender, shoebox: box, confirmed: confirmed) }
+            }
+        }
+        .alert("Shoebox", isPresented: Binding(get: { shoeboxNote != nil }, set: { if !$0 { shoeboxNote = nil } })) { Button("OK") {} } message: { Text(shoeboxNote ?? "") }
+    }
+
+    private func prepareShoebox(_ sender: String) async {
+        guard let box = ShoeboxRule.address(), ForwardAllowlist().contains(box) else {
+            shoeboxNote = "Set your Shoebox address first: Settings, Forwarding addresses."; return
+        }
+        let count = await store.shoeboxBackfillCount(sender: sender)
+        shoeboxSender = sender
+        shoeboxPreview = ShoeboxRule.preview(sender: sender, shoebox: box, count: count)
     }
 
     private func summarize(_ item: KidMail, kid: KidProfile) {

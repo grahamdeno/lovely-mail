@@ -14,6 +14,8 @@ struct ForwardingAddressesView: View {
                 ForEach(addresses, id: \.self) { a in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(a)
+                        Button(ShoeboxRule.address() == a ? "This is your Shoebox address" : "Use as Shoebox address") { ShoeboxRule.setAddress(a); addresses = ForwardAllowlist().addresses }
+                            .font(.caption).disabled(ShoeboxRule.address() == a)
                         Button("Ask Gmail to verify") { preview = ActionPreview(kind: .forwardingAddress, title: "Add a forwarding address in Gmail",
                             lines: ["Gmail will email a confirmation code to this address.", "You confirm it once, then filters can forward to it."], recipients: [a]) }
                             .font(.caption)

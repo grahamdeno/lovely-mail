@@ -7,6 +7,8 @@ struct OpenEmailView: View {
     @Environment(Router.self) private var router
     @Environment(\.openURL) private var openURL
     let postID: String
+    @State private var unsubscribePreview: ActionPreview?
+    @State private var unsubscribeURL: URL?
 
     var body: some View {
         if let post = store.posts.first(where: { $0.id == postID }) {
@@ -44,6 +46,9 @@ struct OpenEmailView: View {
             }
             .navigationTitle(organization ? HomeDigest.organizationName(email.from) : email.from.name)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $unsubscribePreview) { p in
+                ActionPreviewSheet(preview: p, confirmTitle: "Unsubscribe") { _ in if let url = unsubscribeURL { Task { await store.unsubscribe(url: url, sender: email.from.name) } } }
+            }
         } else {
             ContentUnavailableView("Email not found", systemImage: "envelope").background(CalmStyle.background)
         }
@@ -78,6 +83,9 @@ struct OpenEmailView: View {
             .accessibilityLabel("Move to Gmail Trash")
             Menu {
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
+                if post.email.bulk, store.mode == .gmail {
+                    Button { Task { await prepareUnsubscribe(post) } } label: { Label("Unsubscribe", systemImage: "hand.raised") }
+                }
                 if ReplyRecipients.offersReplyAll(post.email, mine: Set([store.account ?? ""] + store.otherAddresses).subtracting([""]), organization: organization) {
                     Button { router.draftReplyAll = true; router.draftPostID = post.id } label: {
                         Label("Reply all", systemImage: "arrowshape.turn.up.left.2")
@@ -122,6 +130,18 @@ struct OpenEmailView: View {
         openURL(app) { ok in
             if !ok, let web = GmailCompose.webURL(to: email.from.email, subject: subject, body: "") { openURL(web) }
         }
+    }
+
+    /// Reads the sender's own unsubscribe header. Offers it only when the sender supports one-click and it is safe to.
+    private func prepareUnsubscribe(_ post: Post) async {
+        guard let stub = try? await store.gmail.getMetadata(id: post.id),
+              let url = OneClickUnsubscribe.target(listUnsubscribe: stub.listUnsubscribe, post: stub.listUnsubscribePost,
+                                                   senderAddress: stub.fromAddress, subject: stub.subject) else {
+            store.errorMessage = "This sender does not offer a one-click unsubscribe Lovely can use safely. Open it in Gmail instead."
+            return
+        }
+        unsubscribeURL = url
+        unsubscribePreview = OneClickUnsubscribe.preview(host: url.host ?? "the sender", sender: post.email.from.name)
     }
 }
 

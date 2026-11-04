@@ -95,6 +95,7 @@ enum Route: Hashable {
     case forwardingAddresses
     case gmailFilters
     case gmailActivity
+    case screenedOut
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools

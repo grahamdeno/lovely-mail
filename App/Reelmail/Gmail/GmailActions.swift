@@ -29,7 +29,7 @@ struct GmailActions {
     /// The id of a Lovely/ label, creating the label the first time.
     func ensureLabel(_ name: String, confirmed: ConfirmedAction) async throws -> String {
         guard name.hasPrefix(LovelyLabels.prefix), name.count > LovelyLabels.prefix.count else { throw ActionError.notALovelyLabel(name) }
-        guard confirmed.preview.kind == .label || confirmed.preview.kind == .filter else { throw ActionError.wrongPreview }
+        guard confirmed.preview.kind == .label || confirmed.preview.kind == .filter || confirmed.preview.kind == .shoebox else { throw ActionError.wrongPreview }
         if let known = labels.id(for: name) { return known }
         let list: LabelList = try await call("GET", "/labels")
         if let found = list.labels?.first(where: { $0.name == name }) { labels.record(name: name, id: found.id); return found.id }
@@ -53,7 +53,7 @@ struct GmailActions {
 
     /// A filter for one sender that labels and/or forwards. Forwarding goes only to an address in the allowlist.
     func createFilter(sender: String, forwardTo: String?, labelID: String?, confirmed: ConfirmedAction) async throws -> RecordedFilter {
-        guard confirmed.preview.kind == .filter else { throw ActionError.wrongPreview }
+        guard confirmed.preview.kind == .filter || confirmed.preview.kind == .shoebox else { throw ActionError.wrongPreview }
         guard ForwardAllowlist.isAddress(sender) || sender.hasPrefix("@") else { throw ActionError.badAddress(sender) }
         var action: [String: Any] = [:]
         if let forwardTo {
@@ -105,7 +105,7 @@ struct GmailActions {
 
     /// Forwards one message as plain text, only to an allowlisted address that was on the approved preview.
     func forward(from: String, subject: String, date: Date, text: String, to: String, confirmed: ConfirmedAction) async throws {
-        guard confirmed.preview.kind == .forward else { throw ActionError.wrongPreview }
+        guard confirmed.preview.kind == .forward || confirmed.preview.kind == .shoebox else { throw ActionError.wrongPreview }
         guard allowlist.contains(to) else { throw ActionError.recipientNotAllowed(to) }
         guard confirmed.preview.recipients.contains(to.lowercased()) else { throw ActionError.recipientNotConfirmed(to) }
         let body = MimeBuilder.forwardBody(from: from, subject: subject, date: date, text: text)

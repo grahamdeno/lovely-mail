@@ -7,7 +7,7 @@ import Observation
 /// What the owner is asked to approve. Plain words, no mail bodies.
 struct ActionPreview: Identifiable, Equatable {
     enum Kind: String, Codable, Equatable {
-        case send, forward, filter, deleteFilter, forwardingAddress, label, trashScreened
+        case send, forward, filter, deleteFilter, forwardingAddress, label, trashScreened, shoebox, unsubscribe
     }
     let id: String
     let kind: Kind
