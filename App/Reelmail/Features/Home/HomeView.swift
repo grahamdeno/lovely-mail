@@ -243,6 +243,12 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
+        let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
+        if !store.insights.store.bills.isEmpty || !money.accounts.isEmpty {
+            MoneyRow(summary: money)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
         if !d.organizations.isEmpty {
             title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
             OrganizationChips(groups: d.organizations)

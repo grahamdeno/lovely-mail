@@ -58,6 +58,7 @@ final class InsightEngine {
             store.historySeen = store.processed.count
             store.historyDone = !listed.truncated && fresh.count <= Self.batchSize
             storage.save(store)
+            await PaymentAlarmNotifier.announce(store: store)
         } catch is CancellationError {
             storage.save(store)
         } catch {

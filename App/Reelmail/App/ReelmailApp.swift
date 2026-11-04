@@ -75,6 +75,8 @@ enum Route: Hashable {
     case comingUp
     /// Energy and water read from mail.
     case energy
+    /// Bills, accounts and renewals read from mail.
+    case money
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools
