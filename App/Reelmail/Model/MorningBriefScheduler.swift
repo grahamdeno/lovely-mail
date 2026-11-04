@@ -8,13 +8,26 @@ struct BriefSettings {
     static let minutesKey = "lovely.brief.minutes"
     static let namesKey = "lovely.brief.names"
     static let offerSeenKey = "lovely.briefOffer.seen"
-    /// 7:30 AM.
-    static let defaultMinutes = 450
+    static let nudgeKey = "lovely.brief.nudge"
+    /// 9:30 AM, the weekday default. See BriefTiming.
+    static let defaultMinutes = BriefTiming.weekdayDefault
 
     var defaults: UserDefaults = .standard
 
     var enabled: Bool { defaults.bool(forKey: Self.enabledKey) }
-    var minutes: Int { (defaults.object(forKey: Self.minutesKey) as? Int) ?? Self.defaultMinutes }
+    /// Set by hand in Settings. Nil: Lovely chooses (learned from use, else 9:30 weekdays and 10:00 weekends).
+    var manualMinutes: Int? { defaults.object(forKey: Self.minutesKey) as? Int }
+    var minutes: Int { manualMinutes ?? Self.defaultMinutes }
+    /// The optional 7 PM note that opens a walk through the day's mail. Off by default.
+    var nudgeEnabled: Bool { defaults.bool(forKey: Self.nudgeKey) }
+
+    /// The brief time for one day.
+    func minutes(on day: Date) -> Int {
+        let log = InteractionLog(defaults: defaults)
+        return BriefTiming.minutes(on: day, manual: manualMinutes, weekdaySamples: log.weekday, weekendSamples: log.weekend)
+    }
+
+    func nextFire(after now: Date) -> Date { BriefTiming.nextFire(after: now) { minutes(on: $0) } }
     var showNames: Bool { defaults.bool(forKey: Self.namesKey) }
     var offerSeen: Bool { defaults.bool(forKey: Self.offerSeenKey) }
 }
@@ -52,7 +65,7 @@ enum MorningBriefScheduler {
             BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
             return
         }
-        let fire = MorningBrief.nextFire(minutes: settings.minutes, after: now)
+        let fire = settings.nextFire(after: now)
         requestRefresh(before: fire, now: now)
         guard let brief = store.morningBrief(at: fire, showNames: settings.showNames) else { return }
         let content = UNMutableNotificationContent()
@@ -62,13 +75,31 @@ enum MorningBriefScheduler {
         let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
         let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
         try? await center.add(UNNotificationRequest(identifier: notificationID, content: content, trigger: trigger))
+        await scheduleNudge(settings: settings, now: now)
+    }
+
+    static let nudgeID = "lovely.nudge"
+
+    /// The optional 7 PM note. Counts only; it opens the same walk through.
+    private static func scheduleNudge(settings: BriefSettings, now: Date) async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [nudgeID])
+        guard settings.nudgeEnabled else { return }
+        let fire = BriefTiming.nextFire(after: now) { _ in 19 * 60 }
+        let content = UNMutableNotificationContent()
+        content.title = "Evening check"
+        content.body = "A few minutes to go through today's mail."
+        content.sound = .default
+        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
+        try? await center.add(UNNotificationRequest(identifier: nudgeID, content: content,
+                                                    trigger: UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)))
     }
 
     static let testNotificationID = "lovely.morning.test"
 
     /// The next brief as it would read now, for Testing tools. Nil text means it would be skipped.
     static func preview(store: FeedStore, settings: BriefSettings = BriefSettings(), now: Date = Date()) -> MorningBrief? {
-        store.morningBrief(at: MorningBrief.nextFire(minutes: settings.minutes, after: now), showNames: settings.showNames)
+        store.morningBrief(at: settings.nextFire(after: now), showNames: settings.showNames)
     }
 
     /// Sends the preview as a notification in 5 seconds under its own id. It does not turn the brief on or replace it.

@@ -33,6 +33,17 @@ struct RootView: View {
                     case .promises: PromisesListView()
                     case .waitingOnThem: WaitingOnThemListView()
                     case .comingUp: ComingUpListView()
+                    case .energy: EnergyView()
+                    case .money: MoneyView()
+                    case .kids: KidsView()
+                    case .brief: BriefView()
+                    case .walkthrough: WalkthroughView()
+                    case .kid(let id): KidView(kidID: id)
+                    case .insightSettings: InsightSettingsView()
+                    case .forwardingAddresses: ForwardingAddressesView()
+                    case .gmailFilters: GmailFiltersView()
+                    case .gmailActivity: GmailActivityView()
+                    case .screenedOut: ScreenedOutView()
                     case .settings: SettingsView()
                     case .testingTools: TestingToolsView()
                     case .aboutPrivacy: AboutPrivacyView()
@@ -43,6 +54,7 @@ struct RootView: View {
             }
         }
         .tint(CalmStyle.blue)
+        .overlay(alignment: .bottom) { UndoBanner().padding(.bottom, 76) }
         .sheet(item: Binding(
             get: { router.draftPostID.flatMap { id in store.posts.first { $0.id == id } } },
             set: { router.draftPostID = $0?.id }

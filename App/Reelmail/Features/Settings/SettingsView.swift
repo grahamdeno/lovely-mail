@@ -60,6 +60,14 @@ struct SettingsView: View {
                 SettingsHeader(text: "Morning brief")
                 MorningBriefCard()
 
+                SettingsHeader(text: "Households and kids")
+                SettingsRow(title: "Households and kids") { router.open(.insightSettings) }
+
+                SettingsHeader(text: "Gmail actions")
+                SettingsRow(title: "Forwarding addresses") { router.open(.forwardingAddresses) }
+                SettingsRow(title: "Gmail filters") { router.open(.gmailFilters) }
+                SettingsRow(title: "Gmail activity") { router.open(.gmailActivity) }
+
                 SettingsHeader(text: "Rules")
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
@@ -111,7 +119,9 @@ struct MorningBriefCard: View {
     @AppStorage(BriefSettings.enabledKey) private var enabled = false
     @AppStorage(BriefSettings.minutesKey) private var minutes = BriefSettings.defaultMinutes
     @AppStorage(BriefSettings.namesKey) private var names = false
+    @AppStorage(BriefSettings.nudgeKey) private var nudge = false
     @State private var declined = false
+    @State private var chosenByHand = BriefSettings().manualMinutes != nil
 
     private var time: Binding<Date> {
         Binding(get: { Calendar.current.date(byAdding: .minute, value: minutes, to: Calendar.current.startOfDay(for: Date())) ?? Date() },
@@ -125,7 +135,16 @@ struct MorningBriefCard: View {
                 Text("Notifications are off for Lovely. Turn them on in the Settings app.").font(.caption).foregroundStyle(CalmStyle.secondary)
             }
             if enabled {
-                DatePicker("Time", selection: time, displayedComponents: .hourAndMinute)
+                DatePicker("Time", selection: Binding(get: { time.wrappedValue }, set: { time.wrappedValue = $0; chosenByHand = true }), displayedComponents: .hourAndMinute)
+                if chosenByHand {
+                    Button("Let Lovely choose the time") {
+                        UserDefaults.standard.removeObject(forKey: BriefSettings.minutesKey); chosenByHand = false
+                        Task { await MorningBriefScheduler.reschedule(store: store) }
+                    }.font(.subheadline)
+                } else {
+                    Text("Lovely chooses: 9:30 on weekdays, 10:00 on weekends, then it adjusts to when you open the app.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
+                Toggle("Evening check at 7 PM", isOn: $nudge)
                 Toggle("Show names in the brief", isOn: $names)
                 Text("Names can appear on your lock screen.").font(.caption).foregroundStyle(CalmStyle.secondary)
             }
@@ -136,6 +155,7 @@ struct MorningBriefCard: View {
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
         .onChange(of: minutes) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
         .onChange(of: names) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
+        .onChange(of: nudge) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
     }
 
     private func turn(_ on: Bool) {
@@ -192,6 +212,7 @@ struct TestingToolsView: View {
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
                 MorningBriefTestCard()
+                ChatSwitchCard()
             }.padding(20)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
@@ -335,5 +356,26 @@ struct ProfileCard: View {
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+
+/// Owner switch for the chat walk-through, with one-tap rollback of everything it did.
+struct ChatSwitchCard: View {
+    @Environment(FeedStore.self) private var store
+    @AppStorage(LearnedRuleStore.chatSwitchKey) private var enabled = false
+    @State private var count = LearnedRuleStore().chatRules.count
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("Chat walk-through", isOn: $enabled)
+            Text("Adds a text box to the walk-through for sorting rules, such as hiding a sender. Rules apply only after you tap Apply.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+            Button("Remove rules made in chat (\(count))") { store.removeChatRules(); count = LearnedRuleStore().chatRules.count }
+                .disabled(count == 0)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+        .onChange(of: enabled) { _, _ in count = LearnedRuleStore().chatRules.count }
     }
 }

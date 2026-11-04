@@ -25,6 +25,10 @@ final class FeedStore {
     private(set) var hidden: Set<String> = []
     private(set) var seen: Set<String> = []
     let gmail: any GmailInboxClient
+    /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
+    let insights: InsightEngine
+    /// Sends and forwards wait here for ten seconds so they can be undone.
+    let undo = UndoQueue()
     /// Rules for fictional demo mail. Never applied to a real account.
     let demoRules: LocalTriageRules
     /// Rules for the signed-in account. Created when the account is known.
@@ -42,8 +46,9 @@ final class FeedStore {
 
     init(gmail: (any GmailInboxClient)? = nil, summarizeOnDevice: Bool = true,
          triageDefaults: UserDefaults = .standard, cacheStore: MailCacheStore? = .standard,
-         veto: (any CommitmentVeto)? = nil) {
+         veto: (any CommitmentVeto)? = nil, insights: InsightEngine? = nil) {
         self.gmail = gmail ?? GmailService()
+        self.insights = insights ?? InsightEngine()
         self.summarizeOnDevice = summarizeOnDevice
         let onDevice: (any CommitmentVeto)? = summarizeOnDevice ? AppleIntelligenceVeto() : nil
         self.veto = veto ?? onDevice
@@ -141,6 +146,16 @@ final class FeedStore {
         await upgradeSummaries(revision: current)
         // Runs after the refresh finishes, so the progress bar does not wait on it.
         sentCheck = Task { await self.checkSentMail(revision: current) }
+        insightCheck = Task { await self.insights.refresh(client: self.gmail, account: self.account); await self.verifyNewSenders() }
+    }
+
+    /// The background read of older mail for insights. Tests await it.
+    private(set) var insightCheck: Task<Void, Never>?
+
+    /// Gmail writes beyond Trash and Done. Nil for demo mail and test doubles. Every call needs a ConfirmedAction.
+    var actions: GmailActions? {
+        guard mode == .gmail, let service = gmail as? GmailService else { return nil }
+        return GmailActions(token: { try await service.accessToken() })
     }
 
     /// The follow-up work after a refresh (thread lookups and the on-device opinion). Tests await it.
@@ -193,7 +208,7 @@ final class FeedStore {
     }
 
     func disconnectGmail() async {
-        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll()
+        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll(); insights.reset(); InsightSettings().clear()
         posts = []; sentByMe = []; hidden.removeAll(); seen.removeAll(); summaries = [:]
         filter = .all; mode = .sample; account = nil; accountRules = nil; needsReconnect = false
         lastFetched = nil; inboxTruncated = false
@@ -253,6 +268,9 @@ final class FeedStore {
     @ObservationIgnored private var derivedKey = ""
     @ObservationIgnored private var dataVersion = 0
     private func bump() { dataVersion &+= 1 }
+    /// Observed by views, so New senders refreshes after a lookup or an Accept (the lists live in UserDefaults).
+    private(set) var screeningVersion = 0
+    func bumpForScreening() { screeningVersion &+= 1 }
 
     private var derived: Derived {
         // Reading these registers the dependencies, so views refresh when any of them change.
@@ -377,13 +395,19 @@ final class FeedStore {
         }
     }
 
+    /// Sense reports live on the Energy page once one has been read. Local only; Gmail is not changed.
+    private func isEnergyReport(_ post: Post) -> Bool {
+        guard mode == .gmail else { return false }
+        return EnergyInsights.shouldHideFromHome(domain: InsightText.registrable(InsightText.domain(of: post.email.from.email)), fromName: post.email.from.name, store: insights.store)
+    }
+
     /// The Home "All" view.
     var digest: HomeDigest {
         let d = derived
         let overrides = rules.organizationOverrides
         let clock = Date()
         // Mail put off with Later is off Home until its time; mail that has come back goes first in To do.
-        var digest = HomeDigest.make(active: d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) },
+        var digest = HomeDigest.make(active: d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) && !isEnergyReport($0) },
                                      section: { d.assessments[$0.id]?.section ?? .people },
                                      isOrganization: { d.organizationPosts.contains($0.id) },
                                      groupKey: { OrganizationKey.key(for: $0.email.from, overrides: overrides) },
@@ -570,6 +594,7 @@ final class FeedStore {
     /// Opening a message never marks it read. In demo mode this only changes the fictional message.
     func markDone(_ post: Post) async {
         guard setUnread(post.id, false) else { return }
+        InteractionLog().recordDone()
         countDone(+1)
         lastDone = post
         persist()
@@ -804,5 +829,21 @@ final class FeedStore {
     func setMessageRule(_ id: String, destination: LocalMailDestination?) {
         guard mode == .sample || accountRules != nil else { return }
         rules.setMessage(id, destination: destination)
+    }
+
+    /// Applies a rule made in chat or on a card. Recorded so it can be removed.
+    @discardableResult
+    func applyLearned(_ rule: LearnedRule, store: LearnedRuleStore = LearnedRuleStore()) -> Bool {
+        guard mode == .sample || accountRules != nil, !rule.matches.isEmpty else { return false }
+        for address in rule.matches { rules.setSender(address, destination: rule.action) }
+        store.add(rule)
+        return true
+    }
+
+    /// Takes back every rule made in chat. Senders return to the inbox.
+    func removeChatRules(store: LearnedRuleStore = LearnedRuleStore()) {
+        let made = store.chatRules
+        for rule in made { for address in rule.matches { rules.setSender(address, destination: nil) } }
+        store.remove(Set(made.map(\.id)))
     }
 }

@@ -1,13 +1,18 @@
 import Foundation
 
 /// OAuth scopes. Approved by the owner on 2026-11-01: read mail and move a message to Trash when asked.
-/// `gmail.modify` cannot send mail, and Lovely has no code path that sends, drafts, relabels or permanently deletes.
-/// The CI privacy guard enforces that. Do not add scopes without a review of the privacy stance.
+/// Approved 2026-11-04 for Sprint 6: settings.basic (filters), settings.sharing (forwarding addresses) and send,
+/// each used only through GmailActions.swift behind a preview sheet and the owner's tap.
+/// Never requested: the full-access scope, and anything that permanently deletes mail.
+/// scripts/privacy_guard.py enforces that in CI. Do not add scopes without a review of the privacy stance.
 enum GmailScope {
     /// Previous read-only scope. Old sign-ins still hold it; they can read but must reconnect before Trash works.
     static let readOnly = "https://www.googleapis.com/auth/gmail.readonly"
     static let modify = "https://www.googleapis.com/auth/gmail.modify"
-    static let requested: [String] = [modify]
+    static let settingsBasic = "https://www.googleapis.com/auth/gmail.settings.basic"
+    static let settingsSharing = "https://www.googleapis.com/auth/gmail.settings.sharing"
+    static let send = "https://www.googleapis.com/auth/gmail.send"
+    static let requested: [String] = [modify, settingsBasic, settingsSharing, send]
 
     /// Google lets you untick permissions on its consent screen. True when the granted scopes (the token
     /// response's space-separated `scope`) still let Lovely read mail. Nil or empty means Google did not say.

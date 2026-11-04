@@ -14,6 +14,7 @@ struct DraftReplySheet: View {
     @State private var engine: SummaryEngine = .fallback
     @State private var loading = true
     @State private var copied = false
+    @State private var sendPreview: ActionPreview?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -51,10 +52,15 @@ struct DraftReplySheet: View {
                 } label: { Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") }
                     .buttonStyle(CalmActionStyle())
                 Spacer()
+                if canSend {
+                    Button { previewSend() } label: { Label("Send", systemImage: "paperplane") }
+                        .buttonStyle(CalmActionStyle(prominent: true))
+                }
                 Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
-                    .buttonStyle(CalmActionStyle(prominent: true))
+                    .buttonStyle(CalmActionStyle(prominent: !canSend))
             }
-            Text("Lovely never sends email. Review and send it yourself in Gmail.")
+            Text(canSend ? "Lovely sends only what you approve. After you confirm, you have 10 seconds to undo."
+                         : "Review and send it yourself in Gmail.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
         .padding(20)
@@ -63,6 +69,9 @@ struct DraftReplySheet: View {
         .presentationDetents([.medium, .large])
         .presentationCornerRadius(24)
         
+        .sheet(item: $sendPreview) { p in
+            ActionPreviewSheet(preview: p, confirmTitle: "Send") { confirmed in send(confirmed) }
+        }
         .task { replyAll = router.draftReplyAll && offersReplyAll; router.draftReplyAll = false; await makeDraft() }
     }
 
@@ -87,6 +96,28 @@ struct DraftReplySheet: View {
             engine = .fallback
         }
         loading = false
+    }
+
+    /// One recipient, no one copied, a draft you can see: the only kind of reply Lovely sends itself.
+    private var canSend: Bool {
+        store.actions != nil && plan.to.count == 1 && plan.cc.isEmpty && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !post.email.isFromMe
+    }
+
+    private var recipient: String { plan.to.first.map { EmailPresentation.address(in: $0).lowercased() } ?? "" }
+
+    private func previewSend() {
+        let subject = GmailCompose.replySubject(post.email.subject)
+        sendPreview = ActionPreview(kind: .send, title: "Send this reply", lines: ["Subject: \(subject)", draft], recipients: [recipient])
+    }
+
+    private func send(_ confirmed: ConfirmedAction) {
+        guard let actions = store.actions else { return }
+        let subject = GmailCompose.replySubject(post.email.subject)
+        let to = recipient, body = draft, thread = post.email.threadId
+        store.undo.enqueue(title: "Sending reply to \(to)",
+                           work: { try await actions.sendReply(to: to, subject: subject, body: body, threadID: thread, inReplyTo: nil, confirmed: confirmed) },
+                           finished: { error in if let error { store.errorMessage = "The reply was not sent. \(error.localizedDescription)" } })
+        dismiss()
     }
 
     private func openInGmail() {

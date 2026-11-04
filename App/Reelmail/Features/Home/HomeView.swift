@@ -237,6 +237,33 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
+        let newSenders = store.actions == nil ? 0 : store.newSenders.count
+        if newSenders > 0 {
+            ScreenedOutRow(count: newSenders)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        BriefRow()
+            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        let kidProfiles = InsightSettings().load().kids
+        if !kidProfiles.isEmpty {
+            KidsRow(count: kidProfiles.reduce(0) { $0 + KidInsights.mail(for: $1, in: store.posts).count })
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        let energy = EnergyInsights.summary(store.insights.store, household: nil)
+        if energy.latest != nil {
+            EnergyRow(summary: energy)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
+        if !store.insights.store.bills.isEmpty || !money.accounts.isEmpty {
+            MoneyRow(summary: money)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
         if !d.organizations.isEmpty {
             title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
             OrganizationChips(groups: d.organizations)

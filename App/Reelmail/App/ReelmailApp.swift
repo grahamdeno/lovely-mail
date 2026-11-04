@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct ReelmailApp: App {
@@ -11,6 +12,7 @@ struct ReelmailApp: App {
         let store = FeedStore()
         _store = State(initialValue: store)
         MorningBriefScheduler.register(store: store)
+        UNUserNotificationCenter.current().delegate = NotificationOpener.shared
     }
 
     var body: some Scene {
@@ -32,6 +34,10 @@ struct ReelmailApp: App {
             // The brief is rebuilt from the mail loaded right now after each refresh and when the app leaves the screen.
             .onChange(of: store.lastFetched) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
             .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    InteractionLog().recordOpen()
+                    if let route = NotificationOpener.pending { NotificationOpener.pending = nil; router.open(route) }
+                }
                 if phase == .background { Task { await MorningBriefScheduler.reschedule(store: store) } }
             }
     }
@@ -73,6 +79,23 @@ enum Route: Hashable {
     case promises
     case waitingOnThem
     case comingUp
+    /// Energy and water read from mail.
+    case energy
+    /// Bills, accounts and renewals read from mail.
+    case money
+    /// Children and the mail about them.
+    case kids
+    /// The morning brief as a full page.
+    case brief
+    /// Cards, one piece of mail at a time.
+    case walkthrough
+    case kid(String)
+    /// Households and children, inside Settings.
+    case insightSettings
+    case forwardingAddresses
+    case gmailFilters
+    case gmailActivity
+    case screenedOut
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools
