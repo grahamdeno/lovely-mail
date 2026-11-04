@@ -77,6 +77,11 @@ enum Route: Hashable {
     case energy
     /// Bills, accounts and renewals read from mail.
     case money
+    /// Children and the mail about them.
+    case kids
+    case kid(String)
+    /// Households and children, inside Settings.
+    case insightSettings
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools

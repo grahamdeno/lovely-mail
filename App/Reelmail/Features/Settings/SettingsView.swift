@@ -60,6 +60,9 @@ struct SettingsView: View {
                 SettingsHeader(text: "Morning brief")
                 MorningBriefCard()
 
+                SettingsHeader(text: "Households and kids")
+                SettingsRow(title: "Households and kids") { router.open(.insightSettings) }
+
                 SettingsHeader(text: "Rules")
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
