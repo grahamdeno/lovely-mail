@@ -28,7 +28,7 @@ final class KidInsightTests: XCTestCase {
         let body = (0..<6).map { _ in paragraph }.joined(separator: "\n\n")
         let chunks = NewsletterChunker.chunks(body, limit: 2_500)
         XCTAssertTrue(chunks.allSatisfy { $0.count <= 2_500 })
-        XCTAssertEqual(chunks.joined(separator: " ").split(separator: " ").count, 1_200)
+        XCTAssertEqual(chunks.joined(separator: "\n\n").split(whereSeparator: { $0.isWhitespace }).count, 1_200)
         let huge = String(repeating: "abc ", count: 2_000)
         XCTAssertTrue(NewsletterChunker.chunks(huge).allSatisfy { $0.count <= 2_500 })
     }
