@@ -384,13 +384,19 @@ final class FeedStore {
         }
     }
 
+    /// Sense reports live on the Energy page once one has been read. Local only; Gmail is not changed.
+    private func isEnergyReport(_ post: Post) -> Bool {
+        guard mode == .gmail else { return false }
+        return EnergyInsights.shouldHideFromHome(domain: InsightText.registrable(InsightText.domain(of: post.email.from.email)), fromName: post.email.from.name, store: insights.store)
+    }
+
     /// The Home "All" view.
     var digest: HomeDigest {
         let d = derived
         let overrides = rules.organizationOverrides
         let clock = Date()
         // Mail put off with Later is off Home until its time; mail that has come back goes first in To do.
-        var digest = HomeDigest.make(active: d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) },
+        var digest = HomeDigest.make(active: d.active.filter { !LaterSchedule.isPending(laterUntil[$0.id] ?? .distantPast, now: clock) && !isEnergyReport($0) },
                                      section: { d.assessments[$0.id]?.section ?? .people },
                                      isOrganization: { d.organizationPosts.contains($0.id) },
                                      groupKey: { OrganizationKey.key(for: $0.email.from, overrides: overrides) },

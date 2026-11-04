@@ -73,6 +73,8 @@ enum Route: Hashable {
     case promises
     case waitingOnThem
     case comingUp
+    /// Energy and water read from mail.
+    case energy
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools

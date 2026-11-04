@@ -141,3 +141,13 @@ final class EnergyInsightTests: XCTestCase {
         XCTAssertFalse(EnergyInsights.shouldHideFromHome(domain: "example.com", fromName: "Other", store: store))
     }
 }
+
+@MainActor
+final class EnergyHomeRuleTests: XCTestCase {
+    func testSenseMailLeavesHomeOnlyAfterAReportIsRead() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let engine = InsightEngine(storage: InsightStorage(directory: dir))
+        XCTAssertTrue(engine.store.isEmpty)
+        XCTAssertFalse(EnergyInsights.shouldHideFromHome(domain: "sense.com", fromName: "Sense", store: engine.store))
+    }
+}

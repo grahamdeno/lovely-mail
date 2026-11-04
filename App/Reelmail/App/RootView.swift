@@ -33,6 +33,7 @@ struct RootView: View {
                     case .promises: PromisesListView()
                     case .waitingOnThem: WaitingOnThemListView()
                     case .comingUp: ComingUpListView()
+                    case .energy: EnergyView()
                     case .settings: SettingsView()
                     case .testingTools: TestingToolsView()
                     case .aboutPrivacy: AboutPrivacyView()
