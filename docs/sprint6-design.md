@@ -11,17 +11,44 @@ Lovely stops being only a sorter. It reads the mail that is really data (stateme
 2. **Brief time:** learned from when the owner actually uses mail, not fixed at 7:30.
 3. **Insight order on screen:** Kids, Money, Energy. All three ship together.
 4. **Walk-through:** cards by default. Chat exists behind an owner switch in Testing tools, easy to turn off.
-5. **Handoff prompts:** when the phone can't do a task, Lovely writes a prompt for an outside agent. Grok is the default agent; Claude is the other choice. The owner can switch to compare.
+5. **Handoff prompts:** only for work outside Gmail (website signups, research, logins, payments). Lovely writes a prompt for an outside agent. Grok is the default agent; Claude is the other choice. The owner can switch to compare.
 6. **Health mail:** appointment dates only, into Coming up. Nothing else from health mail is read for insights or put in a prompt.
 7. **Household heads-up:** Lovely drafts a text and opens it in Messages. The owner presses Send.
 8. **Sense mail:** hidden from Home once the Energy page covers it (local only; Gmail untouched).
 9. **Two households:** Home (the house, where Sense is) and the Apartment (the owner's son's apartment, rent and utilities paid by the owner through March 2027). Every bill and energy item belongs to one of them.
-10. **Kids to Shoebox:** a summary that suggests forwarding becomes a standing rule, handed off to an agent (see section 7).
+10. **Kids to Shoebox:** a summary that suggests forwarding becomes a standing Gmail filter, created by Lovely, plus a forward of the last 10 days (section 4).
+11. **Wider Gmail permissions (approved Nov 4, 2026):** labels, filters, forwarding addresses and sending, under the guardrails in "Gmail actions" below. Gmail-internal tasks happen in Lovely, not through an agent.
 
-## Gmail stance (unchanged)
-- No new scopes, no new Gmail actions. Lovely still only reads, moves to Trash and toggles UNREAD.
-- The CI privacy guard is unchanged and must still pass.
-- Gmail filters and forwarding are done by the owner's chosen agent from a handoff prompt, never by Lovely.
+## Gmail actions (approved by the owner Nov 4, 2026)
+
+### Scopes
+| Scope | Status | Used for |
+|---|---|---|
+| `gmail.modify` | existing | Trash, UNREAD (existing); now also create and apply Lovely's own labels |
+| `gmail.settings.basic` | new | Create, list and delete Gmail filters |
+| `gmail.settings.sharing` | new | Add a forwarding address (Gmail verifies it by email) |
+| `gmail.send` | new | Forward mail, send replies the owner wrote or approved |
+
+Permanent delete (`messages.delete`, `batchDelete`), full access (`https://mail.google.com/`) and changing other Gmail settings (vacation, IMAP, delegates) stay forbidden.
+
+### Guardrails (all required)
+1. **Every outgoing action needs a tap.** Send, forward, filter creation and forwarding-address creation each show a preview sheet (recipients, subject, body or filter criteria) and run only on the owner's tap. No rule, chat turn, insight or email content can trigger one on its own.
+2. **Email content is never an instruction.** Text from a message can fill a preview, never choose a recipient or an action.
+3. **Forward allowlist.** Forwarding and forward filters go only to addresses on Settings › Forwarding addresses (starts with the owner's Shoebox address). Adding one uses `gmail.settings.sharing` and Gmail's own verification email.
+4. **Undo window.** Sends and forwards wait 10 seconds in a local queue with Undo before the API call. After that they cannot be recalled, and the sheet says so.
+5. **Labels Lovely owns.** Lovely creates and applies only labels under a `Lovely/` prefix (e.g. `Lovely/Screened Out`). It never edits or deletes other labels.
+6. **Filters Lovely owns.** Filters Lovely creates are recorded locally with their Gmail id; Settings › Gmail filters lists them with Delete. Lovely never edits filters it did not create.
+7. **CI guard per endpoint.** The privacy guard is rewritten as an allowlist: each Gmail endpoint is allowed only in `GmailService`, and send/forward/filter calls only inside functions that take a `ConfirmedAction` token minted by the preview sheet. Permanent delete and full-access scope stay banned outright.
+8. **Activity log.** Settings › Gmail activity lists every send, forward, label and filter Lovely made, newest first, with links.
+9. **Reconnect.** New scopes take effect after the owner adds them on the consent screen's Data Access page and taps Reconnect. Lovely shows which features wait for that.
+
+### What this unlocks in Sprint 6
+- **Shoebox rules:** filter + forward last 10 days, in app (section 4).
+- **Screened Out:** a morning list of first-time senders; Decline applies `Lovely/Screened Out` and archives (removes INBOX) from that sender; weekly, Screened Out mail older than 30 days moves to Trash after a one-tap confirm.
+- **Replies and forms:** Draft reply gains Send (through the preview and undo window). Copy and Open in Gmail stay.
+- **One-click unsubscribe:** RFC 8058 `List-Unsubscribe-Post` only, an HTTPS POST to the sender's own URL. No Gmail scope; never by sending mail. Security and account senders are excluded.
+
+The README privacy stance changes in the build PR: "Lovely sends, forwards and files only what you approve." CLAUDE.md's safety section records this approval.
 
 ## Public repo rule for this sprint
 This repo is public. The owner's real institutions, amounts, addresses and family names stay out of code, tests, fixtures and docs. Parsers match on sender domains and email formats, which are public. Household names, children and service addresses are entered by the owner in Settings and stored on the phone.
@@ -130,9 +157,11 @@ struct BillFacts {
 - Merge, drop duplicates, keep at most 5 items, dated and action items first.
 - Shown as "3 items, 1 with a date. Nothing asks you to act." with the list behind a tap.
 
-### Shoebox rule suggestion
+### Shoebox rule
 - When the owner forwards school mail of the same kind to the Shoebox address twice, or taps "Send to Shoebox" on a newsletter summary, Lovely offers **Make this a Shoebox rule**.
-- That writes a handoff prompt (section 7) that creates a Gmail filter and forwards the last 10 days of matching mail.
+- The sheet shows: the filter (from address, subject words), the forwarding address, and the list of matching mail from the last 10 days with checkboxes, all checked.
+- One tap **Create rule and forward N** creates the Gmail filter (forward action) and queues the N forwards through the undo window. The filter handles new mail from then on.
+- If the Shoebox address is not yet a verified forwarding address, Lovely adds it first and says "Confirm the email Gmail sent to Shoebox, then come back." The forwards of past mail still go now; only the filter waits.
 
 ## 5. Morning brief
 
@@ -158,7 +187,8 @@ Order: Today line, Kids, Money, Energy, Coming up. Each section shows at most 3 
 - Same queue and same actions as cards. Turns are short; the on-device model writes the one-line summary and parses replies like "trash both", "keep, and text her", "from now on trash these".
 - "From now on" creates a rule (section 8) tagged `source: chat`, shown back for confirmation before it is saved.
 - **Rollback:** the switch off returns to cards immediately. Chat stores only its rules. Testing tools › "Remove rules made in chat" deletes every rule tagged `source: chat`, with Undo.
-- Anything chat can't do on the phone (research, filters, forwarding, signups) → it offers a handoff prompt instead of attempting it.
+- Gmail tasks from chat (forward, filter, reply) open the same preview sheet as everywhere else; chat never performs them without the tap.
+- Anything outside Gmail (research, signups, logins) → it offers a handoff prompt.
 
 ## 7. Handoff prompts
 
@@ -180,9 +210,10 @@ Order: Today line, Kids, Money, Energy, Coming up. Each section shows at most 3 
 - Account numbers, codes, street addresses and health content are removed before the prompt is built. The sheet shows the prompt in full before Copy.
 
 ### First prompt types
-- Shoebox rule (filter + forward last 10 days).
 - Research question from chat ("do my kids qualify for …").
-- Unsubscribe on a site that needs a login.
+- Unsubscribe or cancel on a site that needs a login.
+- Signups and account changes on websites.
+Gmail tasks (filters, forwards, labels, replies) are never handed off; Lovely does them under the guardrails above.
 
 ## 8. Rules memory
 One representation for all learned rules, local, editable in Settings › Rules.
@@ -227,9 +258,11 @@ struct LearnedRule: Codable, Identifiable {
 4. Kids (assignment, per-child page, newsletter chunks, Shoebox suggestion).
 5. Brief page and learned timing.
 6. Cards walk-through, chat behind the switch, LearnedRule.
-7. Handoff prompts and the agent setting.
+7. Gmail actions: scopes, preview sheet with ConfirmedAction, undo queue, labels, filters, forwarding allowlist, activity log, CI guard rewrite.
+8. Shoebox rule, Screened Out, Send on Draft reply, one-click unsubscribe.
+9. Handoff prompts and the agent setting.
 
-Steps 1 to 7 on Sonnet. A review pass on Opus before ship for data safety (redaction, health exclusion, alarm wording).
+Steps 1 to 9 on Sonnet. A review pass on Opus before ship for data safety (redaction, health exclusion, alarm wording) and for every send path (guardrails 1 to 7).
 
 ## 14. Open items
 - Duke mail stops after June 2026 in the owner's inbox. If Duke moved to paper or its app, the real-bill check is idle until Duke mail resumes.
