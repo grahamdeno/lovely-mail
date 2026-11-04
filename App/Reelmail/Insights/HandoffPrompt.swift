@@ -10,7 +10,7 @@ enum Redactor {
             s = re.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: template)
         }
         // Passwords and codes named in words, in either order.
-        sub(#"(pass(?:word|code)|pin|otp|one[- ]time (?:code|password)|verification code|security code|access code|login code|code)\s*(?:is|:|=|-)?\s*[A-Za-z0-9!@#$%^&*._-]{4,}"#, "$1 [removed]")
+        sub(#"\b(pass(?:word|code)|pin|otp|one[- ]time (?:code|password)|verification code|security code|access code|login code|code)\s*(?:is|:|=|-)?\s*[A-Za-z0-9!@#$%^&*._-]{4,}"#, "$1 [removed]")
         sub(#"\b\d{4,8}\s+is your\b"#, "[removed] is your")
         // Card, SSN and account-style numbers.
         sub(#"\b(?:\d[ -]?){13,19}\b"#, "[number removed]")
