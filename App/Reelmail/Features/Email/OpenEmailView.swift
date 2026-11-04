@@ -9,6 +9,7 @@ struct OpenEmailView: View {
     let postID: String
     @State private var unsubscribePreview: ActionPreview?
     @State private var unsubscribeURL: URL?
+    @State private var handoffPost: Post?
 
     var body: some View {
         if let post = store.posts.first(where: { $0.id == postID }) {
@@ -46,6 +47,7 @@ struct OpenEmailView: View {
             }
             .navigationTitle(organization ? HomeDigest.organizationName(email.from) : email.from.name)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $handoffPost) { HandoffSheet(post: $0) }
             .sheet(item: $unsubscribePreview) { p in
                 ActionPreviewSheet(preview: p, confirmTitle: "Unsubscribe") { _ in if let url = unsubscribeURL { Task { await store.unsubscribe(url: url, sender: email.from.name) } } }
             }
@@ -83,6 +85,9 @@ struct OpenEmailView: View {
             .accessibilityLabel("Move to Gmail Trash")
             Menu {
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
+                if HandoffPrompt.isAllowed(domain: InsightText.registrable(InsightText.domain(of: post.email.from.email)), subject: post.email.subject, sensitive: post.summary.sensitive) {
+                    Button { handoffPost = post } label: { Label("Hand off to an agent", systemImage: "square.and.arrow.up.on.square") }
+                }
                 if post.email.bulk, store.mode == .gmail {
                     Button { Task { await prepareUnsubscribe(post) } } label: { Label("Unsubscribe", systemImage: "hand.raised") }
                 }
