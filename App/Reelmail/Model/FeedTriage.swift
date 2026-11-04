@@ -435,6 +435,8 @@ enum ReplySignals {
 
     /// Phrases that mark machine-sent mail even when the sender address looks personal
     /// (portals, schools, HOAs, booking systems).
+    // "Out of office" is not here: AutoReply decides that (a header, a subject, or two phrases), because a person can write
+    // "I'll be out of the office Friday, can you cover?" and that is an ask.
     private static let machinePhrases = [
         "do not reply", "do-not-reply", "please don't reply", "please do not respond", "this is an automated",
         "automatically generated", "auto-generated", "this mailbox is not monitored", "unmonitored", "not monitored",
@@ -443,7 +445,7 @@ enum ReplySignals {
         "to view the message", "view it online", "reply above this line", "you are receiving this",
         "you received this email because", "manage your notification", "notification settings",
         "verification code", "security code", "one-time code", "your code is", "passcode",
-        "automatic reply", "auto-reply", "autoreply", "out of office", "out of the office",
+        "automatic reply", "auto-reply", "autoreply",
         "has been scheduled for", "you are scheduled for",
         "this is a group email", "please reply to sender only",
     ]
