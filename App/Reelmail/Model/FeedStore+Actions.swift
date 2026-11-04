@@ -52,9 +52,15 @@ extension FeedStore {
     /// New senders confirmed by Gmail (no older mail from them, nothing sent to them).
     var newSenders: [ScreenedOut.Candidate] {
         guard mode == .gmail else { return [] }
-        _ = screeningVersion
-        return ScreenedOut.candidates(inbox: posts.map(\.email), sent: sentByMe, approved: ScreenedOut.approved(),
-                                      mine: Set([account ?? ""] + otherAddresses), now: Date(), checked: ScreenedOut.checked())
+        return cached("newSenders", [screeningVersion, otherAddresses]) {
+            ScreenedOut.candidates(inbox: posts.map(\.email), sent: sentByMe, approved: ScreenedOut.approved(),
+                                   mine: Set([account ?? ""] + otherAddresses), now: Date(), checked: ScreenedOut.checked())
+        }
+    }
+
+    /// Kid mail for Home's count and the Kids page, rebuilt only when mail or the profile changes.
+    func kidMail(for kid: KidProfile) -> [KidMail] {
+        cached("kid." + kid.id, [kid]) { KidInsights.mail(for: kid, in: posts) }
     }
 
     /// Looks up up to 20 unchecked senders. Read-only search; nothing changes in Gmail.
