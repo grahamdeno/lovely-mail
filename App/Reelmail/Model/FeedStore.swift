@@ -25,6 +25,8 @@ final class FeedStore {
     private(set) var hidden: Set<String> = []
     private(set) var seen: Set<String> = []
     let gmail: any GmailInboxClient
+    /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
+    let insights: InsightEngine
     /// Rules for fictional demo mail. Never applied to a real account.
     let demoRules: LocalTriageRules
     /// Rules for the signed-in account. Created when the account is known.
@@ -42,8 +44,9 @@ final class FeedStore {
 
     init(gmail: (any GmailInboxClient)? = nil, summarizeOnDevice: Bool = true,
          triageDefaults: UserDefaults = .standard, cacheStore: MailCacheStore? = .standard,
-         veto: (any CommitmentVeto)? = nil) {
+         veto: (any CommitmentVeto)? = nil, insights: InsightEngine? = nil) {
         self.gmail = gmail ?? GmailService()
+        self.insights = insights ?? InsightEngine()
         self.summarizeOnDevice = summarizeOnDevice
         let onDevice: (any CommitmentVeto)? = summarizeOnDevice ? AppleIntelligenceVeto() : nil
         self.veto = veto ?? onDevice
@@ -141,7 +144,11 @@ final class FeedStore {
         await upgradeSummaries(revision: current)
         // Runs after the refresh finishes, so the progress bar does not wait on it.
         sentCheck = Task { await self.checkSentMail(revision: current) }
+        insightCheck = Task { await self.insights.refresh(client: self.gmail, account: self.account) }
     }
+
+    /// The background read of older mail for insights. Tests await it.
+    private(set) var insightCheck: Task<Void, Never>?
 
     /// The follow-up work after a refresh (thread lookups and the on-device opinion). Tests await it.
     private(set) var sentCheck: Task<Void, Never>?
@@ -193,7 +200,7 @@ final class FeedStore {
     }
 
     func disconnectGmail() async {
-        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll()
+        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll(); insights.reset(); InsightSettings().clear()
         posts = []; sentByMe = []; hidden.removeAll(); seen.removeAll(); summaries = [:]
         filter = .all; mode = .sample; account = nil; accountRules = nil; needsReconnect = false
         lastFetched = nil; inboxTruncated = false

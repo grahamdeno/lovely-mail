@@ -41,6 +41,12 @@ protocol GmailInboxClient: AnyObject {
     func markUnread(messageID: String) async throws
     /// Who wrote each message in a thread and when. Read-only (metadata only, no bodies).
     func threadSenders(threadID: String) async throws -> [ThreadSender]
+    /// Message ids matching a Gmail search, newest first. Read-only.
+    func listMessageIDs(query: String, limit: Int) async throws -> (ids: [String], truncated: Bool, query: String)
+    /// Sender, subject and date only (no body). Read-only.
+    func getMetadata(id: String) async throws -> MessageStub
+    /// One full message, for mail the insight readers recognise.
+    func getMessage(id: String, account: String?) async throws -> Email
     func signIn() async throws
     func signOut()
 }
@@ -48,6 +54,20 @@ protocol GmailInboxClient: AnyObject {
 extension GmailInboxClient {
     /// Clients that cannot look a thread up report nothing, which keeps Waiting on them to the mail already loaded.
     func threadSenders(threadID: String) async throws -> [ThreadSender] { [] }
+    func listMessageIDs(query: String, limit: Int) async throws -> (ids: [String], truncated: Bool, query: String) { ([], false, query) }
+    func getMetadata(id: String) async throws -> MessageStub { throw GmailService.GmailError.refused(0, GmailAPIError(reason: "unsupported", message: "Not supported")) }
+    func getMessage(id: String, account: String?) async throws -> Email { throw GmailService.GmailError.refused(0, GmailAPIError(reason: "unsupported", message: "Not supported")) }
+}
+
+/// A message's envelope: enough to decide whether it is worth downloading.
+struct MessageStub: Equatable, Sendable {
+    var id: String
+    var fromName: String
+    var fromAddress: String
+    var subject: String
+    var date: Date
+    var listUnsubscribe: String?
+    var listUnsubscribePost: String?
 }
 
 /// One message in a thread, for "has anyone answered?".

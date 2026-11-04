@@ -140,6 +140,22 @@ final class GmailService: NSObject {
         return GmailMessageParser.email(from: message, account: account)
     }
 
+    /// Sender, subject, date and unsubscribe headers for one message. No body. Read-only.
+    func getMetadata(id: String) async throws -> MessageStub {
+        guard let safe = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed), !safe.isEmpty else { throw GmailError.badCallback }
+        var c = URLComponents(string: Self.api + "/messages/" + safe)!
+        c.queryItems = ["From", "Subject", "Date", "List-Unsubscribe", "List-Unsubscribe-Post"].map { URLQueryItem(name: "metadataHeaders", value: $0) }
+        c.queryItems?.insert(URLQueryItem(name: "format", value: "metadata"), at: 0)
+        let message: GmailMessage = try await get(c.url!)
+        let person = GmailMessageParser.person(fromHeader: GmailMessageParser.header("From", in: message) ?? "")
+        let millis = Double(message.internalDate ?? "") ?? 0
+        return MessageStub(id: message.id, fromName: person.name, fromAddress: person.email.lowercased(),
+                           subject: GmailMessageParser.header("Subject", in: message) ?? "",
+                           date: Date(timeIntervalSince1970: millis / 1000),
+                           listUnsubscribe: GmailMessageParser.header("List-Unsubscribe", in: message),
+                           listUnsubscribePost: GmailMessageParser.header("List-Unsubscribe-Post", in: message))
+    }
+
     /// The senders and dates of every message in a thread (headers only, no bodies). Read-only.
     func threadSenders(threadID: String) async throws -> [ThreadSender] {
         guard let id = threadID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed), !id.isEmpty else { throw GmailError.badCallback }
