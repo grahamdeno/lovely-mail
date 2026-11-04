@@ -237,6 +237,9 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
+        BriefRow()
+            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         let kidProfiles = InsightSettings().load().kids
         if !kidProfiles.isEmpty {
             KidsRow(count: kidProfiles.reduce(0) { $0 + KidInsights.mail(for: $1, in: store.posts).count })

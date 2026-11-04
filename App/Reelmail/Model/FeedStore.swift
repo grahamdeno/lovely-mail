@@ -583,6 +583,7 @@ final class FeedStore {
     /// Opening a message never marks it read. In demo mode this only changes the fictional message.
     func markDone(_ post: Post) async {
         guard setUnread(post.id, false) else { return }
+        InteractionLog().recordDone()
         countDone(+1)
         lastDone = post
         persist()
@@ -817,5 +818,21 @@ final class FeedStore {
     func setMessageRule(_ id: String, destination: LocalMailDestination?) {
         guard mode == .sample || accountRules != nil else { return }
         rules.setMessage(id, destination: destination)
+    }
+
+    /// Applies a rule made in chat or on a card. Recorded so it can be removed.
+    @discardableResult
+    func applyLearned(_ rule: LearnedRule, store: LearnedRuleStore = LearnedRuleStore()) -> Bool {
+        guard mode == .sample || accountRules != nil, !rule.matches.isEmpty else { return false }
+        for address in rule.matches { rules.setSender(address, destination: rule.action) }
+        store.add(rule)
+        return true
+    }
+
+    /// Takes back every rule made in chat. Senders return to the inbox.
+    func removeChatRules(store: LearnedRuleStore = LearnedRuleStore()) {
+        let made = store.chatRules
+        for rule in made { for address in rule.matches { rules.setSender(address, destination: nil) } }
+        store.remove(Set(made.map(\.id)))
     }
 }

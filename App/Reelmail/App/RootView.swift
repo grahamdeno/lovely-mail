@@ -36,6 +36,8 @@ struct RootView: View {
                     case .energy: EnergyView()
                     case .money: MoneyView()
                     case .kids: KidsView()
+                    case .brief: BriefView()
+                    case .walkthrough: WalkthroughView()
                     case .kid(let id): KidView(kidID: id)
                     case .insightSettings: InsightSettingsView()
                     case .settings: SettingsView()
