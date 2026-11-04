@@ -63,6 +63,11 @@ struct SettingsView: View {
                 SettingsHeader(text: "Households and kids")
                 SettingsRow(title: "Households and kids") { router.open(.insightSettings) }
 
+                SettingsHeader(text: "Gmail actions")
+                SettingsRow(title: "Forwarding addresses") { router.open(.forwardingAddresses) }
+                SettingsRow(title: "Gmail filters") { router.open(.gmailFilters) }
+                SettingsRow(title: "Gmail activity") { router.open(.gmailActivity) }
+
                 SettingsHeader(text: "Rules")
                 ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
                 Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }

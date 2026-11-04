@@ -9,12 +9,12 @@ import UIKit
 @MainActor
 final class GmailService: NSObject {
     enum GmailError: LocalizedError {
-        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired, needsTrashPermission, mailAccessNotGranted, refused(Int, GmailAPIError)
+        case notConfigured, cancelled, badCallback, denied(String), http(Int), notSignedIn, sessionExpired, needsTrashPermission, needsActionPermission, mailAccessNotGranted, refused(Int, GmailAPIError)
 
         /// True when the only fix is signing in again.
         var needsReconnect: Bool {
             switch self {
-            case .sessionExpired, .notSignedIn, .needsTrashPermission, .mailAccessNotGranted: return true
+            case .sessionExpired, .notSignedIn, .needsTrashPermission, .needsActionPermission, .mailAccessNotGranted: return true
             default: return false
             }
         }
@@ -32,6 +32,7 @@ final class GmailService: NSObject {
                 return "Gmail refused the request (HTTP \(code), \(e.reason)). \(e.message)"
             case .notSignedIn: return "Not signed in to Gmail."
             case .sessionExpired: return "Google signed you out. Reconnect Gmail in Settings."
+            case .needsActionPermission: return "Google hasn't given Lovely permission to do this yet. Reconnect Gmail in Settings and tick every box on Google's screen."
             case .needsTrashPermission: return "Lovely needs your OK to change mail in Gmail (Trash and Done). Reconnect Gmail in Settings and allow it."
             case .mailAccessNotGranted:
                 return "Google didn't give Lovely access to your mail. Reconnect Gmail in Settings, and on Google's screen tick the Gmail box (or Select all) before Continue."
@@ -336,7 +337,7 @@ final class GmailService: NSObject {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    private func accessToken() async throws -> String {
+    func accessToken() async throws -> String {
         guard let tokens = storedTokens() else { throw GmailError.notSignedIn }
         if !tokens.isExpired { return tokens.accessToken }
         guard let refresh = tokens.refreshToken else { throw GmailError.notSignedIn }

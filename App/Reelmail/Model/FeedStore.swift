@@ -27,6 +27,8 @@ final class FeedStore {
     let gmail: any GmailInboxClient
     /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
     let insights: InsightEngine
+    /// Sends and forwards wait here for ten seconds so they can be undone.
+    let undo = UndoQueue()
     /// Rules for fictional demo mail. Never applied to a real account.
     let demoRules: LocalTriageRules
     /// Rules for the signed-in account. Created when the account is known.
@@ -149,6 +151,12 @@ final class FeedStore {
 
     /// The background read of older mail for insights. Tests await it.
     private(set) var insightCheck: Task<Void, Never>?
+
+    /// Gmail writes beyond Trash and Done. Nil for demo mail and test doubles. Every call needs a ConfirmedAction.
+    var actions: GmailActions? {
+        guard mode == .gmail, let service = gmail as? GmailService else { return nil }
+        return GmailActions(token: { try await service.accessToken() })
+    }
 
     /// The follow-up work after a refresh (thread lookups and the on-device opinion). Tests await it.
     private(set) var sentCheck: Task<Void, Never>?

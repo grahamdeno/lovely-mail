@@ -2,11 +2,15 @@ import XCTest
 @testable import Reelmail
 
 final class GmailTests: XCTestCase {
-    /// Approved 2026-11-01: read mail and move a message to Trash. Nothing that sends or composes.
-    func testOnlyTheApprovedScopeIsRequested() {
-        XCTAssertEqual(GmailScope.requested, ["https://www.googleapis.com/auth/gmail.modify"])
+    /// Approved 2026-11-01 (modify) and 2026-11-04 (filters, forwarding addresses, send). Never the full-access scope.
+    func testOnlyTheApprovedScopesAreRequested() {
+        XCTAssertEqual(GmailScope.requested, [
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.settings.basic",
+            "https://www.googleapis.com/auth/gmail.settings.sharing",
+            "https://www.googleapis.com/auth/gmail.send",
+        ])
         for scope in GmailScope.requested {
-            XCTAssertFalse(scope.contains("send"))
             XCTAssertFalse(scope.contains("compose"))
             XCTAssertFalse(scope.contains("mail.google.com"), "The full-access scope allows permanent deletion")
         }
@@ -71,7 +75,7 @@ final class GmailTests: XCTestCase {
         let items = URLComponents(string: url)?.queryItems ?? []
         XCTAssertEqual(items.first(where: { $0.name == "redirect_uri" })?.value, config.redirectURI)
         XCTAssertEqual(items.first(where: { $0.name == "client_id" })?.value, config.clientID)
-        XCTAssertEqual(items.first(where: { $0.name == "scope" })?.value, GmailScope.modify)
+        XCTAssertEqual(items.first(where: { $0.name == "scope" })?.value, GmailScope.requested.joined(separator: " "))
     }
 
     func testPKCEMatchesRFC7636Example() {

@@ -92,6 +92,9 @@ enum Route: Hashable {
     case kid(String)
     /// Households and children, inside Settings.
     case insightSettings
+    case forwardingAddresses
+    case gmailFilters
+    case gmailActivity
     case settings
     /// Review sorting and Summary Lab, inside Settings.
     case testingTools
