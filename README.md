@@ -6,15 +6,17 @@ iPhone by Apple Intelligence. See `docs/calm-feed.md` for the sorting rules and 
 
 ## Privacy stance
 
-- **Two changes to Gmail, and only when you ask.** The only Google scope requested is `gmail.modify`
-  (approved by the owner on 2026-11-01). It is used for two things, each undoable: moving a message to Gmail's
-  Trash, and back (approved 2026-11-01); and marking a message read when you tap Done on your to-do, and unread
-  again on Undo (approved 2026-11-02). Nothing is ever permanently deleted, sent, drafted or relabeled; the only
-  label Lovely touches is UNREAD. CI fails if a send, compose, full-access scope, permanent-delete or label
-  endpoint, or any label other than UNREAD, shows up in `App/`.
+- **Lovely sends, forwards and files only what you approve.** Google scopes: `gmail.modify` (Trash and Done, approved
+  2026-11-01 and 2026-11-02) and, approved 2026-11-04, `gmail.settings.basic` (filters), `gmail.settings.sharing`
+  (forwarding addresses) and `gmail.send`. Every send, forward, filter, forwarding-address, label and decline shows a
+  preview and waits for your tap; sends and forwards then wait 10 seconds with Undo. Mail is forwarded only to
+  addresses you list in Settings, Forwarding addresses. Lovely changes only labels it created (under `Lovely/`) and
+  deletes only filters it made. Nothing is ever permanently deleted. Settings, Gmail activity lists everything done.
+  CI (`scripts/privacy_guard.py`) fails if any of these endpoints appears outside `GmailActions.swift`, if a changing
+  function lacks a preview approval, or if the full-access scope, permanent delete or any other Gmail setting appears.
 - **On-device AI.** Summaries and reply drafts use Apple's Foundation Models framework on the
   iPhone. Email text is never sent to any server, including ours (there isn't one).
-- **Never sends.** "Draft reply" offers **Copy** and **Open in Gmail** only. You press Send in Gmail.
+- **Replies.** "Draft reply" offers **Copy**, **Open in Gmail** and, for a single recipient, **Send** (preview, tap, 10-second Undo).
 - **No secrets in the repo.** The Google client ID is public by design for iOS OAuth clients. OAuth tokens live in the
   Keychain, this device only. Email bodies are never logged.
 - **Hide is local.** Hiding a message only affects the app.
