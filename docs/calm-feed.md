@@ -217,3 +217,7 @@ Design: docs/sprint5-design.md. Based on testflight (build 1017). A trust pass b
 - **Gmail:** no new actions or scopes. The thread lookup still reads metadata only; it now also asks for the Subject, Auto-Submitted, X-Autoreply and X-Autorespond headers.
 - **Measurement:** 8 new fictional holdout cases (`h5-*`) were committed first. SCORECARD before and after are in the PR. The three holdouts fixed by looking at them (u17, r13, u24) moved to the tuning set.
 - **Not done / next:** device check of build 1017 and this sprint; Google verification path (needs a separate Google Cloud project; the owner presses Publish and Submit).
+
+## Sprint 6 (design, Nov 4, 2026)
+Design: docs/sprint6-design.md. Insights from mail, all on the iPhone: a full-page morning brief at a learned time (Kids, Money, Energy), accounts and bills ledger with a payment-problem alarm, Sense plus Duke energy page with one rule-based suggestion a month, water cost per household, per-child school digest with chunked newsletter summaries, cards walk-through with chat behind an owner switch, learned rules, and handoff prompts for Grok or Claude (filters and forwarding stay with the owner's agent). No new Gmail scopes or actions. Tier 2 cloud designed, not built.
+- Not started: everything in the build order (section 13). Build on Sonnet; Opus review before ship.
