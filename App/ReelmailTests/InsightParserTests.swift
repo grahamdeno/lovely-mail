@@ -71,6 +71,13 @@ final class InsightParserTests: XCTestCase {
         for s in bad { XCTAssertTrue(InsightParsers.hasPaymentProblem(subject: s, text: ""), s) }
         let fine = ["Your bill is ready", "Thanks for your payment", "Statement available", "Payment due on the 5th"]
         for s in fine { XCTAssertFalse(InsightParsers.hasPaymentProblem(subject: s, text: ""), s) }
+        // Fine print and reminders are not problems.
+        XCTAssertFalse(InsightParsers.hasPaymentProblem(subject: "Your bill is ready", text: "Payments received after the due date are considered past due and may incur a fee."))
+        XCTAssertFalse(InsightParsers.hasPaymentProblem(subject: "Avoid a past due balance", text: ""))
+        XCTAssertFalse(InsightParsers.hasPaymentProblem(subject: "Reminder: past due date is Nov 5", text: ""))
+        // A real problem in the body counts even when the subject is bland.
+        XCTAssertTrue(InsightParsers.hasPaymentProblem(subject: "Account update", text: "We were unable to process your payment of $40."))
+        XCTAssertTrue(InsightParsers.hasPaymentProblem(subject: "Your payment was declined", text: ""))
     }
 
     func testRenewal() {

@@ -51,6 +51,19 @@ final class MoneyInsightTests: XCTestCase {
         XCTAssertEqual(PaymentAlarm.unannounced([b], defaults: defaults).count, 1)
         PaymentAlarm.markAnnounced([b], defaults: defaults)
         XCTAssertTrue(PaymentAlarm.unannounced([b], defaults: defaults).isEmpty)
-        XCTAssertFalse(PaymentAlarm.notice(for: b).body.contains("$"))
+        XCTAssertFalse(PaymentAlarm.notice(for: b, showNames: true).body.contains("$"))
+        XCTAssertTrue(PaymentAlarm.notice(for: b, showNames: true).body.contains("Example Power"))
+        XCTAssertFalse(PaymentAlarm.notice(for: b, showNames: false).body.contains("Example Power"), "no names on the lock screen unless allowed")
+    }
+
+    func testRemindersFromOneSenderMakeOneNotice() {
+        let defaults = UserDefaults(suiteName: "alarm-test-\(UUID().uuidString)")!
+        let first = bill("a1", .statement, posted: "10/30/2026", problem: true)
+        let reminder = bill("a2", .statement, posted: "11/01/2026", problem: true)
+        XCTAssertEqual(PaymentAlarm.unannounced([reminder, first], defaults: defaults, now: today).count, 1)
+        PaymentAlarm.markAnnounced([first], defaults: defaults, now: today)
+        XCTAssertTrue(PaymentAlarm.unannounced([reminder], defaults: defaults, now: today).isEmpty, "same sender within 14 days")
+        let other = bill("b1", .statement, domain: "examplewater.org", posted: "11/01/2026", problem: true)
+        XCTAssertEqual(PaymentAlarm.unannounced([other], defaults: defaults, now: today).count, 1)
     }
 }

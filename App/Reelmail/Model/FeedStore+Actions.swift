@@ -14,19 +14,22 @@ extension FeedStore {
         } catch { errorMessage = "The unsubscribe could not be sent. \(error.localizedDescription)" }
     }
 
-    /// How many messages the Shoebox backfill would forward for a sender.
-    func shoeboxBackfillCount(sender: String) async -> Int {
-        (try? await gmail.listMessageIDs(query: ShoeboxRule.backfillQuery(sender: sender), limit: 50).ids.count) ?? 0
+    /// The messages the Shoebox backfill would forward for a sender. The preview shows this count and the run forwards exactly these.
+    func shoeboxBackfillIDs(sender: String) async -> [String] {
+        (try? await gmail.listMessageIDs(query: ShoeboxRule.backfillQuery(sender: sender), limit: ShoeboxRule.maxBackfill).ids) ?? []
     }
 
-    /// A standing filter that forwards one sender to Shoebox, then a forward of the last 10 days. Held 10 seconds for Undo.
-    func sendSenderToShoebox(sender: String, shoebox: String, confirmed: ConfirmedAction) {
+    /// A standing filter that forwards one sender to Shoebox, then a forward of the messages shown on the preview. Held 10 seconds for Undo.
+    /// The Shoebox address comes from Settings only; the sender is a filter criterion, never a recipient. Health mail is never forwarded.
+    func sendSenderToShoebox(sender: String, shoebox: String, ids: [String], confirmed: ConfirmedAction) {
         guard let actions else { errorMessage = "Connect Gmail first."; return }
+        guard shoebox == ShoeboxRule.address() else { errorMessage = "The Shoebox address changed. Start again."; return }
         undo.enqueue(title: "Shoebox rule for \(sender)", work: { [self] in
             _ = try await actions.createFilter(sender: sender, forwardTo: shoebox, labelID: nil, confirmed: confirmed)
-            let ids = try await gmail.listMessageIDs(query: ShoeboxRule.backfillQuery(sender: sender), limit: 50).ids
-            for id in ids {
+            for id in ids.prefix(ShoeboxRule.maxBackfill) {
                 let e = try await gmail.getMessage(id: id, account: account)
+                guard e.from.email.lowercased() == sender.lowercased(),
+                      !HealthMail.isHealth(address: e.from.email, name: e.from.name, subject: e.subject) else { continue }
                 try await actions.forward(from: e.from.name + " <" + e.from.email + ">", subject: e.subject, date: e.date, text: e.body, to: shoebox, confirmed: confirmed)
             }
         }, finished: { [self] error in
@@ -44,7 +47,29 @@ extension FeedStore {
         } catch { errorMessage = "That could not be declined. \(error.localizedDescription)" }
     }
 
-    func accept(_ candidate: ScreenedOut.Candidate) { ScreenedOut.approve(candidate.address) }
+    func accept(_ candidate: ScreenedOut.Candidate) { ScreenedOut.approve(candidate.address); bumpForScreening() }
+
+    /// New senders confirmed by Gmail (no older mail from them, nothing sent to them).
+    var newSenders: [ScreenedOut.Candidate] {
+        guard mode == .gmail else { return [] }
+        _ = screeningVersion
+        return ScreenedOut.candidates(inbox: posts.map(\.email), sent: sentByMe, approved: ScreenedOut.approved(),
+                                      mine: Set([account ?? ""] + otherAddresses), now: Date(), checked: ScreenedOut.checked())
+    }
+
+    /// Looks up up to 20 unchecked senders. Read-only search; nothing changes in Gmail.
+    func verifyNewSenders() async {
+        guard mode == .gmail else { return }
+        let known = ScreenedOut.checked()
+        let pending = ScreenedOut.candidates(inbox: posts.map(\.email), sent: sentByMe, approved: ScreenedOut.approved(),
+                                             mine: Set([account ?? ""] + otherAddresses), now: Date())
+            .filter { known[$0.address] == nil }.prefix(20)
+        for c in pending {
+            guard let found = try? await gmail.listMessageIDs(query: ScreenedOut.historyQuery(c.address), limit: 1) else { continue }
+            ScreenedOut.record(c.address, isNew: found.ids.isEmpty)
+        }
+        bumpForScreening()
+    }
 
     /// Screened-out mail older than 30 days.
     func oldScreenedOutIDs() async -> [String] {

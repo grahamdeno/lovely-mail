@@ -99,7 +99,10 @@ final class GmailActionsTests: XCTestCase {
         let a = make(d, recorder: rec)
         a.allowlist.add("box@example.com")
         do { try await a.addForwardingAddress("box@example.com", confirmed: confirmed(.forwardingAddress, to: ["box@example.com"])); XCTFail("should throw") }
-        catch { XCTAssertEqual(error as? GmailService.GmailError, nil); XCTAssertTrue((error as? GmailService.GmailError)?.needsReconnect ?? false) }
+        catch {
+            guard case GmailService.GmailError.needsActionPermission = error else { return XCTFail("expected needsActionPermission, got \(error)") }
+            XCTAssertTrue((error as? GmailService.GmailError)?.needsReconnect ?? false)
+        }
     }
 
     func testMimeNeverAllowsHeaderInjection() {

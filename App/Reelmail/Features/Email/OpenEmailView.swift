@@ -85,7 +85,7 @@ struct OpenEmailView: View {
             .accessibilityLabel("Move to Gmail Trash")
             Menu {
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
-                if HandoffPrompt.isAllowed(domain: InsightText.registrable(InsightText.domain(of: post.email.from.email)), subject: post.email.subject, sensitive: post.summary.sensitive) {
+                if HandoffPrompt.isAllowed(address: post.email.from.email, name: post.email.from.name, subject: post.email.subject, sensitive: post.summary.sensitive) {
                     Button { handoffPost = post } label: { Label("Hand off to an agent", systemImage: "square.and.arrow.up.on.square") }
                 }
                 if post.email.bulk, store.mode == .gmail {

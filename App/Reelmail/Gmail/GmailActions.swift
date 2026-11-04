@@ -29,7 +29,7 @@ struct GmailActions {
     /// The id of a Lovely/ label, creating the label the first time.
     func ensureLabel(_ name: String, confirmed: ConfirmedAction) async throws -> String {
         guard name.hasPrefix(LovelyLabels.prefix), name.count > LovelyLabels.prefix.count else { throw ActionError.notALovelyLabel(name) }
-        guard confirmed.preview.kind == .label || confirmed.preview.kind == .filter || confirmed.preview.kind == .shoebox else { throw ActionError.wrongPreview }
+        try confirmed.require([.label, .filter, .shoebox])
         if let known = labels.id(for: name) { return known }
         let list: LabelList = try await call("GET", "/labels")
         if let found = list.labels?.first(where: { $0.name == name }) { labels.record(name: name, id: found.id); return found.id }
@@ -41,7 +41,7 @@ struct GmailActions {
 
     /// Files one message under a Lovely/ label, and optionally takes it out of the inbox.
     func file(messageID: String, labelID: String, removeFromInbox: Bool, confirmed: ConfirmedAction) async throws {
-        guard confirmed.preview.kind == .label else { throw ActionError.wrongPreview }
+        try confirmed.require([.label])
         guard labels.isLovely(id: labelID) else { throw ActionError.notALovelyLabel(labelID) }
         var body: [String: Any] = ["addLabelIds": [labelID]]
         if removeFromInbox { body["removeLabelIds"] = ["INBOX"] }
@@ -53,19 +53,20 @@ struct GmailActions {
 
     /// A filter for one sender that labels and/or forwards. Forwarding goes only to an address in the allowlist.
     func createFilter(sender: String, forwardTo: String?, labelID: String?, confirmed: ConfirmedAction) async throws -> RecordedFilter {
-        guard confirmed.preview.kind == .filter || confirmed.preview.kind == .shoebox else { throw ActionError.wrongPreview }
-        guard ForwardAllowlist.isAddress(sender) || sender.hasPrefix("@") else { throw ActionError.badAddress(sender) }
+        try confirmed.require([.filter, .shoebox])
+        guard ForwardAllowlist.isAddress(sender) else { throw ActionError.badAddress(sender) }
         var action: [String: Any] = [:]
         if let forwardTo {
+            try confirmed.requireRecipient(forwardTo)
             guard allowlist.contains(forwardTo) else { throw ActionError.recipientNotAllowed(forwardTo) }
-            guard confirmed.preview.recipients.contains(forwardTo.lowercased()) else { throw ActionError.recipientNotConfirmed(forwardTo) }
             action["forward"] = forwardTo.lowercased()
         }
         if let labelID {
             guard labels.isLovely(id: labelID) else { throw ActionError.notALovelyLabel(labelID) }
             action["addLabelIds"] = [labelID]
         }
-        let from = sender.hasPrefix("@") ? String(sender.dropFirst()) : sender
+        guard !action.isEmpty else { throw ActionError.wrongPreview }
+        let from = sender.lowercased()
         let made: FilterItem = try await call("POST", "/settings/filters", json: ["criteria": ["from": from], "action": action])
         let record = RecordedFilter(gmailID: made.id, sender: from, forwardTo: forwardTo?.lowercased(), label: labelID, created: Date())
         filters.add(record)
@@ -75,7 +76,7 @@ struct GmailActions {
 
     /// Deletes a filter, only if Lovely made it.
     func deleteFilter(id: String, confirmed: ConfirmedAction) async throws {
-        guard confirmed.preview.kind == .deleteFilter else { throw ActionError.wrongPreview }
+        try confirmed.require([.deleteFilter])
         guard filters.contains(id) else { throw ActionError.notALovelyFilter(id) }
         let _: Empty = try await call("DELETE", "/settings/filters/\(encode(id))")
         filters.remove(id)
@@ -86,9 +87,9 @@ struct GmailActions {
 
     /// Asks Gmail to verify a forwarding address. Gmail emails that address a code the owner must confirm once.
     func addForwardingAddress(_ address: String, confirmed: ConfirmedAction) async throws {
-        guard confirmed.preview.kind == .forwardingAddress else { throw ActionError.wrongPreview }
+        try confirmed.require([.forwardingAddress])
+        try confirmed.requireRecipient(address)
         guard allowlist.contains(address) else { throw ActionError.recipientNotAllowed(address) }
-        guard confirmed.preview.recipients.contains(address.lowercased()) else { throw ActionError.recipientNotConfirmed(address) }
         let _: Empty = try await call("POST", "/settings/forwardingAddresses", json: ["forwardingEmail": address.lowercased()])
         activity.record(kind: "forwarding", summary: "Asked Gmail to verify \(address.lowercased())")
     }
@@ -97,17 +98,17 @@ struct GmailActions {
 
     /// Sends a reply the owner wrote and approved.
     func sendReply(to: String, subject: String, body: String, threadID: String?, inReplyTo: String?, confirmed: ConfirmedAction) async throws {
-        guard confirmed.preview.kind == .send else { throw ActionError.wrongPreview }
-        guard confirmed.preview.recipients.contains(to.lowercased()) else { throw ActionError.recipientNotConfirmed(to) }
+        try confirmed.require([.send])
+        try confirmed.requireRecipient(to)
         try await deliver(MimeBuilder.message(to: to, subject: subject, body: body, inReplyTo: inReplyTo), threadID: threadID)
         activity.record(kind: "send", summary: "Sent a reply to \(to.lowercased())")
     }
 
     /// Forwards one message as plain text, only to an allowlisted address that was on the approved preview.
     func forward(from: String, subject: String, date: Date, text: String, to: String, confirmed: ConfirmedAction) async throws {
-        guard confirmed.preview.kind == .forward || confirmed.preview.kind == .shoebox else { throw ActionError.wrongPreview }
+        try confirmed.require([.forward, .shoebox])
+        try confirmed.requireRecipient(to)
         guard allowlist.contains(to) else { throw ActionError.recipientNotAllowed(to) }
-        guard confirmed.preview.recipients.contains(to.lowercased()) else { throw ActionError.recipientNotConfirmed(to) }
         let body = MimeBuilder.forwardBody(from: from, subject: subject, date: date, text: text)
         try await deliver(MimeBuilder.message(to: to, subject: "Fwd: " + subject, body: body), threadID: nil)
         activity.record(kind: "forward", summary: "Forwarded a message from \(InsightText.domain(of: from)) to \(to.lowercased())")

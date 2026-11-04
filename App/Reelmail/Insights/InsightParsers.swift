@@ -10,6 +10,13 @@ enum HealthMail {
         let s = subject.lowercased()
         return domains.contains { d.contains($0) } || subjectWords.contains { s.contains($0) }
     }
+
+    /// Checks the whole sender domain (subdomains such as mychart.example.org count) and the display name.
+    static func isHealth(address: String, name: String = "", subject: String) -> Bool {
+        let n = name.lowercased()
+        let nameWords = ["mychart", "health", "medical", "clinic", "pediatric", "dental", "pharmacy", "hospital", "tricare", "patient portal"]
+        return isHealth(domain: InsightText.domain(of: address), subject: subject) || nameWords.contains { n.contains($0) }
+    }
 }
 
 /// What the parsers are given. Body may be empty for metadata-only messages.
@@ -27,7 +34,7 @@ struct InsightInput {
 /// Known-format readers. Pure: text in, facts out. Each reader returns nothing when the mail is not its format.
 enum InsightParsers {
     static func parse(_ m: InsightInput) -> [InsightFact] {
-        if HealthMail.isHealth(domain: m.domain, subject: m.subject) {
+        if HealthMail.isHealth(address: m.fromAddress, name: m.fromName, subject: m.subject) {
             return appointment(m).map { [.appointment($0)] } ?? []
         }
         var facts: [InsightFact] = []
@@ -81,16 +88,25 @@ enum InsightParsers {
 
     // MARK: Bills
 
-    private static let problemPhrases = [
-        "payment failed", "payment was returned", "payment returned", "unable to process your payment", "could not process your payment",
-        "past due", "overdue", "final notice", "disconnection", "service will be disconnected", "service will be interrupted",
-        "insufficient funds", "declined", "autopay failed", "autopay was unsuccessful"
+    /// Phrases that say a payment actually went wrong. Specific on purpose: bills mention "past due" in their fine print.
+    private static let strongPhrases = [
+        "payment failed", "payment has failed", "payment was returned", "payment has been returned", "returned payment",
+        "unable to process your payment", "could not process your payment", "we couldn't process your payment",
+        "payment was declined", "payment has been declined", "card was declined", "insufficient funds",
+        "autopay failed", "autopay was unsuccessful", "automatic payment was unsuccessful", "automatic payment failed",
+        "final notice", "disconnection notice", "service will be disconnected", "scheduled for disconnection",
+        "your account is past due", "your account is now past due", "your payment is past due", "your bill is past due", "is overdue"
     ]
+    /// Weaker words that count only in the subject line, where senders put real problems.
+    private static let subjectOnly = ["past due", "overdue", "declined", "action required: payment", "payment issue", "payment problem"]
 
     static func hasPaymentProblem(subject: String, text: String) -> Bool {
-        let hay = (subject + " " + String(text.prefix(1200))).lowercased()
-        if hay.contains("past due date") && !hay.contains("past due balance") { return false }
-        return problemPhrases.contains { hay.contains($0) }
+        let s = subject.lowercased()
+        let body = String(text.prefix(1500)).lowercased()
+        if strongPhrases.contains(where: { s.contains($0) || body.contains($0) }) { return true }
+        // "Past due date", "avoid a past due balance" and similar are reminders, not problems.
+        let cleaned = s.replacingOccurrences(of: "past due date", with: "").replacingOccurrences(of: "avoid", with: "")
+        return subjectOnly.contains { cleaned.contains($0) } && !s.contains("avoid")
     }
 
     static func bill(_ m: InsightInput, _ text: String) -> Bill? {

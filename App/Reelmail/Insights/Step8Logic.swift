@@ -5,6 +5,7 @@ import Foundation
 /// Kids to Shoebox: a standing Gmail filter for one sender plus a forward of its last 10 days of mail.
 enum ShoeboxRule {
     static let backfillDays = 10
+    static let maxBackfill = 50
     static let key = "lovely.shoebox.address"
 
     static func address(defaults: UserDefaults = .standard) -> String? {
@@ -44,20 +45,39 @@ enum ScreenedOut {
         var subject: String
     }
 
+    static let checkedKey = "lovely.screened.checked"
+
     static func approved(defaults: UserDefaults = .standard) -> Set<String> { Set(defaults.stringArray(forKey: approvedKey) ?? []) }
+
+    /// Senders already looked up in Gmail: true when they have no older mail and you never wrote to them.
+    /// Only the 120 newest inbox messages are loaded, so a sender can look new on the phone without being new.
+    static func checked(defaults: UserDefaults = .standard) -> [String: Bool] { defaults.dictionary(forKey: checkedKey) as? [String: Bool] ?? [:] }
+    static func record(_ address: String, isNew: Bool, defaults: UserDefaults = .standard) {
+        var d = checked(defaults: defaults); d[address.lowercased()] = isNew; defaults.set(d, forKey: checkedKey)
+    }
+
+    /// Older mail from them, or any mail to them. The address is stripped so it cannot add search terms.
+    static func historyQuery(_ address: String) -> String {
+        let safe = address.filter { !$0.isWhitespace && $0 != "\"" && $0 != "(" && $0 != ")" && $0 != "{" && $0 != "}" }
+        return "(from:\(safe) older_than:\(windowDays)d) OR to:\(safe)"
+    }
+    static let windowDays = 14
     static func approve(_ address: String, defaults: UserDefaults = .standard) {
         defaults.set(Array(approved(defaults: defaults).union([address.lowercased()])), forKey: approvedKey)
     }
 
     /// Senders in the loaded inbox that you have never written to, have not accepted, and that are not already part of an
     /// older thread (their first message in this mailbox is within `windowDays`). Newest first.
-    static func candidates(inbox: [Email], sent: [Email], approved: Set<String>, mine: Set<String>, now: Date, windowDays: Int = 14) -> [Candidate] {
+    /// With `checked`, only senders Gmail confirmed as new are returned; unchecked senders wait for the lookup.
+    static func candidates(inbox: [Email], sent: [Email], approved: Set<String>, mine: Set<String>, now: Date, windowDays: Int = 14,
+                           checked: [String: Bool]? = nil) -> [Candidate] {
         let written = Set(sent.flatMap { $0.to.map { EmailPresentation.address(in: $0).lowercased() } })
         var bySender: [String: [Email]] = [:]
         for e in inbox where !e.isFromMe { bySender[e.from.email.lowercased(), default: []].append(e) }
         let cutoff = now.addingTimeInterval(-Double(windowDays) * 86_400)
         return bySender.compactMap { address, mail -> Candidate? in
             guard !address.isEmpty, !mine.contains(address), !written.contains(address), !approved.contains(address) else { return nil }
+            if let checked, checked[address] != true { return nil }
             guard let oldest = mail.map(\.date).min(), oldest >= cutoff else { return nil }
             let newest = mail.max { $0.date < $1.date }!
             return Candidate(address: address, name: newest.from.name, messageIDs: mail.map(\.id), subject: newest.subject)
@@ -79,7 +99,7 @@ enum OneClickUnsubscribe {
     static func isProtected(domain: String, subject: String) -> Bool {
         let d = InsightText.registrable(domain)
         if InsightParsers.financialDomains.keys.contains(where: { d.hasSuffix($0) }) { return true }
-        if HealthMail.isHealth(domain: d, subject: subject) { return true }
+        if HealthMail.isHealth(domain: domain, subject: subject) { return true }
         return Rx.test("security|password|verification|sign-in|login|receipt|invoice|statement|order|payment|account", in: subject)
     }
 

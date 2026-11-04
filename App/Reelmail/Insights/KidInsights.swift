@@ -39,7 +39,7 @@ enum KidInsights {
     static func mail(for kid: KidProfile, in posts: [Post]) -> [KidMail] {
         posts.compactMap { post in
             let e = post.email
-            guard !e.isFromMe else { return nil }
+            guard !e.isFromMe, !HealthMail.isHealth(address: e.from.email, name: e.from.name, subject: e.subject) else { return nil }
             let reasons = matches(kid, sender: e.from.name + " " + e.from.email, subject: e.subject, body: e.body)
             guard !reasons.isEmpty else { return nil }
             let strong = reasons.contains { $0.hasPrefix("Names") || $0.contains("school") || $0.contains("teacher") }

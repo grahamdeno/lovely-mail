@@ -6,7 +6,7 @@ import Observation
 
 /// What the owner is asked to approve. Plain words, no mail bodies.
 struct ActionPreview: Identifiable, Equatable {
-    enum Kind: String, Codable, Equatable {
+    enum Kind: String, Codable, Hashable {
         case send, forward, filter, deleteFilter, forwardingAddress, label, trashScreened, shoebox, unsubscribe
     }
     let id: String
@@ -30,6 +30,21 @@ struct ConfirmedAction: Equatable {
     init(preview: ActionPreview, confirmedAt: Date = Date()) {
         self.preview = preview; self.confirmedAt = confirmedAt
     }
+
+    /// An approval covers what its preview said, for a short time. The Shoebox backfill is the longest use (one filter, up to 50 forwards).
+    static let lifetime: TimeInterval = 15 * 60
+
+    /// Throws unless this approval is for one of `kinds` and is still fresh.
+    func require(_ kinds: Set<ActionPreview.Kind>, now: Date = Date()) throws {
+        guard kinds.contains(preview.kind) else { throw ActionError.wrongPreview }
+        guard now.timeIntervalSince(confirmedAt) <= Self.lifetime, now >= confirmedAt.addingTimeInterval(-60) else { throw ActionError.expired }
+    }
+
+    /// Throws unless `address` is one plain address and was shown on the preview.
+    func requireRecipient(_ address: String) throws {
+        guard ForwardAllowlist.isAddress(address) else { throw ActionError.badAddress(address) }
+        guard preview.recipients.contains(address.lowercased()) else { throw ActionError.recipientNotConfirmed(address) }
+    }
 }
 
 enum ActionError: LocalizedError, Equatable {
@@ -39,6 +54,7 @@ enum ActionError: LocalizedError, Equatable {
     case notALovelyLabel(String)
     case notALovelyFilter(String)
     case badAddress(String)
+    case expired
 
     var errorDescription: String? {
         switch self {
@@ -48,6 +64,7 @@ enum ActionError: LocalizedError, Equatable {
         case .notALovelyLabel: return "Lovely changes only labels it created, under Lovely/."
         case .notALovelyFilter: return "Lovely deletes only filters it created."
         case .badAddress: return "That does not look like an email address."
+        case .expired: return "That approval has expired. Start again and confirm."
         }
     }
 }

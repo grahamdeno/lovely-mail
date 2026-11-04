@@ -48,3 +48,18 @@ final class Step8Tests: XCTestCase {
         XCTAssertEqual(String(data: req.httpBody ?? Data(), encoding: .utf8), "List-Unsubscribe=One-Click")
     }
 }
+
+final class ScreenedOutCheckTests: XCTestCase {
+    func testOnlyConfirmedSendersShowWhenChecked() {
+        let e = Email(id: "1", threadId: "1", from: Person(id: "n", name: "New", email: "new@example.com", hue: 0.1), to: ["me@example.com"],
+                      subject: "Hi", date: Date(), body: "b")
+        XCTAssertTrue(ScreenedOut.candidates(inbox: [e], sent: [], approved: [], mine: [], now: Date(), checked: [:]).isEmpty, "unchecked waits")
+        XCTAssertTrue(ScreenedOut.candidates(inbox: [e], sent: [], approved: [], mine: [], now: Date(), checked: ["new@example.com": false]).isEmpty)
+        XCTAssertEqual(ScreenedOut.candidates(inbox: [e], sent: [], approved: [], mine: [], now: Date(), checked: ["new@example.com": true]).count, 1)
+    }
+
+    func testHistoryQueryIsGroupedAndCannotBeWidened() {
+        XCTAssertEqual(ScreenedOut.historyQuery("a@b.example"), "(from:a@b.example older_than:14d) OR to:a@b.example")
+        XCTAssertEqual(ScreenedOut.historyQuery("a@b.example) OR (in:anywhere"), "(from:a@b.exampleORin:anywhere older_than:14d) OR to:a@b.exampleORin:anywhere")
+    }
+}

@@ -25,10 +25,7 @@ struct ScreenedOutView: View {
     @State private var oldIDs: [String] = []
     @State private var trashPreview: ActionPreview?
 
-    private var candidates: [ScreenedOut.Candidate] {
-        ScreenedOut.candidates(inbox: store.posts.map(\.email), sent: store.sentByMe, approved: ScreenedOut.approved(),
-                               mine: Set([store.account ?? ""] + store.otherAddresses), now: Date())
-    }
+    private var candidates: [ScreenedOut.Candidate] { store.newSenders }
 
     var body: some View {
         List {
@@ -60,6 +57,7 @@ struct ScreenedOutView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("New senders").navigationBarTitleDisplayMode(.inline)
+        .task { await store.verifyNewSenders() }
         .sheet(item: $preview) { p in
             ActionPreviewSheet(preview: p, confirmTitle: "Decline") { confirmed in
                 guard let c = target else { return }

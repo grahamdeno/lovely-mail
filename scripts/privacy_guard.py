@@ -48,7 +48,12 @@ def check(files):
         hit(r"/messages/send|/settings/filters|/settings/forwardingAddresses|/labels|/drafts", "This Gmail endpoint may be used only in GmailActions.swift.", allowed=(ACTIONS,))
         hit(r"/modify\b", "The modify endpoint may be used only in GmailService.swift and GmailActions.swift.", allowed=(SERVICE, ACTIONS))
         hit(r"gmail\.(modify|send|settings\.basic|settings\.sharing|compose|readonly)", "Gmail scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
-        hit(r"ConfirmedAction\(", "ConfirmedAction may be made only by the preview sheet.", allowed=(SHEET, GUARDS))
+        hit(r"ConfirmedAction\(|ConfirmedAction\.init|\.init\(preview:", "ConfirmedAction may be made only by the preview sheet.", allowed=(SHEET, GUARDS))
+        hit(r"googleapis\.com/auth/", "OAuth scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
+        hit(r"(?<![\w.])gmail\.(labels|metadata|insert|addons|settings)", "Gmail scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
+        hit(r"gmail\.googleapis\.com", "The Gmail API may be called only from GmailService.swift and GmailActions.swift.", allowed=(SERVICE, ACTIONS))
+        hit(r"/messages/(import|insert)|/import\b|/insert\b|/settings/forwarding\b|/stop\b|/watch\b", "Importing, inserting, auto-forwarding and push watch are never allowed.")
+        hit(r'"(send|labels|filters|forwardingAddresses|settings|drafts)"', "Gmail endpoint names may appear only in GmailActions.swift.", allowed=(ACTIONS,))
         if rel != ACTIONS:
             for m in re.finditer(r"LabelIds", text):
                 window = text[m.start(): m.start() + 40]
@@ -103,6 +108,12 @@ struct GmailActions {
         "unconfirmed changing func": {ACTIONS: good_actions + "\nstruct Y { func sendNow(to: String) async throws {} }"},
         "remove label other than inbox": {ACTIONS: good_actions.replace('["INBOX"]', '["UNREAD"]')},
         "delete message in actions": {ACTIONS: good_actions.replace("/settings/filters/x", "/messages/x")},
+        "confirmed via init": {"Model/X.swift": "let c: ConfirmedAction = .init(preview: p)"},
+        "other scope": {"Model/X.swift": 'let s = "https://www.googleapis.com/auth/gmail.labels"'},
+        "api from elsewhere": {"Model/X.swift": 'let u = "https://gmail.googleapis.com/gmail/v1/users/me/messages"'},
+        "insert message": {"Model/X.swift": 'let u = base + "/messages/insert"'},
+        "auto forwarding": {ACTIONS: good_actions + '\nlet u = "/settings/forwarding"'},
+        "endpoint built from parts": {"Model/X.swift": 'let u = "/messages/" + "send"'},
     }
     for name, files in cases.items():
         assert check(files), f"guard missed: {name}"

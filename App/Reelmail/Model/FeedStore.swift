@@ -146,7 +146,7 @@ final class FeedStore {
         await upgradeSummaries(revision: current)
         // Runs after the refresh finishes, so the progress bar does not wait on it.
         sentCheck = Task { await self.checkSentMail(revision: current) }
-        insightCheck = Task { await self.insights.refresh(client: self.gmail, account: self.account) }
+        insightCheck = Task { await self.insights.refresh(client: self.gmail, account: self.account); await self.verifyNewSenders() }
     }
 
     /// The background read of older mail for insights. Tests await it.
@@ -268,6 +268,9 @@ final class FeedStore {
     @ObservationIgnored private var derivedKey = ""
     @ObservationIgnored private var dataVersion = 0
     private func bump() { dataVersion &+= 1 }
+    /// Observed by views, so New senders refreshes after a lookup or an Accept (the lists live in UserDefaults).
+    private(set) var screeningVersion = 0
+    func bumpForScreening() { screeningVersion &+= 1 }
 
     private var derived: Derived {
         // Reading these registers the dependencies, so views refresh when any of them change.

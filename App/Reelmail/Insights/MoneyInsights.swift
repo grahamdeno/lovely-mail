@@ -59,22 +59,42 @@ enum MoneyInsights {
     }
 }
 
-/// The only insight allowed to notify outside the morning brief. One notice per bill, ever.
+/// The only insight allowed to notify outside the morning brief.
+/// One notice per problem: a message is announced at most once, and a sender at most once every 14 days, so a run of reminders
+/// about the same bill makes one notice. Names appear on the lock screen only when "Show names in the brief" is on.
 enum PaymentAlarm {
     static let key = "lovely.alarm.notified"
+    static let senderKey = "lovely.alarm.senders"
+    static let quietDays: TimeInterval = 14 * 86_400
 
-    static func notice(for bill: Bill) -> (title: String, body: String) {
-        ("Payment problem", "\(bill.payee) reports a payment problem. Open Lovely to look.")
+    static func notice(for bill: Bill, showNames: Bool) -> (title: String, body: String) {
+        let who = showNames && !bill.payee.isEmpty ? bill.payee : "A bill"
+        return ("Payment problem", "\(who) says a payment did not go through or is late. Open Lovely to check.")
     }
 
-    static func unannounced(_ alarms: [Bill], defaults: UserDefaults = .standard) -> [Bill] {
+    static func unannounced(_ alarms: [Bill], defaults: UserDefaults = .standard, now: Date = Date()) -> [Bill] {
         let done = Set(defaults.stringArray(forKey: key) ?? [])
-        return alarms.filter { !done.contains($0.id) }
+        let senders = defaults.dictionary(forKey: senderKey) as? [String: Double] ?? [:]
+        var seen = Set<String>()
+        return alarms.filter { bill in
+            guard !done.contains(bill.id) else { return false }
+            if let last = senders[bill.domain], now.timeIntervalSince1970 - last < quietDays { return false }
+            return seen.insert(bill.domain).inserted
+        }
     }
 
-    static func markAnnounced(_ bills: [Bill], defaults: UserDefaults = .standard) {
+    static func markAnnounced(_ bills: [Bill], defaults: UserDefaults = .standard, now: Date = Date()) {
         var done = Set(defaults.stringArray(forKey: key) ?? [])
-        bills.forEach { done.insert($0.id) }
+        var senders = defaults.dictionary(forKey: senderKey) as? [String: Double] ?? [:]
+        bills.forEach { done.insert($0.id); senders[$0.domain] = now.timeIntervalSince1970 }
+        defaults.set(Array(done), forKey: key)
+        defaults.set(senders, forKey: senderKey)
+    }
+
+    /// Bills that would have been announced but fall in a sender's quiet period are still marked, so they never notify later.
+    static func markSeen(_ alarms: [Bill], defaults: UserDefaults = .standard) {
+        var done = Set(defaults.stringArray(forKey: key) ?? [])
+        alarms.forEach { done.insert($0.id) }
         defaults.set(Array(done), forKey: key)
     }
 }

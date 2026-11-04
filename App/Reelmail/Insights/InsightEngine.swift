@@ -30,7 +30,7 @@ final class InsightEngine {
     /// Does this envelope look like it holds a fact worth downloading the body for?
     static func needsBody(_ stub: MessageStub) -> Bool {
         let domain = InsightText.registrable(InsightText.domain(of: stub.fromAddress))
-        if HealthMail.isHealth(domain: domain, subject: stub.subject) { return false }
+        if HealthMail.isHealth(address: stub.fromAddress, name: stub.fromName, subject: stub.subject) { return false }
         if domain.contains("sense.com") { return true }
         return Rx.test("bill|statement|amount due|payment|invoice|autopay|usage|charged for your|energy", in: stub.subject)
     }

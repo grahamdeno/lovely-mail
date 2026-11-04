@@ -237,7 +237,7 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        let newSenders = store.actions == nil ? 0 : ScreenedOut.candidates(inbox: store.posts.map(\.email), sent: store.sentByMe, approved: ScreenedOut.approved(), mine: Set([store.account ?? ""] + store.otherAddresses), now: Date()).count
+        let newSenders = store.actions == nil ? 0 : store.newSenders.count
         if newSenders > 0 {
             ScreenedOutRow(count: newSenders)
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
