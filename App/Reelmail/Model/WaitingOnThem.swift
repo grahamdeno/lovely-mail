@@ -34,7 +34,7 @@ enum WaitingOnThem {
 
     /// True when mail already loaded shows someone else wrote in the thread after your ask.
     static func answeredInLoadedMail(_ item: Item, inbox: [Email], context: TriageContext) -> Bool {
-        inbox.contains { $0.threadId == item.email.threadId && $0.date > item.email.date && !context.isMine($0) }
+        inbox.contains { $0.threadId == item.email.threadId && $0.date > item.email.date && !context.isMine($0) && !$0.isAutoReply }
     }
 
     /// True when no inbox mail is loaded for the thread at all, so a read-only thread lookup is needed to be sure.
@@ -47,7 +47,7 @@ enum WaitingOnThem {
         senders.contains { sender in
             let address = TriageContext.canonical(sender.address)
             let mine = context.myAddresses.contains(address) || context.otherAddresses.contains(address)
-            return !mine && sender.date > item.email.date
+            return !mine && !sender.isAutoReply && sender.date > item.email.date
         }
     }
 

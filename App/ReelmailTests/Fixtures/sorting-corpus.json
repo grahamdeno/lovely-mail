@@ -259,7 +259,7 @@
   },
   {
    "id": "w25",
-   "split": "holdout",
+   "split": "tune",
    "expect": "waiting",
    "name": "Eli Brooks",
    "email": "eli.brooks@mail.example",
@@ -964,7 +964,7 @@
   },
   {
    "id": "u17",
-   "split": "holdout",
+   "split": "tune",
    "expect": "updates",
    "name": "ShipCo",
    "email": "tracking@shipco.example",
@@ -1117,7 +1117,7 @@
   },
   {
    "id": "r13",
-   "split": "holdout",
+   "split": "tune",
    "expect": "reading",
    "name": "Weeknight Recipes",
    "email": "recipes@weeknight.example",
@@ -1243,7 +1243,7 @@
   },
   {
    "id": "u24",
-   "split": "holdout",
+   "split": "tune",
    "expect": "updates",
    "name": "Shop Merch",
    "email": "orders.desk@shop.example",
@@ -1451,6 +1451,97 @@
    "body": "Here is the newsletter draft for the club. Sharing it for your records.",
    "daysAgo": 1,
    "why": "person mentions a newsletter; no list signals"
+  },
+  {
+   "id": "h5-auto-outlook",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Jordan Pike",
+   "email": "jordan.pike@mail.example",
+   "subject": "Automatic reply: Practice schedule",
+   "body": "Thank you for your message. I am out of the office until Nov 9 and will respond to your email when I return.",
+   "daysAgo": 1,
+   "why": "Outlook automatic reply"
+  },
+  {
+   "id": "h5-auto-away",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "Casey Lund",
+   "email": "casey.lund@mail.example",
+   "subject": "Out of Office",
+   "body": "I'm currently away from my desk and will return on Monday. For urgent matters, call the front desk.",
+   "daysAgo": 1,
+   "why": "out-of-office subject"
+  },
+  {
+   "id": "h5-delivered-notice",
+   "split": "holdout",
+   "expect": "updates",
+   "name": "ParcelHub",
+   "email": "notifications@parcelhub.example",
+   "subject": "Your package",
+   "body": "Your order has been delivered. Track your package at the link below.\nUnsubscribe | Manage preferences",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "delivery notice from a plain notifications address"
+  },
+  {
+   "id": "h5-delivered-person",
+   "split": "holdout",
+   "expect": "people",
+   "name": "Sam Ortiz",
+   "email": "sam.ortiz@mail.example",
+   "subject": "Box",
+   "body": "Thanks, the box was delivered this morning. All good.",
+   "daysAgo": 1,
+   "why": "a person saying something was delivered"
+  },
+  {
+   "id": "h5-news-footer-day",
+   "split": "holdout",
+   "expect": "reading",
+   "name": "Podcast Picks",
+   "email": "hello@podcastpicks.example",
+   "subject": "Friday picks: five podcasts",
+   "body": "Five podcasts for the weekend.\nYou are receiving this email because you subscribed.\nUnsubscribe",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "newsletter with a weekday in the subject"
+  },
+  {
+   "id": "h5-news-browser",
+   "split": "holdout",
+   "expect": "reading",
+   "name": "Dinner Notes",
+   "email": "menu@dinnernotes.example",
+   "subject": "Monday menu ideas",
+   "body": "Easy dinners for Monday through Friday.\nView this email in your browser.",
+   "daysAgo": 1,
+   "bulk": true,
+   "why": "newsletter that names days"
+  },
+  {
+   "id": "h5-ask-roster",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Riley Chen",
+   "email": "riley.chen@mail.example",
+   "subject": "Roster",
+   "body": "Hi Pat,\nCan you send the roster by Friday?\nThanks,\nRiley",
+   "daysAgo": 1,
+   "why": "real ask that names a day"
+  },
+  {
+   "id": "h5-ask-cover",
+   "split": "holdout",
+   "expect": "waiting",
+   "name": "Morgan Webb",
+   "email": "morgan.webb@mail.example",
+   "subject": "Thursday cover",
+   "body": "Are you free Thursday at 6 to cover the desk? Let me know.",
+   "daysAgo": 1,
+   "why": "real ask that names a day and time"
   }
  ]
 }

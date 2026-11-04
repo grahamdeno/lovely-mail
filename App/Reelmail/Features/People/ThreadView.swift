@@ -5,6 +5,7 @@ struct ThreadView: View {
     @Environment(Router.self) private var router
     let person: Person
     @State private var showingInfo = false
+    @State private var dismissedAsk: String?
     var body: some View {
         let messages = store.conversation(with: person)
         let latestIncoming = messages.last { !$0.isFromMe }.flatMap { store.post(for: $0) }
@@ -15,6 +16,9 @@ struct ThreadView: View {
                     .padding(.bottom, 8)
                 Text(store.mode == .sample ? "Demo · fictional conversation" : "Recent mail with \(person.firstName)")
                     .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.bottom, 4)
+                ForEach(store.waitingOnThem.filter { $0.recipient.lowercased() == person.email.lowercased() }) { item in
+                    ThreadAskRow(item: item) { dismissedAsk = item.id }
+                }
                 if messages.isEmpty { Text("No loaded messages with this person.").padding(.vertical, 24) }
                 ForEach(Array(messages.enumerated()), id: \.element.id) { index, email in
                     let previous: Email? = index > 0 ? messages[index - 1] : nil
@@ -29,6 +33,9 @@ struct ThreadView: View {
                             .multilineTextAlignment(.center).padding(.horizontal, 24).padding(.bottom, 4)
                     }
                     ConversationBubble(email: email, mine: Set([store.account ?? ""] + store.otherAddresses).subtracting([""]), summary: summary,
+                        later: store.post(for: email).flatMap { post in
+                            store.laterUntil[post.id].flatMap { LaterSchedule.isPending($0, now: Date()) ? "Later \u{00B7} " + LaterSchedule.label($0, now: Date()) : nil }
+                        },
                         grouped: ConversationPresentation.groups(email, after: previous))
                 }
             }.padding(16)
@@ -48,6 +55,13 @@ struct ThreadView: View {
                 // Opaque, full width: scrolled messages never show around or under the bar.
                 .frame(maxWidth: .infinity)
                 .background(CalmStyle.background.ignoresSafeArea(edges: .bottom))
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let id = dismissedAsk {
+                UndoBar(text: "Removed from Waiting on them") { store.restoreWaiting(id); dismissedAsk = nil }
+                    .padding(.horizontal, 20).padding(.bottom, 80)
+                    .task(id: id) { try? await Task.sleep(for: .seconds(6)); if dismissedAsk == id { dismissedAsk = nil } }
             }
         }
         .navigationTitle(person.name).navigationBarTitleDisplayMode(.inline)
@@ -75,6 +89,7 @@ private struct ConversationBubble: View {
     let email: Email
     let mine: Set<String>
     let summary: EmailSummary?
+    var later: String? = nil
     let grouped: Bool
     @State private var showingDetails = false
     private var secondaryInk: Color { email.isFromMe ? CalmStyle.onBlue.opacity(0.85) : CalmStyle.secondary }
@@ -86,6 +101,9 @@ private struct ConversationBubble: View {
                 if let caption = ReplyRecipients.caption(email, mine: mine) ?? (email.to.count > 1 ? "Additional recipients \u{00B7} see source" : nil) {
                     Label(caption, systemImage: "person.2")
                         .font(.caption).foregroundStyle(secondaryInk)
+                }
+                if let later {
+                    Label(later, systemImage: "clock").font(.caption).foregroundStyle(secondaryInk)
                 }
                 if let label = preview.label {
                     Text(label).font(.caption.weight(.semibold)).foregroundStyle(secondaryInk)

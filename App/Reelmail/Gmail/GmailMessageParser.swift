@@ -171,6 +171,9 @@ enum GmailMessageParser {
         let labels = message.labelIds ?? []
         let hasList = header("List-Unsubscribe", in: message) != nil || header("List-Id", in: message) != nil
         let mine = account.map { $0.lowercased() == from.email } ?? false
+        let autoReply = !mine && AutoReply.isAutoReply(autoSubmitted: header("Auto-Submitted", in: message),
+                                                        xAutoreply: header("X-Autoreply", in: message),
+                                                        xAutorespond: header("X-Autorespond", in: message))
         return Email(
             id: message.id,
             threadId: message.threadId,
@@ -184,7 +187,8 @@ enum GmailMessageParser {
             isFromMe: mine,
             bulk: !mine && SenderSignals.isBulk(labelIds: labels, hasListHeaders: hasList,
                                                 precedence: header("Precedence", in: message), address: from.email),
-            promotional: !mine && labels.contains("CATEGORY_PROMOTIONS")
+            promotional: !mine && labels.contains("CATEGORY_PROMOTIONS"),
+            autoReply: autoReply
         )
     }
 }

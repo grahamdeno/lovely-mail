@@ -86,6 +86,33 @@ struct WaitingOnThemRow: View {
     }
 }
 
+/// On a person's page: your open ask to them, with Nudge and Got it. Same actions as the list.
+struct ThreadAskRow: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    let item: WaitingOnThem.Item
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("You asked " + HomeDigest.age(of: item.email.date, now: Date()) + " ago, no answer yet").font(.subheadline.weight(.medium))
+            Text("\u{201C}\(item.ask)\u{201D}").font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+            HStack(spacing: 8) {
+                Button {
+                    let first = GmailMessageParser.person(fromHeader: item.email.to.first ?? "").firstName
+                    router.nudge = NudgeRequest(id: item.id, email: item.email,
+                                                text: WaitingOnThem.nudgeText(recipientFirstName: first, myFirstName: store.me.firstName))
+                } label: { Label("Nudge", systemImage: "hand.tap") }
+                    .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
+                Button { store.dismissWaiting(item); onDismiss() } label: { Label("Got it", systemImage: "checkmark") }
+                    .buttonStyle(CalmActionStyle()).lineLimit(1)
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 /// Everything you asked that nobody has answered, with Nudge and Got it.
 struct WaitingOnThemListView: View {
     @Environment(FeedStore.self) private var store

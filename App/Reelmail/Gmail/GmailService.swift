@@ -146,12 +146,20 @@ final class GmailService: NSObject {
         var c = URLComponents(string: Self.api + "/threads/" + id)!
         c.queryItems = [URLQueryItem(name: "format", value: "metadata"),
                         URLQueryItem(name: "metadataHeaders", value: "From"),
-                        URLQueryItem(name: "metadataHeaders", value: "Date")]
+                        URLQueryItem(name: "metadataHeaders", value: "Date"),
+                        URLQueryItem(name: "metadataHeaders", value: "Subject"),
+                        URLQueryItem(name: "metadataHeaders", value: "Auto-Submitted"),
+                        URLQueryItem(name: "metadataHeaders", value: "X-Autoreply"),
+                        URLQueryItem(name: "metadataHeaders", value: "X-Autorespond")]
         let thread: GmailThreadResponse = try await get(c.url!)
         return (thread.messages ?? []).map { message in
             let from = GmailMessageParser.person(fromHeader: GmailMessageParser.header("From", in: message) ?? "").email
             let millis = Double(message.internalDate ?? "") ?? 0
-            return ThreadSender(address: from.lowercased(), date: Date(timeIntervalSince1970: millis / 1000))
+            let auto = AutoReply.subjectIsAutoReply(GmailMessageParser.header("Subject", in: message) ?? "")
+                || AutoReply.isAutoReply(autoSubmitted: GmailMessageParser.header("Auto-Submitted", in: message),
+                                         xAutoreply: GmailMessageParser.header("X-Autoreply", in: message),
+                                         xAutorespond: GmailMessageParser.header("X-Autorespond", in: message))
+            return ThreadSender(address: from.lowercased(), date: Date(timeIntervalSince1970: millis / 1000), isAutoReply: auto)
         }
     }
 

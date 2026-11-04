@@ -613,6 +613,12 @@ struct MailRow: View {
         return HomeDigest.organizationName(post.email.from) + " · " + section.title
     }
 
+    /// "Later · tomorrow 9 AM" for mail you put off, so Search and lists show why it left Home.
+    private var laterText: String? {
+        guard let until = store.laterUntil[post.id], LaterSchedule.isPending(until, now: Date()) else { return nil }
+        return "Later \u{00B7} " + LaterSchedule.label(until, now: Date())
+    }
+
     private var compactBody: some View {
         HStack(alignment: .top, spacing: 12) {
             CalmAvatar(person: post.email.from, size: 30, waiting: waiting, organization: !fromPerson && section != .notes)
@@ -626,6 +632,7 @@ struct MailRow: View {
                 }
                 Text(sensitive ? "Private message" : (fromPerson ? post.summary.blurb : post.summary.headline))
                     .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                if let laterText { Label(laterText, systemImage: "clock").font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1) }
             }
         }
         .padding(.vertical, 8)
@@ -647,6 +654,7 @@ struct MailRow: View {
                     Text(preview)
                         .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let laterText { Label(laterText, systemImage: "clock").font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1) }
                     if waiting {
                         Text(assessment.reason).font(.caption.weight(.medium)).foregroundStyle(CalmStyle.roseInk).lineLimit(1)
                     } else if !post.summary.dates.isEmpty, !sensitive {

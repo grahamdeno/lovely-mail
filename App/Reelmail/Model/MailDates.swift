@@ -22,7 +22,7 @@ enum MailDates {
     /// to 120 days ahead, earliest first. Receipts name past days, so they yield nothing.
     static func extract(_ email: Email, now: Date, calendar: Calendar = .current) -> [MailDate] {
         let text = email.subject + "\n" + ReplySignals.authoredBody(email.body)
-        guard !MailKind.isReceipt(text) else { return [] }
+        guard !email.isAutoReply, !MailKind.isReceipt(text), !DeliveryNotice.isDeliveryNotice(email) else { return [] }
         return extract(text: text, sent: email.date, now: now, calendar: calendar)
     }
 
@@ -30,7 +30,7 @@ enum MailDates {
         let earliest = calendar.startOfDay(for: now)
         let latest = now.addingTimeInterval(horizon)
         var found: [MailDate] = []
-        for sentence in sentences(in: text) {
+        for sentence in sentences(in: text) where !isHeaderLine(sentence) && !isPromoSentence(sentence) {
             let time = timeOfDay(in: sentence)
             for (phrase, day) in days(in: sentence, sent: sent, calendar: calendar) {
                 var start = day
@@ -41,6 +41,24 @@ enum MailDates {
         }
         var seen = Set<String>()
         return found.sorted { $0.start < $1.start }.filter { seen.insert($0.id).inserted }
+    }
+
+    // MARK: Lines that are not plans
+
+    /// Forwarded and quoted header lines ("Sent: Monday, November 2, 2026", "On Mon, Nov 2 ... wrote:") name the day
+    /// something was written, not a day to show up. "Date:" and "Time:" lines stay: invitations use them for the plan.
+    static func isHeaderLine(_ sentence: String) -> Bool {
+        let l = sentence.trimmingCharacters(in: .whitespaces).lowercased()
+        if ["sent:", "from:", "to:", "cc:", "subject:"].contains(where: { l.hasPrefix($0) }) { return true }
+        return l.hasPrefix("on ") && l.contains("wrote:")
+    }
+
+    private static let promoPhrases = ["% off", "sale", "discount", "coupon", "promo code", "limited time", "shop now", "use code", "free shipping"]
+
+    /// "50% off, today only" is an offer, not a plan.
+    static func isPromoSentence(_ sentence: String) -> Bool {
+        let l = sentence.lowercased()
+        return promoPhrases.contains { l.contains($0) }
     }
 
     // MARK: Sentences
@@ -72,7 +90,7 @@ enum MailDates {
                                      "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12]
     private static let monthDay = try! NSRegularExpression(
         pattern: #"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b"#)
-    private static let numeric = try! NSRegularExpression(pattern: #"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?(?![\d/])(?!\s*(?i:cups?|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|inch(?:es)?|miles?|hours?|hrs?|minutes?|mins?|of)\b)"#)
+    private static let numeric = try! NSRegularExpression(pattern: #"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?(?![\d/])(?!\s*(?i:cups?|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|price|off|lbs?|pounds?|inch(?:es)?|miles?|hours?|hrs?|minutes?|mins?|of)\b)"#)
     private static let weekday = try! NSRegularExpression(
         pattern: #"\b(?:(this|next)\s+)?(sun|mon|tues|wednes|thurs|fri|satur)day\b"#, options: .caseInsensitive)
     private static let relative = try! NSRegularExpression(pattern: #"\b(today|tonight|tomorrow)\b"#, options: .caseInsensitive)
@@ -93,6 +111,10 @@ enum MailDates {
             }
         }
         for m in numeric.matches(in: sentence, range: whole) {
+            // "Version 2/3", "page 1/4", "score 3/2": a number pair, not a date.
+            let before = ns.substring(to: m.range.location)
+            if before.range(of: #"(?i)\b(version|draft|page|chapter|section|step|vol|volume|part|score|ratio|odds|no|number|item|figure|fig|table)\.?\s*#?\s*$"#,
+                            options: .regularExpression) != nil { continue }
             let month = Int(ns.substring(with: m.range(at: 1))) ?? 0
             let day = Int(ns.substring(with: m.range(at: 2))) ?? 0
             var year: Int?
@@ -104,6 +126,10 @@ enum MailDates {
         for m in weekday.matches(in: sentence, range: whole) {
             let qualifier = m.range(at: 1).location == NSNotFound ? "" : ns.substring(with: m.range(at: 1)).lowercased()
             guard let target = weekdayNumbers[ns.substring(with: m.range(at: 2)).lowercased()] else { continue }
+            // "Thursday, Nov 12": the weekday is part of that date, not a second one.
+            let after = ns.substring(from: m.range.location + m.range.length)
+            if after.range(of: #"^,?\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d"#,
+                           options: [.regularExpression, .caseInsensitive]) != nil { continue }
             let sentWeekday = calendar.component(.weekday, from: sentDay)
             var delta = (target - sentWeekday + 7) % 7
             if delta == 0 { delta = 7 }

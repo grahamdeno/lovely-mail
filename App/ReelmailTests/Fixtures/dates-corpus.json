@@ -1,0 +1,188 @@
+{
+ "sent": "2026-11-02 09:00",
+ "note": "Fictional sentences. Sent and read Monday, Nov 2, 2026, 9 AM UTC. expect lists every date the sentence should yield.",
+ "cases": [
+  {
+   "id": "f01",
+   "text": "Practice moved to Thursday 6-8 PM.",
+   "expect": [
+    "2026-11-05 18:00"
+   ]
+  },
+  {
+   "id": "f02",
+   "text": "Forms due 11/14.",
+   "expect": [
+    "2026-11-14"
+   ]
+  },
+  {
+   "id": "f03",
+   "text": "See you tomorrow at noon.",
+   "expect": [
+    "2026-11-03 12:00"
+   ]
+  },
+  {
+   "id": "f04",
+   "text": "Dinner Sat, Nov 21 at 7.",
+   "expect": [
+    "2026-11-21"
+   ]
+  },
+  {
+   "id": "f05",
+   "text": "The game is this Sunday at 9 PM.",
+   "expect": [
+    "2026-11-08 21:00"
+   ]
+  },
+  {
+   "id": "f06",
+   "text": "Pickup is Nov 7.",
+   "expect": [
+    "2026-11-07"
+   ]
+  },
+  {
+   "id": "f07",
+   "text": "Picture day is November 19th at 8:30 AM.",
+   "expect": [
+    "2026-11-19 08:30"
+   ]
+  },
+  {
+   "id": "f08",
+   "text": "Conference is Dec 3, 2026.",
+   "expect": [
+    "2026-12-03"
+   ]
+  },
+  {
+   "id": "f09",
+   "text": "Please RSVP by Friday.",
+   "expect": [
+    "2026-11-06"
+   ]
+  },
+  {
+   "id": "f10",
+   "text": "We meet next Tuesday at 10am.",
+   "expect": [
+    "2026-11-10 10:00"
+   ]
+  },
+  {
+   "id": "f11",
+   "text": "Recital: 12/5 at 2:30 PM.",
+   "expect": [
+    "2026-12-05 14:30"
+   ]
+  },
+  {
+   "id": "f12",
+   "text": "Tonight at 7 PM we eat.",
+   "expect": [
+    "2026-11-02 19:00"
+   ]
+  },
+  {
+   "id": "f13",
+   "text": "Lunch Wednesday at 12:15 PM.",
+   "expect": [
+    "2026-11-04 12:15"
+   ]
+  },
+  {
+   "id": "f14",
+   "text": "Report cards go home Jan 15.",
+   "expect": [
+    "2027-01-15"
+   ]
+  },
+  {
+   "id": "f15",
+   "text": "Flight leaves at 14:30 on Nov 12.",
+   "expect": [
+    "2026-11-12 14:30"
+   ]
+  },
+  {
+   "id": "f16",
+   "text": "Parent night is Thursday, Nov 12 at 6 PM.",
+   "expect": [
+    "2026-11-12 18:00"
+   ]
+  },
+  {
+   "id": "n01",
+   "text": "50% off, 1/2 price today only.",
+   "expect": []
+  },
+  {
+   "id": "n02",
+   "text": "3/4 of the team voted.",
+   "expect": []
+  },
+  {
+   "id": "n03",
+   "text": "Open 24/7.",
+   "expect": []
+  },
+  {
+   "id": "n04",
+   "text": "On Mon, Nov 2, 2026 at 9:00 AM Dana wrote:",
+   "expect": []
+  },
+  {
+   "id": "n05",
+   "text": "Sent: Monday, November 2, 2026 9:14 AM",
+   "expect": []
+  },
+  {
+   "id": "n06",
+   "text": "I am out of the office until Monday with limited access to email.",
+   "expect": []
+  },
+  {
+   "id": "n07",
+   "text": "Posted Oct 30.",
+   "expect": []
+  },
+  {
+   "id": "n08",
+   "text": "Version 2/3 of the draft.",
+   "expect": []
+  },
+  {
+   "id": "n09",
+   "text": "Mix 1/2 cup of flour.",
+   "expect": []
+  },
+  {
+   "id": "n10",
+   "text": "Thank you for your payment of $50 on Nov 20.",
+   "expect": []
+  },
+  {
+   "id": "n11",
+   "text": "Rated 4/5 stars.",
+   "expect": []
+  },
+  {
+   "id": "n12",
+   "text": "Call me whenever.",
+   "expect": []
+  },
+  {
+   "id": "n13",
+   "text": "We won the game 5/3.",
+   "expect": []
+  },
+  {
+   "id": "n14",
+   "text": "Unsubscribe from these emails any time before 10/31.",
+   "expect": []
+  }
+ ]
+}

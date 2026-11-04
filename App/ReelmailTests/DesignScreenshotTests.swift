@@ -97,6 +97,18 @@ final class DesignScreenshotTests: XCTestCase {
         try await capture(NavigationStack { SettingsView() }.environment(store).environment(router), name: "22-Settings-morning-brief")
         try await capture(BriefOfferCard().padding(20).background(CalmStyle.background).environment(store), name: "23-Home-brief-offer")
     }
+    /// Sprint 5: fictional mail only.
+    func testSprint5Screenshots() async throws {
+        let client = Sprint3ScreenshotClient()
+        let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil, veto: nil)
+        await store.load()
+        await store.sentCheck?.value
+        try await capture(NavigationStack { TestingToolsView() }.environment(store).environment(Router()), name: "24-Testing-tools-brief")
+        if let item = store.waitingOnThem.first {
+            let person = GmailMessageParser.person(fromHeader: item.email.to.first ?? "")
+            try await capture(NavigationStack { ThreadView(person: person) }.environment(store).environment(Router()), name: "25-Person-waiting-on-them-row")
+        }
+    }
     private func demoStore() async -> FeedStore {
         let store = FeedStore(gmail: ScreenshotInboxClient(), summarizeOnDevice: false, cacheStore: nil)
         await store.load()

@@ -191,10 +191,41 @@ struct TestingToolsView: View {
                     .buttonStyle(CalmActionStyle())
                 Button { router.open(.summaryLab) } label: { Label("Summary Lab", systemImage: "flask").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle())
+                MorningBriefTestCard()
             }.padding(20)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Testing tools").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Testing tools: see the morning brief now instead of waiting for the morning.
+struct MorningBriefTestCard: View {
+    @Environment(FeedStore.self) private var store
+    @State private var note: String?
+
+    var body: some View {
+        let brief = MorningBriefScheduler.preview(store: store)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("MORNING BRIEF").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            if let brief {
+                Text(brief.title).font(.subheadline.weight(.semibold))
+                Text(brief.body).font(.subheadline)
+            } else {
+                Text("The next brief would be skipped: nothing to say.").font(.subheadline)
+            }
+            Button {
+                Task {
+                    let sent = await MorningBriefScheduler.sendTest(store: store)
+                    note = sent ? "Sent. Leave Lovely now and it arrives in 5 seconds." : "Nothing sent. Notifications may be off for Lovely, or there is nothing to say."
+                }
+            } label: { Label("Send a test brief", systemImage: "bell").frame(maxWidth: .infinity) }
+                .buttonStyle(CalmActionStyle())
+            if let note { Text(note).font(.caption).foregroundStyle(CalmStyle.secondary) }
+            Text("The test does not turn on the real brief.").font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

@@ -64,6 +64,28 @@ enum MorningBriefScheduler {
         try? await center.add(UNNotificationRequest(identifier: notificationID, content: content, trigger: trigger))
     }
 
+    static let testNotificationID = "lovely.morning.test"
+
+    /// The next brief as it would read now, for Testing tools. Nil text means it would be skipped.
+    static func preview(store: FeedStore, settings: BriefSettings = BriefSettings(), now: Date = Date()) -> MorningBrief? {
+        store.morningBrief(at: MorningBrief.nextFire(minutes: settings.minutes, after: now), showNames: settings.showNames)
+    }
+
+    /// Sends the preview as a notification in 5 seconds under its own id. It does not turn the brief on or replace it.
+    /// Returns false when notifications are declined or there is nothing to send.
+    static func sendTest(store: FeedStore, settings: BriefSettings = BriefSettings()) async -> Bool {
+        guard await requestPermission(), let brief = preview(store: store, settings: settings) else { return false }
+        let content = UNMutableNotificationContent()
+        content.title = brief.title
+        content.body = brief.body
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [testNotificationID])
+        do { try await center.add(UNNotificationRequest(identifier: testNotificationID, content: content, trigger: trigger)); return true }
+        catch { return false }
+    }
+
     /// Asks iOS to wake the app about an hour before the brief so it can refresh first.
     private static func requestRefresh(before fire: Date, now: Date) {
         let request = BGAppRefreshTaskRequest(identifier: taskIdentifier)

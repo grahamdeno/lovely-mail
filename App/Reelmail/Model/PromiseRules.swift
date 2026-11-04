@@ -59,7 +59,7 @@ enum PromiseRules {
             guard let text = sentence(in: email.body) else { continue }
             // Closed by a later message from you or from them in the same thread.
             if sent.contains(where: { $0.threadId == email.threadId && $0.date > email.date }) { continue }
-            if inbox.contains(where: { $0.threadId == email.threadId && $0.date > email.date }) { continue }
+            if inbox.contains(where: { $0.threadId == email.threadId && $0.date > email.date && !$0.isAutoReply }) { continue }
             guard veto(email, text) else { continue }
             items.append(Item(id: email.id, email: email, text: text))
         }
