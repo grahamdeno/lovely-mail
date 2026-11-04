@@ -111,3 +111,33 @@ final class InsightParserTests: XCTestCase {
         XCTAssertEqual(try! JSONDecoder().decode(InsightStore.self, from: data), store)
     }
 }
+
+final class EnergyInsightTests: XCTestCase {
+    private func month(_ iso: String, _ perDay: Double, devices: [EnergyDevice] = []) -> EnergyMonth {
+        EnergyMonth(id: iso, month: InsightDates.parse(iso)!, kwhUsed: 500, kwhProduced: 0, dollarsPerDay: perDay, changePerDay: nil, devices: devices)
+    }
+
+    func testHeadlineWithChange() {
+        var m = month("2026-10-01", 4.29); m.changePerDay = -0.35
+        XCTAssertEqual(EnergyInsights.headline(m), "$4.29 a day last month, down $0.35 from the month before")
+        XCTAssertEqual(EnergyInsights.headline(nil), "No energy report found yet")
+    }
+
+    func testOfferWinsThenTopDeviceThenSpike() {
+        let offer = ProgramOffer(id: "o", program: "Smart Saver", credit: 75, devices: ["thermostat"], seenOn: Date())
+        XCTAssertTrue(EnergyInsights.suggestion(months: [month("2026-10-01", 4)], offer: offer)!.contains("$75"))
+        let dev = [EnergyDevice(name: "Dryer", dollars: 22)]
+        XCTAssertTrue(EnergyInsights.suggestion(months: [month("2026-10-01", 4, devices: dev)], offer: nil)!.contains("Dryer"))
+        let spike = [month("2026-07-01", 3), month("2026-08-01", 3), month("2026-09-01", 3), month("2026-10-01", 4)]
+        XCTAssertTrue(EnergyInsights.suggestion(months: spike, offer: nil)!.contains("percent above"))
+        XCTAssertNil(EnergyInsights.suggestion(months: [month("2026-10-01", 3)], offer: nil))
+    }
+
+    func testSenseHiddenOnlyAfterSnapshot() {
+        var store = InsightStore()
+        XCTAssertFalse(EnergyInsights.shouldHideFromHome(domain: "sense.com", fromName: "Sense", store: store))
+        store.add(.energyMonth(month("2026-10-01", 4)))
+        XCTAssertTrue(EnergyInsights.shouldHideFromHome(domain: "sense.com", fromName: "Sense", store: store))
+        XCTAssertFalse(EnergyInsights.shouldHideFromHome(domain: "example.com", fromName: "Other", store: store))
+    }
+}
