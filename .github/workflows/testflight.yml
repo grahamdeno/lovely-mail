@@ -16,6 +16,10 @@ on:
         description: "Upload an explicit sample-mail demo build with Gmail unconfigured"
         type: boolean
         default: false
+      dry_run:
+        description: "Archive, sign and check entitlements, but do not upload to TestFlight"
+        type: boolean
+        default: false
 
 concurrency:
   group: testflight
@@ -71,8 +75,15 @@ jobs:
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER" \
             CURRENT_PROJECT_VERSION=$((1000 + ${{ github.run_number }})) \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee "$RUNNER_TEMP/archive.log" | tail -n 40 \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES PROVISIONING_PROFILE_SPECIFIER="" 2>&1 | tee "$RUNNER_TEMP/archive.log" | tail -n 40 \
             || { grep -E "error:|Error|No profiles|No Accounts|certificate|provisioning" "$RUNNER_TEMP/archive.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+
+      - name: Verify iCloud entitlement in the archived app
+        run: |
+          # Entitlements live in the code signature. The archive is ad-hoc signed so export keeps them.
+          codesign -d --entitlements - --xml "$RUNNER_TEMP/Reelmail.xcarchive/Products/Applications/Reelmail.app" > "$RUNNER_TEMP/archive-ent.plist" 2>/dev/null || true
+          grep -q "ubiquity-kvstore-identifier" "$RUNNER_TEMP/archive-ent.plist" || { echo "::error::iCloud key-value entitlement missing from the archive"; exit 1; }
+          echo "::notice::Archive carries the iCloud key-value entitlement"
 
       - name: Verify Gmail config in the archived app
         run: |
@@ -91,10 +102,12 @@ jobs:
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>teamID</key><string>7MHDTK68M2</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>__DEST__</string>
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
           P
+          DEST=upload; [ "${{ inputs.dry_run }}" = "true" ] && DEST=export
+          sed -i '' "s/__DEST__/$DEST/" "$RUNNER_TEMP/export.plist"
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/Reelmail.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
@@ -104,7 +117,15 @@ jobs:
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER" 2>&1 | tee "$RUNNER_TEMP/export.log" | tail -n 40 \
             || { grep -E "error:|Error|failed|certificate|provisioning" "$RUNNER_TEMP/export.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
-          echo "::notice::Uploaded build $((1000 + ${{ github.run_number }})) to App Store Connect"
+          if [ "$DEST" = "export" ]; then
+            IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+            mkdir -p "$RUNNER_TEMP/ipa" && unzip -q "$IPA" -d "$RUNNER_TEMP/ipa"
+            codesign -d --entitlements - --xml "$RUNNER_TEMP"/ipa/Payload/*.app > "$RUNNER_TEMP/ipa-ent.plist" 2>/dev/null || true
+            grep -q "ubiquity-kvstore-identifier" "$RUNNER_TEMP/ipa-ent.plist" || { echo "::error::iCloud entitlement lost in export"; exit 1; }
+            echo "::notice::Dry run: exported and signed with the iCloud entitlement. Nothing uploaded."
+          else
+            echo "::notice::Uploaded build $((1000 + ${{ github.run_number }})) to App Store Connect"
+          fi
 
       - name: Remove key
         if: always()

@@ -227,5 +227,8 @@ Design: docs/sprint6-design.md. Insights from mail, all on the iPhone: a full-pa
 - Verified on device: four permissions granted (Google shows three boxes; send is folded into mail access), a reply sent from Lovely arrived, Kids looks right.
 - Fixed on branch `fix/forwarding-status`: "Ask Gmail to verify" removed. Gmail's forwardingAddresses.create is Workspace-only (HTTP 403 on personal accounts). Forwarding addresses now show Gmail's own status by a read-only GET; privacy_guard blocks any non-GET to that endpoint.
 - Lag reported on device (scrolling, swipes, tab bar). Likely causes found by reading the code: the 12-month insight backfill changed the observed store once per message, and Home rebuilt digest, Coming up (date parsing over every message, once per organization chip), promises, waiting-on-them, new senders and kid matches on every redraw. Fixed on the same branch: backfill publishes every 100 messages; those lists are cached until their inputs change or the minute turns. Not yet measured on device.
-- Requested, not built: iCloud sync of household and kid settings.
+- Disconnect no longer deletes what you typed (households, kids, forwarding addresses, Shoebox). Mail-derived data is still deleted.
+- iCloud backup (key-value store) of those typed settings, on by default, toggle in Settings. Needs the iCloud entitlement to survive signing: the TestFlight archive is now ad-hoc signed (an unsigned archive drops entitlements on export), with checks in the archive and a `dry_run` input that exports without uploading. Not verified on device.
+- Delete, remove, decline, clear and disconnect buttons are rose-red (`role: .destructive`; CalmActionStyle honors it).
+- "Send to Shoebox" in an email's "…" menu when a Shoebox address is set and allowed; preview, 10-second Undo, health mail excluded.
 

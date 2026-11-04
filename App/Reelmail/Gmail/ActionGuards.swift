@@ -86,11 +86,13 @@ struct ForwardAllowlist {
         let a = address.trimmingCharacters(in: .whitespaces).lowercased()
         guard Self.isAddress(a) else { return false }
         defaults.set(Array(Set(addresses + [a])), forKey: Self.key)
+        SettingsSync.localChanged(defaults)
         return true
     }
 
     func remove(_ address: String) {
         defaults.set(addresses.filter { $0 != address.lowercased() }, forKey: Self.key)
+        SettingsSync.localChanged(defaults)
     }
 }
 

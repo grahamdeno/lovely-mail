@@ -76,7 +76,7 @@ struct GmailFiltersView: View {
         }
         .navigationTitle("Gmail filters").navigationBarTitleDisplayMode(.inline)
         .sheet(item: $preview) { p in
-            ActionPreviewSheet(preview: p, confirmTitle: "Delete filter") { confirmed in
+            ActionPreviewSheet(preview: p, confirmTitle: "Delete filter", destructive: true) { confirmed in
                 guard let actions = store.actions else { status = "Connect Gmail first."; return }
                 Task {
                     do { try await actions.deleteFilter(id: p.id, confirmed: confirmed); filters = FilterRegistry().filters }
@@ -102,6 +102,6 @@ struct GmailActivityView: View {
             }
         }
         .navigationTitle("Gmail activity").navigationBarTitleDisplayMode(.inline)
-        .toolbar { Button("Clear") { ActivityLog().clear(); entries = [] }.disabled(entries.isEmpty) }
+        .toolbar { Button("Clear", role: .destructive) { ActivityLog().clear(); entries = [] }.disabled(entries.isEmpty) }
     }
 }

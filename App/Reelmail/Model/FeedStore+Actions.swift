@@ -37,6 +37,20 @@ extension FeedStore {
         })
     }
 
+    /// Forwards one message the owner picked to Shoebox. Held 10 seconds for Undo.
+    /// The address comes from Settings only, and health mail is never forwarded.
+    func sendToShoebox(messageID: String, shoebox: String, confirmed: ConfirmedAction) {
+        guard let actions else { errorMessage = "Connect Gmail first."; return }
+        guard shoebox == ShoeboxRule.address() else { errorMessage = "The Shoebox address changed. Start again."; return }
+        undo.enqueue(title: "Sending to Shoebox", work: { [self] in
+            let e = try await gmail.getMessage(id: messageID, account: account)
+            guard !HealthMail.isHealth(address: e.from.email, name: e.from.name, subject: e.subject) else { throw ActionError.wrongPreview }
+            try await actions.forward(from: e.from.name + " <" + e.from.email + ">", subject: e.subject, date: e.date, text: e.body, to: shoebox, confirmed: confirmed)
+        }, finished: { [self] error in
+            errorMessage = error.map { "Not sent to Shoebox. \($0.localizedDescription)" } ?? "Sent to Shoebox."
+        })
+    }
+
     /// Screened Out: files a first-time sender's messages under Lovely/Screened Out and out of the inbox. Nothing is deleted.
     func decline(_ candidate: ScreenedOut.Candidate, confirmed: ConfirmedAction) async {
         guard let actions else { errorMessage = "Connect Gmail first."; return }

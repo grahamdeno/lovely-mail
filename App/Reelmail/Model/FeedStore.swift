@@ -208,7 +208,7 @@ final class FeedStore {
     }
 
     func disconnectGmail() async {
-        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll(); insights.reset(); InsightSettings().clear()
+        bump(); revision += 1; gmail.signOut(); cacheStore?.removeAll(); insights.reset()  // Households, kids, forwarding addresses and Shoebox are typed by you, not read from mail: they stay.
         posts = []; sentByMe = []; hidden.removeAll(); seen.removeAll(); summaries = [:]
         filter = .all; mode = .sample; account = nil; accountRules = nil; needsReconnect = false
         lastFetched = nil; inboxTruncated = false
