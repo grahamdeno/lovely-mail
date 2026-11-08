@@ -114,6 +114,19 @@ struct OrganizationView: View {
                 senderRow(sender.address, count: sender.count, groupCount: group.senders.count)
                     .listRowInsets(insets).listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
             }
+            if let domain = group.domain?.lowercased(), !LocalTriageRules.publicDomains.contains(domain) {
+                let key = "@" + domain
+                let on = store.rules.filteredSenders.contains(key)
+                Button {
+                    if on { store.unfilterSender(key) } else { store.filterSender(key) }
+                } label: {
+                    Label(on ? "Show mail from \(domain) again" : "Filter everything from \(domain)",
+                          systemImage: on ? "arrow.uturn.backward" : "line.3.horizontal.decrease.circle")
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.plain).foregroundStyle(on ? CalmStyle.blue : CalmStyle.roseInk)
+                .listRowInsets(insets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            }
             Text("Senders group by company domain. Long-press a sender to split it out, or use Merge to join another organization.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.vertical, 16)
                 .listRowInsets(insets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -191,7 +204,7 @@ struct OrganizationView: View {
             Spacer(minLength: 8)
             Menu {
                 Button { store.setSenderRule(address, destination: .reading) } label: { Label("Send to Reading", systemImage: "newspaper") }
-                Button { store.setSenderRule(address, destination: .filtered) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
+                Button { store.filterSender(address) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
                 if rule != .inbox {
                     Button { store.setSenderRule(address, destination: nil) } label: { Label("Remove sender rule", systemImage: "arrow.uturn.backward") }
                 }

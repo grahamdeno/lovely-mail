@@ -64,5 +64,10 @@ struct RootView: View {
             set: { router.draftPostID = $0?.id }
         )) { post in DraftReplySheet(post: post) }
         .sheet(item: Binding(get: { router.nudge }, set: { router.nudge = $0 })) { request in NudgeSheet(request: request) }
+        .sheet(item: Binding(get: { store.gmailFilterOffer }, set: { store.gmailFilterOffer = $0 })) { offer in
+            ActionPreviewSheet(preview: offer.preview, confirmTitle: "Filter in Gmail") { confirmed in
+                store.createGmailFilter(offer, confirmed: confirmed)
+            }
+        }
     }
 }

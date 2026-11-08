@@ -773,7 +773,7 @@ private struct MailRowActions: ViewModifier {
             Section {
                 Button { store.hide(post) } label: { Label("Hide in Lovely", systemImage: "eye.slash") }
                 Button { store.setSenderRule(post.email.from.email, destination: .reading) } label: { Label("Move sender to Reading", systemImage: "newspaper") }
-                Button { store.setSenderRule(post.email.from.email, destination: .filtered) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
+                Button { store.filterSender(post.email.from.email) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
                 Button { store.setSenderRule(post.email.from.email, destination: nil) } label: { Label("Remove sender rule", systemImage: "arrow.uturn.backward") }
             }
             Section {
@@ -793,9 +793,30 @@ struct FilteredMailReview: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Saved rules only change what Lovely shows. They never change Gmail.").font(.subheadline)
+                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Filtered senders are hidden in Lovely. A Gmail filter, if you made one, is listed in Settings > Gmail filters.").font(.subheadline)
                     if let error = store.rules.persistenceError { Text(error).font(.subheadline) }
-                    if store.filteredPosts.isEmpty { Text("Nothing is filtered.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
+                    let senders = store.rules.filteredSenders
+                    if senders.isEmpty && store.filteredPosts.isEmpty { Text("Nothing is filtered.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
+                    if !senders.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(senders, id: \.self) { sender in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(sender.hasPrefix("@") ? "Everything from " + sender.dropFirst() : sender).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                                        let n = store.filteredPosts.filter { post in
+                                            let from = post.email.from.email.lowercased()
+                                            return sender.hasPrefix("@") ? LocalTriageRules.domainKeys(from).contains(sender) : from == sender
+                                        }.count
+                                        Text(n == 0 ? "No loaded mail" : "\(n) hidden").font(.caption).foregroundStyle(CalmStyle.secondary)
+                                    }
+                                    Spacer(minLength: 8)
+                                    Button("Restore") { store.unfilterSender(sender) }.buttonStyle(CalmActionStyle()).frame(minHeight: 44)
+                                }.padding(.vertical, 6)
+                                Divider()
+                            }
+                        }.padding(16).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).disabled(store.rules.persistenceError != nil)
+                        if !store.filteredPosts.isEmpty { Text("Hidden messages").font(.headline).padding(.top, 4) }
+                    }
                     ForEach(store.filteredPosts) { post in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(post.email.from.name).font(.headline)

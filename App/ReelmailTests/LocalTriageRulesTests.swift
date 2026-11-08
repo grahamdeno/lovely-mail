@@ -62,4 +62,23 @@ final class LocalTriageRulesTests: XCTestCase {
             XCTAssertEqual(defaults.data(forKey: key), original)
         }
     }
+
+    func testDomainRuleCoversEverySenderAtThatCompany() {
+        withDefaults { defaults in
+            let rules = LocalTriageRules(accountID: "account-d", defaults: defaults)
+            XCTAssertTrue(rules.setSender("@example.test", destination: .filtered))
+            XCTAssertEqual(rules.decision(messageID: "m", sender: "deals@mail.example.test").destination, .filtered)
+            XCTAssertEqual(rules.decision(messageID: "m", sender: "news@example.test").destination, .filtered)
+            XCTAssertEqual(rules.decision(messageID: "m", sender: "friend@other.test").destination, .inbox)
+            XCTAssertEqual(rules.filteredSenders, ["@example.test"])
+            // An exact rule for one address wins over the company rule.
+            XCTAssertTrue(rules.setSender("billing@example.test", destination: .inbox))
+            XCTAssertEqual(rules.decision(messageID: "m", sender: "billing@example.test").destination, .inbox)
+        }
+    }
+
+    func testDomainKeysStopBeforeTheTopLevelDomain() {
+        XCTAssertEqual(LocalTriageRules.domainKeys("a@mail.example.com"), ["@mail.example.com", "@example.com"])
+        XCTAssertEqual(LocalTriageRules.domainKeys("not-an-address"), [])
+    }
 }
