@@ -333,6 +333,7 @@ struct OtherAddressesCard: View {
                     .submitLabel(.done).onSubmit(add)
                 Button("Add", action: add).buttonStyle(CalmActionStyle(prominent: true))
                     .disabled(newAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .opacity(newAddress.trimmingCharacters(in: .whitespaces).isEmpty ? 0.45 : 1)
             }
             ForEach(store.pendingOtherAddresses.sorted(), id: \.self) { address in
                 Text("\(address) will be saved when your Gmail finishes loading.").font(.caption).foregroundStyle(CalmStyle.secondary)
