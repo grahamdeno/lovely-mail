@@ -10,8 +10,19 @@ protocol ReplyDrafter: Sendable {
 struct TemplateReplyDrafter: ReplyDrafter {
     var engine: SummaryEngine { .fallback }
 
+    /// "Carpool Thursday?" reads as "carpool Thursday": no closing punctuation, only the first letter lowered (names keep capitals).
+    static func topic(_ subject: String) -> String {
+        var t = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let last = t.last, "?!.:;,".contains(last) { t.removeLast() }
+        guard let first = t.first else { return "your note" }
+        let rest = t.dropFirst()
+        // Leave acronyms and all-caps words alone ("IRS letter").
+        if rest.first.map({ $0.isUppercase }) ?? false { return t }
+        return first.lowercased() + rest
+    }
+
     func draft(replyTo email: Email, myName: String) async throws -> String {
-        let topic = FallbackSummarizer.cleanSubject(email.subject, fallbackBody: email.body).lowercased()
+        let topic = Self.topic(FallbackSummarizer.cleanSubject(email.subject, fallbackBody: email.body))
         let signOff = myName.isEmpty ? "" : "\n\n" + myName
         return "Hi \(email.from.firstName),\n\nThanks for the note about \(topic). I'll get back to you shortly with an answer." + signOff
     }

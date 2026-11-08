@@ -14,7 +14,7 @@ struct KidsRow: View {
             }
             .padding(.horizontal, 14).frame(minHeight: 48)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).accessibilityIdentifier("home.row.kids")
     }
 }
 
@@ -81,11 +81,12 @@ struct KidView: View {
                                     Text(item.post.summary.headline).font(.headline).multilineTextAlignment(.leading)
                                     Text(item.post.email.from.name + " · " + item.post.email.date.formatted(date: .abbreviated, time: .omitted))
                                         .font(.caption).foregroundStyle(CalmStyle.secondary)
-                                    Text(item.reasons.joined(separator: " · ")).font(.caption2).foregroundStyle(CalmStyle.secondary)
+                                    Text(KidInsights.plainReasons(item.reasons)).font(.caption).foregroundStyle(CalmStyle.secondary)
                                 }
                             }.buttonStyle(.plain)
                             if store.actions != nil {
-                                Button("Send this sender to Shoebox") { Task { await prepareShoebox(item.post.email.from.email) } }.font(.subheadline)
+                                Button { Task { await prepareShoebox(item.post.email.from.email) } } label: { Label("Send this sender to Shoebox", systemImage: "tray.and.arrow.down") }
+                                    .buttonStyle(CalmActionStyle()).frame(minHeight: 44)
                             }
                             if item.post.email.body.count > 1_500 {
                                 if let list = summaries[item.id] {
@@ -170,7 +171,7 @@ struct InsightSettingsView: View {
                 .onDelete { data.kids.remove(atOffsets: $0) }
                 HStack { TextField("Add a child", text: $newKid); Button("Add") { add(kid: newKid) }.disabled(newKid.isEmpty) }
             }
-            Section { Text("Saved on this phone only. Deleted when you disconnect Gmail.").font(.caption).foregroundStyle(CalmStyle.secondary) }
+            Section { Text("Saved on this iPhone and backed up to your iCloud. Kept when you disconnect Gmail.").font(.caption).foregroundStyle(CalmStyle.secondary) }
         }
         .navigationTitle("Households and kids").navigationBarTitleDisplayMode(.inline)
         .onChange(of: data) { _, new in InsightSettings().save(new) }

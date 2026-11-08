@@ -42,6 +42,7 @@ struct DraftReplySheet: View {
                     .font(.body)
                     .padding(8)
                     .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                    .accessibilityIdentifier("draft.editor")
                 if loading { ProgressView() }
             }
 
@@ -52,14 +53,14 @@ struct DraftReplySheet: View {
                 } label: { Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") }
                     .buttonStyle(CalmActionStyle())
                 Spacer()
-                if canSend {
-                    Button { previewSend() } label: { Label("Send", systemImage: "paperplane") }
-                        .buttonStyle(CalmActionStyle(prominent: true))
+                if sendable {
+                    Button { previewSend() } label: { Label("Send", systemImage: "paperplane") }.accessibilityIdentifier("draft.send")
+                        .buttonStyle(CalmActionStyle(prominent: true)).disabled(!canSend)
                 }
                 Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
-                    .buttonStyle(CalmActionStyle(prominent: !canSend))
+                    .buttonStyle(CalmActionStyle(prominent: !sendable))
             }
-            Text(canSend ? "Lovely sends only what you approve. After you confirm, you have 10 seconds to undo."
+            Text(sendable ? "Lovely sends only what you approve. After you confirm, you have 10 seconds to undo."
                          : "Review and send it yourself in Gmail.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
@@ -86,6 +87,10 @@ struct DraftReplySheet: View {
     }
 
     private func makeDraft() async {
+        // A reply you sent and then undid comes back as you left it.
+        if let saved = store.savedDrafts.removeValue(forKey: post.id) {
+            draft = saved; engine = .fallback; loading = false; return
+        }
         let drafter = ReplyDrafterFactory.best()
         let fallback = TemplateReplyDrafter()
         do {
@@ -98,10 +103,14 @@ struct DraftReplySheet: View {
         loading = false
     }
 
-    /// One recipient, no one copied, a draft you can see: the only kind of reply Lovely sends itself.
-    private var canSend: Bool {
-        store.actions != nil && plan.to.count == 1 && plan.cc.isEmpty && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !post.email.isFromMe
+    /// One recipient and no one copied: the only kind of reply Lovely sends itself. Decided before the draft loads,
+    /// so the sheet doesn't change its mind while you watch.
+    private var sendable: Bool {
+        store.actions != nil && plan.to.count == 1 && plan.cc.isEmpty && !post.email.isFromMe
     }
+
+    /// And a draft you can see.
+    private var canSend: Bool { sendable && !loading && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     private var recipient: String { plan.to.first.map { EmailPresentation.address(in: $0).lowercased() } ?? "" }
 
@@ -113,10 +122,14 @@ struct DraftReplySheet: View {
     private func send(_ confirmed: ConfirmedAction) {
         guard let actions = store.actions else { return }
         let subject = GmailCompose.replySubject(post.email.subject)
-        let to = recipient, body = draft, thread = post.email.threadId
+        let to = recipient, body = draft, thread = post.email.threadId, postID = post.id
+        let store = store
         store.undo.enqueue(title: "Sending reply to \(to)",
                            work: { try await actions.sendReply(to: to, subject: subject, body: body, threadID: thread, inReplyTo: nil, confirmed: confirmed) },
-                           finished: { error in if let error { store.errorMessage = "The reply was not sent. \(error.localizedDescription)" } })
+                           finished: { error in
+                               if let error { store.savedDrafts[postID] = body; store.errorMessage = "The reply was not sent. Your text is saved; tap Reply to try again. \(error.localizedDescription)" }
+                           },
+                           undone: { store.savedDrafts[postID] = body; store.errorMessage = "Not sent. Your reply is saved; tap Reply to finish it." })
         dismiss()
     }
 

@@ -23,8 +23,8 @@ struct ActionPreviewSheet: View {
                     Button(confirmTitle, role: destructive ? .destructive : nil) {
                         onConfirm(ConfirmedAction(preview: preview))
                         dismiss()
-                    }.buttonStyle(CalmActionStyle(prominent: true))
-                    Button("Cancel") { dismiss() }.buttonStyle(CalmActionStyle())
+                    }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("preview.confirm")
+                    Button("Cancel") { dismiss() }.buttonStyle(CalmActionStyle()).accessibilityIdentifier("preview.cancel")
                 }.padding(20)
             }
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
@@ -43,7 +43,7 @@ struct UndoBanner: View {
                 HStack {
                     Text(item.title).font(.subheadline).lineLimit(2)
                     Spacer()
-                    Button("Undo") { store.undo.cancel(item.id) }.font(.subheadline.weight(.semibold))
+                    Button("Undo") { store.undo.cancel(item.id) }.font(.subheadline.weight(.semibold)).accessibilityIdentifier("undo.banner")
                 }
                 .padding(12).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
             }

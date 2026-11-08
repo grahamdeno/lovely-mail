@@ -9,7 +9,7 @@ enum CalmStyle {
     /// Cards, pills and fields that sit on the background.
     static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x1F1240)
     static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF7F0FF)
-    static let secondary = Color(light: 0x6D6870, dark: 0xA9A3AC, neon: 0xBBA8E8)
+    static let secondary = Color(light: 0x5E5962, dark: 0xA9A3AC, neon: 0xBBA8E8)
     /// Airmail blue: everything you can tap. In Neon, electric cyan.
     static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x1FE5FF)
     /// Text and icons on `blue` (white, except dark ink on Neon's bright cyan).
@@ -180,8 +180,6 @@ struct HomeView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: undo?.id)
-        .onChange(of: store.lastDone?.id) { _, _ in if let post = store.lastDone { offer(.done(post)) } }
-        .onChange(of: store.lastTrashed?.id) { _, _ in if let post = store.lastTrashed { offer(.trash(post)) } }
         .onChange(of: store.lastPutOff?.post.id) { _, _ in if let item = store.lastPutOff { offer(.later(item.post, item.until)) } }
         .onChange(of: store.lastPromiseClosed?.id) { _, _ in if let item = store.lastPromiseClosed { offer(.promise(id: item.id, text: item.text)) } }
         .onChange(of: store.lastWaitingDismissed) { _, _ in if let id = store.lastWaitingDismissed { offer(.waitingGone(id: id)) } }
@@ -196,6 +194,8 @@ struct HomeView: View {
                 .listRowSeparatorTint(CalmStyle.divider)
         }
     }
+
+    static let waitingOnHome = 2
 
     /// A section title that opens that section's full list.
     private func title(_ text: String, _ count: Int, rose: Bool = false, note: String? = nil, opens key: String? = nil) -> some View {
@@ -213,9 +213,23 @@ struct HomeView: View {
     /// Home: what needs you, your to-do (unread, oldest first), notes, people, organizations as groups,
     /// then older read mail in one row.
     @ViewBuilder private func digest(_ d: HomeDigest) -> some View {
+        if store.mode == .sample {
+            SampleMailCard()
+                .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
         if !d.waiting.isEmpty {
             title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
-            rows(d.waiting, compact: false)
+            // Two on Home so Next up stays on the first screen; the rest are one tap away.
+            rows(Array(d.waiting.prefix(Self.waitingOnHome)), compact: false)
+            if d.waiting.count > Self.waitingOnHome {
+                Button { router.open(.mailList("waiting")) } label: {
+                    Text("See all \(d.waiting.count) waiting on you").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("home.waiting.all")
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            }
         }
         youSaidYouWould()
         todo(d.todo)
@@ -350,14 +364,12 @@ struct HomeView: View {
     }
 
     private func trash(_ post: Post) {
-        Task { await store.moveToTrash(post) }
-        offer(.trash(post))
+        Task { await store.moveToTrash(post) }  // the app-wide Undo bar offers Undo
     }
 
+    /// Every Undo goes through the one app-wide bar, with the same 10 seconds as Trash and Send.
     private func offer(_ action: UndoAction) {
-        undo = action
-        let id = action.id
-        Task { try? await Task.sleep(for: .seconds(6)); if undo?.id == id { undo = nil } }
+        _ = store.undo.enqueue(title: action.text, work: {}, undone: { perform(undo: action) })
     }
 
     private func perform(undo action: UndoAction) {
@@ -393,7 +405,7 @@ struct TopBar: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 12)
-                .accessibilityLabel("Settings")
+                .accessibilityLabel("Settings").accessibilityIdentifier("home.settings")
             }
             .padding(.top, 4)
             ZStack {
@@ -530,10 +542,10 @@ struct EmptyFeedNote: View {
     @Environment(FeedStore.self) private var store
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(store.posts.isEmpty ? "No mail loaded yet." : "Nothing here right now.")
+            Text(store.posts.isEmpty ? (store.mode == .gmail && store.lastFetched != nil ? "Your inbox is empty. Nice." : "No mail loaded yet.") : "Nothing here right now.")
                 .font(.subheadline.weight(.medium))
             if store.mode == .gmail, store.posts.isEmpty, store.lastFetched != nil {
-                Text("Gmail connected, but it returned no inbox mail (\(store.sentByMe.count) sent messages found). Pull down to refresh.")
+                Text("Pull down to check again.")
                     .font(.caption).foregroundStyle(CalmStyle.secondary)
             } else if store.filter == .waiting {
                 Text("No one is waiting on a reply from you.").font(.caption).foregroundStyle(CalmStyle.secondary)
@@ -552,7 +564,7 @@ struct UndoBar: View {
             Text(text).font(.subheadline)
             Spacer(minLength: 12)
             Button("Undo", action: undo).font(.subheadline.weight(.semibold)).foregroundStyle(Color.white)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("undo.home")
         }
         .padding(.horizontal, 16)
         .foregroundStyle(Color.white)
@@ -632,6 +644,7 @@ struct MailRow: View {
             if compact { compactBody } else { fullBody }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("mail.row." + post.id)
         .modifier(MailRowActions(post: post, assessment: assessment, fromPerson: fromPerson, waiting: waiting,
                                  onNotWaiting: onNotWaiting, onTrash: onTrash))
     }
@@ -844,26 +857,57 @@ struct NextUpCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Opens the message")
+            .accessibilityHint("Opens the message").accessibilityIdentifier("home.nextup.open")
             HStack(spacing: 8) {
-                Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark").labelStyle(.titleAndIcon) }
+                Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark").labelStyle(AdaptiveLabelStyle()) }
                     .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
-                    .accessibilityHint("Marks it read in Gmail")
+                    .accessibilityHint("Marks it read in Gmail").accessibilityIdentifier("home.nextup.done")
                 LaterMenu(post: post) {
                     Image(systemName: "clock").font(.body.weight(.medium)).foregroundStyle(CalmStyle.blue)
                         .frame(minWidth: 44, minHeight: 40)
                 }
                 if !organization {
-                    Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left").labelStyle(.titleAndIcon) }
-                        .buttonStyle(CalmActionStyle()).lineLimit(1)
+                    Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left").labelStyle(AdaptiveLabelStyle()) }
+                        .buttonStyle(CalmActionStyle()).lineLimit(1).accessibilityIdentifier("home.nextup.reply")
                 }
                 Spacer(minLength: 0)
                 Button(action: onTrash) {
-                    Text("Trash").font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 40)
-                }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash")
+                    Label("Trash", systemImage: "trash").labelStyle(AdaptiveLabelStyle()).font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 44)
+                }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash").accessibilityIdentifier("home.nextup.trash")
             }
         }
         .padding(14)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+/// First launch: says plainly that the people on Home are made up, with Connect right there.
+struct SampleMailCard: View {
+    @Environment(FeedStore.self) private var store
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("This is sample mail. The people here are made up.").font(.subheadline.weight(.semibold))
+            Text("Connect Gmail to see your own. Lovely reads your mail on this iPhone.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            if store.gmailConfigured {
+                Button { Task { await store.connectGmail() } } label: {
+                    Label("Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
+                }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("home.connect")
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+/// Title and icon normally; icon only at the accessibility text sizes, where words would be cut off. VoiceOver still reads the title.
+struct AdaptiveLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View { AdaptiveLabel(configuration: configuration) }
+}
+
+private struct AdaptiveLabel: View {
+    let configuration: LabelStyleConfiguration
+    @Environment(\.dynamicTypeSize) private var size
+    var body: some View {
+        if size.isAccessibilitySize { Label(configuration).labelStyle(.iconOnly) } else { Label(configuration).labelStyle(.titleAndIcon) }
     }
 }

@@ -25,6 +25,12 @@ final class FeedStore {
     private(set) var hidden: Set<String> = []
     private(set) var seen: Set<String> = []
     let gmail: any GmailInboxClient
+    /// How one-click unsubscribe requests are sent. Tests and the UI audit replace it so nothing leaves the phone.
+    /// Replies sent and then undone (or refused), kept so Reply reopens them as they were. This session only.
+    @ObservationIgnored var savedDrafts: [String: String] = [:]
+    /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
+    var declinedSenders: Set<String> = []
+    @ObservationIgnored var httpTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
     /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
     let insights: InsightEngine
     /// Sends and forwards wait here for ten seconds so they can be undone.
@@ -154,7 +160,11 @@ final class FeedStore {
 
     /// Gmail writes beyond Trash and Done. Nil for demo mail and test doubles. Every call needs a ConfirmedAction.
     var actions: GmailActions? {
-        guard mode == .gmail, let service = gmail as? GmailService else { return nil }
+        guard mode == .gmail else { return nil }
+        #if DEBUG
+        if let fixture = gmail as? FixtureGmailClient { return fixture.makeActions() }
+        #endif
+        guard let service = gmail as? GmailService else { return nil }
         return GmailActions(token: { try await service.accessToken() })
     }
 
@@ -580,11 +590,14 @@ final class FeedStore {
     /// The last message moved to Trash, so a screen can offer Undo.
     private(set) var lastTrashed: Post?
 
+    /// Every Trash, from any screen, shows the app-wide Undo bar for 10 seconds. Undo takes it back out of Trash.
     func moveToTrash(_ post: Post) async {
         hidden.insert(post.id); lastTrashed = post; persist()
+        let offer = undo.enqueue(title: "Moved to Trash: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject),
+                                 work: {}, undone: { [self] in Task { await restoreFromTrash(post) } })
         guard mode == .gmail else { return }
         do { try await gmail.trash(messageID: post.id) }
-        catch { trashFailed(post, error) }
+        catch { undo.cancelQuietly(offer); trashFailed(post, error) }
     }
 
     /// Undo for `moveToTrash`.
@@ -623,9 +636,12 @@ final class FeedStore {
         countDone(+1)
         lastDone = post
         persist()
+        let title = "Done: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject)
+        let offer = undo.enqueue(title: title, work: {}, undone: { [self] in Task { await undoDone(post) } })
         guard mode == .gmail else { return }
         do { try await gmail.markRead(messageID: post.id) }
         catch {
+            undo.cancelQuietly(offer)
             setUnread(post.id, true); countDone(-1); persist()
             if lastDone?.id == post.id { lastDone = nil }
             changeFailed(error)

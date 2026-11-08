@@ -13,7 +13,7 @@ struct ScreenedOutRow: View {
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.horizontal, 14).frame(minHeight: 48).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).accessibilityIdentifier("home.row.screenedout")
     }
 }
 
@@ -36,9 +36,9 @@ struct ScreenedOutView: View {
                     Text(c.address).font(.caption).foregroundStyle(CalmStyle.secondary)
                     Text(c.subject).font(.subheadline).lineLimit(2)
                     HStack {
-                        Button("Accept") { store.accept(c) }.buttonStyle(CalmActionStyle(prominent: true))
+                        Button("Accept") { store.accept(c) }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("screened.accept")
                         if store.actions != nil {
-                            Button("Decline", role: .destructive) { target = c; preview = ScreenedOut.declinePreview(c) }.buttonStyle(CalmActionStyle())
+                            Button("Decline", role: .destructive) { target = c; preview = ScreenedOut.declinePreview(c) }.buttonStyle(CalmActionStyle()).accessibilityIdentifier("screened.decline")
                         }
                     }
                 }.padding(.vertical, 4)
@@ -61,7 +61,7 @@ struct ScreenedOutView: View {
         .sheet(item: $preview) { p in
             ActionPreviewSheet(preview: p, confirmTitle: "Decline", destructive: true) { confirmed in
                 guard let c = target else { return }
-                Task { await store.decline(c, confirmed: confirmed) }
+                store.decline(c, confirmed: confirmed)
             }
         }
         .sheet(item: $trashPreview) { p in

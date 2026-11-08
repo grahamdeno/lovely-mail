@@ -179,6 +179,7 @@ struct ActivityLog {
 }
 
 /// Holds a send or forward for a few seconds so it can be cancelled before the API call is made.
+/// Also carries the Undo for actions that already happened (Trash): `undone` runs if the owner taps Undo in time.
 @MainActor
 @Observable
 final class UndoQueue {
@@ -192,21 +193,31 @@ final class UndoQueue {
     var delay: TimeInterval = 10
     var sleeper: @Sendable (TimeInterval) async -> Void = { delay in _ = try? await Task.sleep(for: .seconds(delay)) }
     private var tasks: [String: Task<Void, Never>] = [:]
+    private var undoers: [String: @MainActor () -> Void] = [:]
 
     /// Starts the countdown. `work` runs after the delay unless cancelled; `finished` gets the outcome.
     @discardableResult
-    func enqueue(title: String, work: @escaping @MainActor () async throws -> Void, finished: @escaping @MainActor (Error?) -> Void = { _ in }) -> String {
+    func enqueue(title: String, work: @escaping @MainActor () async throws -> Void, finished: @escaping @MainActor (Error?) -> Void = { _ in },
+                 undone: (@MainActor () -> Void)? = nil) -> String {
         let id = UUID().uuidString
         pending.append(Pending(id: id, title: title, sendsAt: Date().addingTimeInterval(delay)))
+        if let undone { undoers[id] = undone }
         tasks[id] = Task { [weak self] in
             guard let self else { return }
             await self.sleeper(self.delay)
             guard !Task.isCancelled, self.pending.contains(where: { $0.id == id }) else { return }
             self.pending.removeAll { $0.id == id }
             self.tasks[id] = nil
+            self.undoers[id] = nil
             do { try await work(); finished(nil) } catch { finished(error) }
         }
         return id
+    }
+
+    /// Removes an offer without running its Undo (the action failed on its own).
+    func cancelQuietly(_ id: String) {
+        tasks[id]?.cancel(); tasks[id] = nil; undoers[id] = nil
+        pending.removeAll { $0.id == id }
     }
 
     /// Stops a held action. Returns false when it already went.
@@ -215,6 +226,7 @@ final class UndoQueue {
         guard pending.contains(where: { $0.id == id }) else { return false }
         tasks[id]?.cancel(); tasks[id] = nil
         pending.removeAll { $0.id == id }
+        undoers.removeValue(forKey: id)?()
         return true
     }
 }

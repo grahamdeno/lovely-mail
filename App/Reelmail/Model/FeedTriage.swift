@@ -257,7 +257,7 @@ enum FeedTriage {
             }
             let dated = !post.summary.dates.isEmpty || MailKind.mentionsDay(text)
                 || [.school, .travel, .events].contains(post.summary.category)
-            return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + "; it mentions a date" : why)
+            return TriageAssessment(section: dated ? .dated : .updates, reason: dated ? why + ". Mentions a date" : why)
         }
         let first = email.from.firstName
         guard let ask = ReplySignals.askSentence(in: email.body) else {
@@ -289,7 +289,7 @@ enum FeedTriage {
 
     /// Why a message counts as automated, or nil when a person wrote it.
     static func automatedReason(_ email: Email) -> String? {
-        if email.bulk { return "Automated or bulk mail (Gmail tab or list headers)" }
+        if email.bulk { return "From a mailing list or automated sender" }
         if email.from.isAutomated { return "Sent from a system address" }
         if ReplySignals.isMachineText(subject: email.subject, body: email.body) { return "Automated notice (do-not-reply or portal message)" }
         return nil

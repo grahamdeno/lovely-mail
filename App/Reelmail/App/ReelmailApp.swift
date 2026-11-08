@@ -9,6 +9,19 @@ struct ReelmailApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        let store: FeedStore
+        #if DEBUG
+        // UI audit only: fictional mail, a fake Gmail and no network. Never present in release builds.
+        if let fixture = FixtureMode.makeStoreIfRequested() { store = fixture } else { store = Self.makeStandardStore() }
+        #else
+        store = Self.makeStandardStore()
+        #endif
+        _store = State(initialValue: store)
+        MorningBriefScheduler.register(store: store)
+        UNUserNotificationCenter.current().delegate = NotificationOpener.shared
+    }
+
+    private static func makeStandardStore() -> FeedStore {
         // Restore typed settings from iCloud before anything reads them.
         SettingsSync.standard.start()
         let store = FeedStore()
@@ -16,9 +29,7 @@ struct ReelmailApp: App {
                                                object: NSUbiquitousKeyValueStore.default, queue: .main) { _ in
             if SettingsSync.standard.pull() { MainActor.assumeIsolated { store.bumpForScreening() } }
         }
-        _store = State(initialValue: store)
-        MorningBriefScheduler.register(store: store)
-        UNUserNotificationCenter.current().delegate = NotificationOpener.shared
+        return store
     }
 
     var body: some Scene {

@@ -5,7 +5,7 @@ extension FeedStore {
     /// One request to the sender's own unsubscribe address (RFC 8058). Sends no email.
     func unsubscribe(url: URL, sender: String) async {
         do {
-            let (_, response) = try await URLSession.shared.data(for: OneClickUnsubscribe.request(url))
+            let (_, response) = try await httpTransport(OneClickUnsubscribe.request(url))
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             if (200..<300).contains(code) {
                 ActivityLog().record(kind: "unsubscribe", summary: "Unsubscribed from \(sender) at \(url.host ?? "its own address")")
@@ -52,13 +52,22 @@ extension FeedStore {
     }
 
     /// Screened Out: files a first-time sender's messages under Lovely/Screened Out and out of the inbox. Nothing is deleted.
-    func decline(_ candidate: ScreenedOut.Candidate, confirmed: ConfirmedAction) async {
+    /// It leaves the list at once and Gmail is changed after the 10-second Undo, like a send.
+    func decline(_ candidate: ScreenedOut.Candidate, confirmed: ConfirmedAction) {
         guard let actions else { errorMessage = "Connect Gmail first."; return }
-        do {
+        let key = candidate.address.lowercased()
+        declinedSenders.insert(key)
+        undo.enqueue(title: "Declined \(candidate.name)", work: { [self] in
             let label = try await actions.ensureLabel(ScreenedOut.label, confirmed: confirmed)
             for id in candidate.messageIDs { try await actions.file(messageID: id, labelID: label, removeFromInbox: true, confirmed: confirmed) }
-            await load()
-        } catch { errorMessage = "That could not be declined. \(error.localizedDescription)" }
+        }, finished: { [self] error in
+            if let error {
+                declinedSenders.remove(key)
+                errorMessage = "That could not be declined. \(error.localizedDescription)"
+            } else {
+                Task { await load() }
+            }
+        }, undone: { [self] in declinedSenders.remove(key) })
     }
 
     func accept(_ candidate: ScreenedOut.Candidate) { ScreenedOut.approve(candidate.address); bumpForScreening() }
@@ -66,10 +75,11 @@ extension FeedStore {
     /// New senders confirmed by Gmail (no older mail from them, nothing sent to them).
     var newSenders: [ScreenedOut.Candidate] {
         guard mode == .gmail else { return [] }
-        return cached("newSenders", [screeningVersion, otherAddresses]) {
+        let all = cached("newSenders", [screeningVersion, otherAddresses]) {
             ScreenedOut.candidates(inbox: posts.map(\.email), sent: sentByMe, approved: ScreenedOut.approved(),
                                    mine: Set([account ?? ""] + otherAddresses), now: Date(), checked: ScreenedOut.checked())
         }
+        return all.filter { !declinedSenders.contains($0.address.lowercased()) }
     }
 
     /// Kid mail for Home's count and the Kids page, rebuilt only when mail or the profile changes.

@@ -92,6 +92,7 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertFalse(store.isTodo(post))
         XCTAssertEqual(store.doneToday, 1)
         XCTAssertEqual(store.lastDone?.id, "fixture-live")
+        XCTAssertTrue(store.undo.pending.contains { $0.title.hasPrefix("Done") }, "Done offers the app-wide Undo bar")
         await store.undoDone(post)
         XCTAssertEqual(client.markedUnread, ["fixture-live"])
         XCTAssertTrue(store.isTodo(post))
@@ -105,6 +106,7 @@ final class FeedStoreTests: XCTestCase {
         await store.load()
         await store.markDone(store.posts[0])
         XCTAssertTrue(store.isTodo(store.posts[0]), "Still unread when Gmail refuses")
+        XCTAssertTrue(store.undo.pending.isEmpty, "No Undo offered for a Done that did not happen")
         XCTAssertEqual(store.doneToday, 0)
         XCTAssertTrue(store.needsTrashPermission)
         XCTAssertNotNil(store.errorMessage)
@@ -280,4 +282,16 @@ final class FakeInboxClient: GmailInboxClient {
     func markUnread(messageID: String) async throws { markedUnread.append(messageID) }
     func signIn() async throws { isSignedIn = true }
     func signOut() { isSignedIn = false }
+
+    func testStarterReplyTopicReadsNaturally() {
+        XCTAssertEqual(TemplateReplyDrafter.topic("Carpool Thursday?"), "carpool Thursday")
+        XCTAssertEqual(TemplateReplyDrafter.topic("IRS letter."), "IRS letter")
+        XCTAssertEqual(TemplateReplyDrafter.topic("  "), "your note")
+    }
+
+    func testKidReasonsReadAsPlainWords() {
+        XCTAssertEqual(KidInsights.plainReasons(["Names Ava", "Mentions school: oakridge elementary", "Mentions teacher: ms. rivera"]),
+                       "Mentions Ava, Oakridge Elementary, Ms. Rivera")
+        XCTAssertEqual(KidInsights.plainReasons([]), "")
+    }
 }

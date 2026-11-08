@@ -95,3 +95,18 @@ enum NewsletterChunker {
         return out
     }
 }
+
+extension KidInsights {
+    /// "Names Ava · Mentions school: oakridge elementary" reads as "Mentions Ava, Oakridge Elementary".
+    static func plainReasons(_ reasons: [String]) -> String {
+        var terms: [String] = []
+        for r in reasons {
+            let term: String
+            if r.hasPrefix("Names ") { term = String(r.dropFirst("Names ".count)) }
+            else if let colon = r.firstIndex(of: ":") { term = r[r.index(after: colon)...].trimmingCharacters(in: .whitespaces).capitalized }
+            else { term = r }
+            if !term.isEmpty, !terms.contains(term) { terms.append(term) }
+        }
+        return terms.isEmpty ? "" : "Mentions " + terms.joined(separator: ", ")
+    }
+}
