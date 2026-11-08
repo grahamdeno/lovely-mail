@@ -53,6 +53,15 @@ def find_metrics(node, path=""):
     return found
 
 
+MEASURED = re.compile(r"Test Case '-\[\S+\.(\w+) (\w+)\]' measured \[(.+?), (\w+)\] average: ([\d.]+), relative standard deviation: ([\d.]+)%")
+
+
+def metrics_from_log(text):
+    """xcodebuild prints one 'measured [...] average: ...' line per metric. Works when xcresulttool has no metrics."""
+    return [{"path": f"{m.group(1)}/{m.group(2)}", "name": m.group(3), "value": float(m.group(5)), "unit": m.group(4),
+             "relativeStdDevPercent": float(m.group(6))} for m in MEASURED.finditer(text)]
+
+
 def build_summary(jobs, errors, metrics, test_summary):
     jobs = sorted(jobs, key=lambda j: (j["number"], j["condition"]))
     out = {"jobs": [], "crawler": None, "accessibility": [], "metrics": metrics, "tests": test_summary, "exporterErrors": errors}
@@ -87,7 +96,7 @@ def build_summary(jobs, errors, metrics, test_summary):
     return out
 
 
-def export(xcresult, out):
+def export(xcresult, out, log=None):
     out = Path(out)
     raw = out / "raw"
     shots = out / "screenshots"
@@ -153,6 +162,12 @@ def export(xcresult, out):
         except Exception as e:  # noqa: BLE001
             errors.append(f"test summary unreadable: {e}")
 
+    if log and Path(log).exists():
+        logged = metrics_from_log(Path(log).read_text(errors="replace"))
+        if logged:
+            metrics = logged
+        if not any("Hitch" in m["name"] for m in metrics):
+            errors.append("No hitch metric was reported by this simulator run (only the measures listed in metrics).")
     summary = build_summary(jobs, errors, metrics, test_summary)
     (out / "audit-summary.json").write_text(json.dumps(summary, indent=2))
     # A short list for the workflow to print into the job log (artifact downloads may be blocked for reviewers).
@@ -175,6 +190,8 @@ def selftest():
     s = build_summary(jobs, [], find_metrics({"a": [{"name": "Hitches", "value": 1.5, "unit": "ms"}]}), {})
     assert s["totals"] == {"jobRuns": 2, "assertionsPassed": 1, "assertionsFailed": 1, "accessibilityIssues": 1}
     assert s["crawler"]["crashes"] and s["metrics"][0]["name"] == "Hitches"
+    line = "Test Case '-[ReelmailUITests.AuditSmoothness testLaunch]' measured [Duration (AppLaunch), s] average: 2.312, relative standard deviation: 21.200%, values: [1.7]"
+    assert metrics_from_log(line)[0]["value"] == 2.312 and metrics_from_log(line)[0]["path"] == "AuditSmoothness/testLaunch"
     print("export_audit selftest: ok")
 
 
@@ -182,7 +199,7 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "selftest":
         selftest()
-    elif cmd == "export" and len(sys.argv) == 4:
-        export(sys.argv[2], sys.argv[3])
+    elif cmd == "export" and len(sys.argv) in (4, 5):
+        export(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) == 5 else None)
     else:
         sys.exit("usage: export_audit.py export <xcresult> <out-dir> | selftest")

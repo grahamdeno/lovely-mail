@@ -280,7 +280,7 @@ enum FixtureData {
             Email(id: "fx-group", threadId: "thr-potluck", from: maya, to: [account, dana.email, leo.email], cc: [rosa.email],
                   subject: "Potluck Saturday: who brings what?", date: ago(4),
                   body: "Hi all, the potluck is at our place at 5. Graham, can you bring the salad? Dana has drinks and Leo has the rolls. Rosa, please bring dessert."),
-            Email(id: "fx-sense", threadId: "thr-sense", from: sense, to: [account], subject: "Your \(lastMonth()) Sense report", date: ago(5),
+            Email(id: "fx-sense", threadId: "thr-sense", from: sense, to: [account], subject: "Your \(lastMonth()) Sense energy report", date: ago(5),
                   body: "Your home energy summary.\n612 kWh used. 301 kWh produced.\nYou spent $3.84/day, up $0.40 per day.\nAlways On $41 this month", bulk: true),
             Email(id: "fx-dana", threadId: "thr-dana", from: dana, to: [account], subject: "Carpool Thursday?", date: ago(6),
                   body: "Can you drive on Thursday? I can take Saturday. Let me know which works."),

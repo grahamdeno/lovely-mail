@@ -18,7 +18,7 @@ final class AuditJobs: AuditCase {
     private func morningCheck(_ c: AuditCondition) {
         begin(1, "morning", "Morning check: open and clear five emails", c)
         guard waitForHome() else { return }
-        check(app.buttons["home.nextup.open"].waitForExistence(timeout: 20), "Home shows a Next up card with mail to clear")
+        check(app.buttons["home.nextup.open"].waitForExistence(timeout: 20) || locate(app.buttons["home.nextup.open"]), "Home shows a Next up card with mail to clear")
         shot("home", screen: "Home")
 
         // First one: open it, read it, tap Done.
@@ -107,8 +107,7 @@ final class AuditJobs: AuditCase {
     /// Opens a message from Home: through its row if it shows, otherwise through Search.
     private func openMail(subject: String, rowID: String) {
         let row = app.buttons["mail.row." + rowID]
-        var n = 0
-        while !(row.exists && row.isHittable) && n < 6 { app.swipeUp(velocity: .slow); n += 1 }
+        _ = locate(row)
         if row.exists && row.isHittable {
             shot("home-scrolled")
             tap(row, "mail row \(subject)")
@@ -152,7 +151,7 @@ final class AuditJobs: AuditCase {
     private func trashAndUndo(_ c: AuditCondition) {
         begin(4, "trash", "Trash from Home and from an open email, then Undo", c)
         guard waitForHome() else { return }
-        check(app.buttons["home.nextup.trash"].waitForExistence(timeout: 20), "Home offers Trash on the Next up card")
+        check(app.buttons["home.nextup.trash"].waitForExistence(timeout: 20) || locate(app.buttons["home.nextup.trash"]), "Home offers Trash on the Next up card")
         shot("home", screen: "Home")
 
         // From Home.
@@ -214,8 +213,7 @@ final class AuditJobs: AuditCase {
         begin(6, "decline-sender", "Decline a new sender", .light)
         guard waitForHome() else { return }
         let row = app.buttons["home.row.screenedout"]
-        var n = 0
-        while !(row.exists && row.isHittable) && n < 6 { app.swipeUp(velocity: .slow); n += 1 }
+        _ = locate(row)
         check(row.waitForExistence(timeout: 20), "Home shows a 'New senders' row for the first-time sender")
         shot("home-row", screen: "Home")
         if tap(row, "New senders row") {
@@ -240,8 +238,7 @@ final class AuditJobs: AuditCase {
         begin(7, "kids", "Kids view for one child", .light)
         guard waitForHome() else { return }
         let row = app.buttons["home.row.kids"]
-        var n = 0
-        while !(row.exists && row.isHittable) && n < 6 { app.swipeUp(velocity: .slow); n += 1 }
+        _ = locate(row)
         check(row.waitForExistence(timeout: 10), "Home shows a Kids row")
         shot("home-row", screen: "Home")
         if tap(row, "Kids row") {
@@ -261,8 +258,7 @@ final class AuditJobs: AuditCase {
         begin(8, "money", "Bills and money alerts", .light)
         guard waitForHome() else { return }
         let row = app.buttons["home.row.money"]
-        var n = 0
-        while !(row.exists && row.isHittable) && n < 6 { app.swipeUp(velocity: .slow); n += 1 }
+        _ = locate(row)
         check(row.waitForExistence(timeout: 30), "Home shows a Money row once bills are read")
         shot("home-row", screen: "Home")
         if tap(row, "Money row") {
@@ -274,8 +270,7 @@ final class AuditJobs: AuditCase {
         }
         mark("money checked")
         let energy = app.buttons["home.row.energy"]
-        n = 0
-        while !(energy.exists && energy.isHittable) && n < 6 { app.swipeUp(velocity: .slow); n += 1 }
+        _ = locate(energy)
         if tap(energy, "Energy row") {
             shot("energy", screen: "Energy")
             check(anyText(containing: ["kWh", "$3.84", "Sense"]), "The Sense report numbers are shown")

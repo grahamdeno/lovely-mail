@@ -116,13 +116,10 @@ class AuditCase: XCTestCase {
     /// One tap on a real control. Returns false (and records a failed check) when the control is not there.
     @discardableResult
     func tap(_ element: XCUIElement, _ what: String, timeout: TimeInterval = 10) -> Bool {
-        guard element.waitForExistence(timeout: timeout) else {
-            check(false, "Found '\(what)' to tap", "not on screen after \(Int(timeout)) s")
-            return false
-        }
-        if !element.isHittable { scrollIntoView(element) }
-        guard element.isHittable else {
-            check(false, "Could tap '\(what)'", "on screen but not hittable")
+        _ = element.waitForExistence(timeout: min(timeout, 4))
+        // Controls can start under the tab bar or off screen, and the accessibility audit can scroll the page. Find it like a person would.
+        if !isClear(element), !locate(element) {
+            check(false, "Found '\(what)' to tap", element.exists ? "on screen but covered or not hittable" : "not found after scrolling up and down")
             return false
         }
         job.taps += 1
@@ -136,6 +133,22 @@ class AuditCase: XCTestCase {
             job.typedEntries += 1
             field.typeText(text)
         }
+    }
+
+    /// True when the control is on screen, tappable and not hidden behind the tab bar.
+    func isClear(_ element: XCUIElement) -> Bool {
+        guard element.exists, element.isHittable else { return false }
+        let bar = app.buttons["tab.home"]
+        if bar.exists, bar.isHittable, !element.identifier.hasPrefix("tab."), element.frame.maxY > bar.frame.minY - 4 { return false }
+        return true
+    }
+
+    /// Scrolls down, then back up, until the control is clear of the tab bar. False if it never is.
+    func locate(_ element: XCUIElement) -> Bool {
+        if isClear(element) { return true }
+        for _ in 0..<10 { app.swipeUp(velocity: .slow); if isClear(element) { return true } }
+        for _ in 0..<14 { app.swipeDown(velocity: .slow); if isClear(element) { return true } }
+        return false
     }
 
     func scrollIntoView(_ element: XCUIElement, maxSwipes: Int = 8) {

@@ -85,11 +85,11 @@ jobs:
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1500 \
             $ONLY \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ci-audit/test.log | grep -E "Test Case|error:|failed|passed|Executed" | tail -n 120
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ci-audit/test.log | grep -Ei "Test Case|error:|failed|passed|Executed|crash|exception" | tail -n 250
 
       - name: Export screenshots and audit-summary.json
         if: ${{ !cancelled() && hashFiles('ci-audit/Audit.xcresult/Info.plist') != '' }}
-        run: python3 -I scripts/export_audit.py export ci-audit/Audit.xcresult ci-audit/out
+        run: python3 -I scripts/export_audit.py export ci-audit/Audit.xcresult ci-audit/out ci-audit/test.log
 
       - name: Print the summary
         if: ${{ !cancelled() && hashFiles('ci-audit/out/audit-summary.json') != '' }}
