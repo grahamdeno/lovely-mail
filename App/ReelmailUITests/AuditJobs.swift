@@ -111,6 +111,11 @@ final class AuditJobs: AuditCase {
         if row.exists && row.isHittable {
             shot("home-scrolled")
             tap(row, "mail row \(subject)")
+        } else if app.buttons["home.waiting.all"].exists || locate(app.buttons["home.waiting.all"]) {
+            // Home shows two Waiting on you rows; the rest are behind "See all".
+            tap(app.buttons["home.waiting.all"], "See all waiting on you")
+            let listed = app.buttons["mail.row." + rowID]
+            if !locate(listed) { tap(text(containing: subject), "row \(subject) in the full list") } else { tap(listed, "row \(subject) in the full list") }
         } else {
             note("The row for \(subject) was not reachable on Home after 6 swipes; used Search.")
             app.swipeDown(); app.swipeDown()
