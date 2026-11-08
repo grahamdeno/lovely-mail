@@ -78,24 +78,22 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee "$RUNNER_TEMP/archive.log" | tail -n 40 \
             || { grep -E "error:|Error|No profiles|No Accounts|certificate|provisioning" "$RUNNER_TEMP/archive.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
 
-      - name: Add entitlements to the unsigned archive
+      - name: Sign the archive ad hoc with the app's entitlements
         run: |
-          # An unsigned archive carries no entitlements, and export re-signs with whatever the archive holds.
-          # Xcode reads archived-expanded-entitlements.xcent at export, so write it from Config/Reelmail.entitlements.
+          # Export re-signs with the entitlements it finds in the archive's code signature. The archive is built
+          # unsigned (Xcode refuses ad hoc signing for iOS and development signing needs a registered device),
+          # so sign it ad hoc here with codesign, which needs no certificate. Export then replaces this signature.
           APP="$RUNNER_TEMP/Reelmail.xcarchive/Products/Applications/Reelmail.app"
           TEAM=7MHDTK68M2
           BUNDLE=com.grahamdeno.reelmail
-          cat > "$APP/archived-expanded-entitlements.xcent" <<P
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>application-identifier</key><string>$TEAM.$BUNDLE</string>
-            <key>com.apple.developer.team-identifier</key><string>$TEAM</string>
-            <key>com.apple.developer.ubiquity-kvstore-identifier</key><string>$TEAM.$BUNDLE</string>
-          </dict></plist>
-          P
-          plutil -lint "$APP/archived-expanded-entitlements.xcent"
-          cat "$APP/archived-expanded-entitlements.xcent"
+          sed -e "s/\$(TeamIdentifierPrefix)/$TEAM./" -e "s/\$(CFBundleIdentifier)/$BUNDLE/" Config/Reelmail.entitlements > "$RUNNER_TEMP/ent.plist"
+          plutil -lint "$RUNNER_TEMP/ent.plist"
+          grep -q "$TEAM.$BUNDLE" "$RUNNER_TEMP/ent.plist" || { echo "::error::entitlements did not expand"; cat "$RUNNER_TEMP/ent.plist"; exit 1; }
+          find "$APP" -depth \( -name "*.framework" -o -name "*.dylib" -o -name "*.appex" \) -print -exec codesign --force --sign - {} \;
+          codesign --force --sign - --entitlements "$RUNNER_TEMP/ent.plist" --generate-entitlement-der "$APP"
+          codesign -d --entitlements - "$APP" 2>&1 | tee "$RUNNER_TEMP/archive-ent.txt"
+          grep -q "ubiquity-kvstore-identifier" "$RUNNER_TEMP/archive-ent.txt" || { echo "::error::archive still has no iCloud entitlement"; exit 1; }
+          echo "::notice::Archive signed ad hoc with the iCloud key-value entitlement"
 
       - name: Verify Gmail config in the archived app
         run: |
@@ -128,11 +126,11 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
             -authenticationKeyID "$KEY_ID" \
             -authenticationKeyIssuerID "$ISSUER" 2>&1 | tee "$RUNNER_TEMP/export.log" | tail -n 40 \
-            || { grep -E "error:|Error|failed|certificate|provisioning" "$RUNNER_TEMP/export.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+            || { grep -E -i "error:|failed|certificate|provisioning|capabilit|icloud|entitlement" "$RUNNER_TEMP/export.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
           if [ "$DEST" = "export" ]; then
             IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
             mkdir -p "$RUNNER_TEMP/ipa" && unzip -q "$IPA" -d "$RUNNER_TEMP/ipa"
-            codesign -d --entitlements :- "$RUNNER_TEMP"/ipa/Payload/*.app > "$RUNNER_TEMP/ipa-ent.plist" 2>"$RUNNER_TEMP/ipa-ent.err" || true
+            codesign -d --entitlements - --xml "$RUNNER_TEMP"/ipa/Payload/*.app > "$RUNNER_TEMP/ipa-ent.plist" 2>"$RUNNER_TEMP/ipa-ent.err" || true
             echo "--- entitlements in the exported app ---"; cat "$RUNNER_TEMP/ipa-ent.plist" "$RUNNER_TEMP/ipa-ent.err"
             grep -q "ubiquity-kvstore-identifier" "$RUNNER_TEMP/ipa-ent.plist" || { echo "::error::iCloud entitlement lost in export"; exit 1; }
             echo "::notice::Dry run: exported and signed with the iCloud entitlement. Nothing uploaded."
