@@ -56,7 +56,7 @@ final class AuditJobs: AuditCase {
         if tap(app.buttons["tab.people"], "People tab") {
             shot("people", screen: "People")
             let field = app.textFields["Find a person or organization"]
-            type("Dana", into: field, "Find a person")
+            enter("Dana", into: field, "Find a person")
             settle()
             shot("typed-dana")
             let result = text(containing: "Dana Brooks")
@@ -116,7 +116,7 @@ final class AuditJobs: AuditCase {
             note("The row for \(subject) was not reachable on Home after 6 swipes; used Search.")
             app.swipeDown(); app.swipeDown()
             tap(app.buttons["tab.search"], "Search tab")
-            type(subject, into: app.textFields["People, organizations, subjects"], "Search")
+            enter(subject, into: app.textFields["People, organizations, subjects"], "Search")
             tap(text(containing: subject), "search result \(subject)")
         }
         check(app.buttons["email.reply"].waitForExistence(timeout: 10), "The email opens with a Reply button")
@@ -128,7 +128,7 @@ final class AuditJobs: AuditCase {
             let editor = app.textViews["draft.editor"]
             check(editor.waitForExistence(timeout: 15), "The reply sheet opens with a text box (\(label))")
             shot("reply-sheet-" + label, screen: "Reply sheet")
-            if editor.exists { type(body, into: editor, "reply text") }
+            if editor.exists { enter(body, into: editor, "reply text") }
             shot("reply-typed-" + label)
             if tap(app.buttons["draft.send"], "Send") {
                 check(app.buttons["preview.confirm"].waitForExistence(timeout: 8), "A preview sheet shows exactly what will be sent (\(label))")
@@ -340,7 +340,7 @@ final class AuditJobs: AuditCase {
                 check(app.textFields.matching(NSPredicate(format: "value == %@", "Ava")).firstMatch.exists, "Ava is listed")
                 let add = app.textFields["Add a household"]
                 scrollIntoView(add)
-                type("Beach cabin", into: add, "Add a household")
+                enter("Beach cabin", into: add, "Add a household")
                 tap(app.buttons["Add"].firstMatch, "Add household")
                 shot("household-added")
                 goBack()

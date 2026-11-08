@@ -208,8 +208,8 @@ enum FixtureRecorder {
         guard let body = request.httpBody, let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else { return line }
         if let raw = json["raw"] as? String, let text = decodeBase64URL(raw) {
             for header in ["To", "Subject"] {
-                if let value = text.split(separator: "\n").first(where: { $0.hasPrefix(header + ": ") }) {
-                    line += " \(header.lowercased())=" + value.dropFirst(header.count + 2).trimmingCharacters(in: .whitespaces)
+                if let value = text.components(separatedBy: "\r\n").first(where: { $0.hasPrefix(header + ": ") }) {
+                    line += " \(header.lowercased())=" + String(value.dropFirst(header.count + 2)).trimmingCharacters(in: .whitespacesAndNewlines)
                 }
             }
         }

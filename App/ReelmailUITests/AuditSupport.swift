@@ -131,7 +131,7 @@ class AuditCase: XCTestCase {
     }
 
     /// Typing is counted separately from taps: one entry per field filled in.
-    func type(_ text: String, into field: XCUIElement, _ what: String) {
+    func enter(_ text: String, into field: XCUIElement, _ what: String) {
         if tap(field, "field " + what) {
             job.typedEntries += 1
             field.typeText(text)
@@ -158,7 +158,7 @@ class AuditCase: XCTestCase {
 
     /// Everything the fake Gmail and fake transport recorded so far, in order.
     func fixtureLines() -> [String] {
-        guard let app else { return [] }
+        guard let app, app.state == .runningForeground else { return [] }
         let element = app.descendants(matching: .any)["fixture.requests"]
         guard element.exists, let value = element.value as? String, !value.isEmpty else { return [] }
         return value.split(separator: "\n").map(String.init)
