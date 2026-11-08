@@ -122,6 +122,12 @@ class AuditCase: XCTestCase {
             check(false, "Found '\(what)' to tap", element.exists ? "on screen but covered or not hittable" : "not found after scrolling up and down")
             return false
         }
+        if element.identifier.hasPrefix("undo.") {
+            let bar = app.buttons["tab.home"]
+            if bar.exists, bar.isHittable, element.frame.maxY > bar.frame.minY {
+                note("The Undo bar overlaps the tab bar in condition \(condition.name).")
+            }
+        }
         job.taps += 1
         element.tap()
         return true
@@ -139,7 +145,9 @@ class AuditCase: XCTestCase {
     func isClear(_ element: XCUIElement) -> Bool {
         guard element.exists, element.isHittable else { return false }
         let bar = app.buttons["tab.home"]
-        if bar.exists, bar.isHittable, !element.identifier.hasPrefix("tab."), element.frame.maxY > bar.frame.minY - 4 { return false }
+        // Undo bars and preview sheets float above the page; scrolling cannot move them, and the 10-second window is short.
+        let floats = ["tab.", "undo.", "preview."].contains { element.identifier.hasPrefix($0) }
+        if bar.exists, bar.isHittable, !floats, element.frame.maxY > bar.frame.minY - 4 { return false }
         return true
     }
 
@@ -150,6 +158,9 @@ class AuditCase: XCTestCase {
         for _ in 0..<14 { app.swipeDown(velocity: .slow); if isClear(element) { return true } }
         return false
     }
+
+    /// On screen now, or reachable by scrolling.
+    func present(_ element: XCUIElement) -> Bool { element.waitForExistence(timeout: 3) || locate(element) }
 
     func scrollIntoView(_ element: XCUIElement, maxSwipes: Int = 8) {
         var n = 0

@@ -43,7 +43,8 @@ final class AuditCrawler: AuditCase {
     }
 
     private func screenName(_ fallback: String) -> String {
-        let title = app.navigationBars.firstMatch.identifier
+        let bar = app.navigationBars.firstMatch
+        let title = bar.exists ? bar.identifier : ""
         return title.isEmpty ? fallback : title
     }
 

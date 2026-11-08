@@ -26,7 +26,7 @@ final class AuditJobs: AuditCase {
             check(app.buttons["email.done"].waitForExistence(timeout: 8), "The open email offers Done")
             shot("email-open", screen: "Open email")
             if tap(app.buttons["email.done"], "Done in the open email") {
-                check(app.buttons["home.nextup.open"].waitForExistence(timeout: 8), "Back on Home with the next email waiting")
+                check(app.buttons["home.nextup.open"].waitForExistence(timeout: 8) || locate(app.buttons["home.nextup.open"]), "Back on Home with the next email waiting")
                 shot("after-first-done")
             }
         }
@@ -81,7 +81,7 @@ final class AuditJobs: AuditCase {
         // First reply: send, then Undo inside the 10 seconds. Nothing may go out.
         replyAndConfirm(label: "first", body: " Thursday works for me.")
         if app.buttons["undo.banner"].waitForExistence(timeout: 8) {
-            shot("undo-offer", screen: "Undo bar")
+            shot("undo-offer")
             if tap(app.buttons["undo.banner"], "Undo") {
                 mark("undid the send")
                 settle(1)
@@ -158,7 +158,7 @@ final class AuditJobs: AuditCase {
         if tap(app.buttons["home.nextup.trash"], "Trash on Home") {
             check(waitForRequest("CLIENT trash", atLeast: 1), "Gmail was asked to move the message to Trash")
             check(app.buttons["undo.banner"].waitForExistence(timeout: 6), "An Undo bar appears after Trash on Home")
-            shot("trashed-from-home", screen: "Undo bar")
+            shot("trashed-from-home")
             if tap(app.buttons["undo.banner"], "Undo") {
                 check(waitForRequest("CLIENT untrash", atLeast: 1), "Undo brought the message back from Trash")
                 shot("undone-from-home")
@@ -171,7 +171,7 @@ final class AuditJobs: AuditCase {
             if tap(app.buttons["email.trash"], "Trash in the open email") {
                 check(waitForRequest("CLIENT trash", atLeast: 2), "The second Trash reached Gmail")
                 check(app.buttons["undo.banner"].waitForExistence(timeout: 6), "An Undo bar appears after Trash in an open email")
-                shot("trashed-from-email", screen: "Undo bar after leaving the email")
+                shot("trashed-from-email")
                 if tap(app.buttons["undo.banner"], "Undo") {
                     check(waitForRequest("CLIENT untrash", atLeast: 2), "Undo from the email brought the message back")
                     shot("undone-from-email")
@@ -198,7 +198,7 @@ final class AuditJobs: AuditCase {
                 shot("preview", screen: "Shoebox preview")
                 tap(app.buttons["preview.confirm"], "Confirm")
                 check(app.buttons["undo.banner"].waitForExistence(timeout: 8), "An Undo bar holds the forward for 10 seconds")
-                shot("held")
+                shot("held", screen: "Undo bar")
             }
         }
         mark("forward confirmed")
@@ -332,7 +332,7 @@ final class AuditJobs: AuditCase {
             if tap(rowButton, "Households and kids") {
                 shot("households", screen: "Households and kids")
                 check(app.textFields.matching(NSPredicate(format: "value == %@", "Maple Street house")).firstMatch.waitForExistence(timeout: 8), "The household 'Maple Street house' is listed")
-                check(app.textFields.matching(NSPredicate(format: "value == %@", "Ava")).firstMatch.exists, "Ava is listed")
+                check(present(app.textFields.matching(NSPredicate(format: "value == %@", "Ava")).firstMatch), "Ava is listed")
                 let add = app.textFields["Add a household"]
                 scrollIntoView(add)
                 enter("Beach cabin", into: add, "Add a household")
@@ -356,9 +356,9 @@ final class AuditJobs: AuditCase {
                 if tap(again, "Households and kids after Disconnect") {
                     shot("households-after", screen: "Households after Disconnect")
                     check(app.textFields.matching(NSPredicate(format: "value == %@", "Maple Street house")).firstMatch.waitForExistence(timeout: 8), "The household is still there after Disconnect")
-                    check(app.textFields.matching(NSPredicate(format: "value == %@", "Beach cabin")).firstMatch.exists, "The household added a moment ago is still there")
-                    check(app.textFields.matching(NSPredicate(format: "value == %@", "Ava")).firstMatch.exists, "Ava is still there after Disconnect")
-                    check(app.textFields.matching(NSPredicate(format: "value == %@", "Noah")).firstMatch.exists, "Noah is still there after Disconnect")
+                    check(present(app.textFields.matching(NSPredicate(format: "value == %@", "Beach cabin")).firstMatch), "The household added a moment ago is still there")
+                    check(present(app.textFields.matching(NSPredicate(format: "value == %@", "Ava")).firstMatch), "Ava is still there after Disconnect")
+                    check(present(app.textFields.matching(NSPredicate(format: "value == %@", "Noah")).firstMatch), "Noah is still there after Disconnect")
                 }
             }
         }
