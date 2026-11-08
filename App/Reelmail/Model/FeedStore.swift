@@ -26,6 +26,10 @@ final class FeedStore {
     private(set) var seen: Set<String> = []
     let gmail: any GmailInboxClient
     /// How one-click unsubscribe requests are sent. Tests and the UI audit replace it so nothing leaves the phone.
+    /// Replies sent and then undone (or refused), kept so Reply reopens them as they were. This session only.
+    @ObservationIgnored var savedDrafts: [String: String] = [:]
+    /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
+    var declinedSenders: Set<String> = []
     @ObservationIgnored var httpTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
     /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
     let insights: InsightEngine
@@ -632,9 +636,12 @@ final class FeedStore {
         countDone(+1)
         lastDone = post
         persist()
+        let title = "Done: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject)
+        let offer = undo.enqueue(title: title, work: {}, undone: { [self] in Task { await undoDone(post) } })
         guard mode == .gmail else { return }
         do { try await gmail.markRead(messageID: post.id) }
         catch {
+            undo.cancelQuietly(offer)
             setUnread(post.id, true); countDone(-1); persist()
             if lastDone?.id == post.id { lastDone = nil }
             changeFailed(error)

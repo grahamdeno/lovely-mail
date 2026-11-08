@@ -6,13 +6,14 @@ struct RollingTabBar: View {
     static let indicatorSize: CGFloat = barHeight - RM.Radius.tabBarPadding * 2
     static func rotation(forIndex index: Int) -> Double { Double(index) * 90 }
     private let tabs: [AppTab] = [.home, .people, .search]
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         HStack(spacing: 4) {
             ForEach(tabs) { tab in
                 Button { selection = tab } label: {
                     VStack(spacing: 5) {
                         Image(systemName: tab.symbol).font(.body.weight(.semibold))
-                        Text(tab.title).font(.caption.weight(.medium))
+                        if !typeSize.isAccessibilitySize { Text(tab.title).font(.caption.weight(.medium)).lineLimit(1) }
                     }
                     .foregroundStyle(selection == tab ? CalmStyle.blue : CalmStyle.secondary)
                     .frame(maxWidth: .infinity, minHeight: Self.barHeight)

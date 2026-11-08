@@ -127,7 +127,9 @@ final class AuditJobs: AuditCase {
             let editor = app.textViews["draft.editor"]
             check(editor.waitForExistence(timeout: 15), "The reply sheet opens with a text box (\(label))")
             shot("reply-sheet-" + label, screen: "Reply sheet")
-            if editor.exists { enter(body, into: editor, "reply text") }
+            let kept = (editor.value as? String)?.contains(body.trimmingCharacters(in: .whitespaces)) ?? false
+            if label == "second" { check(kept, "After Undo, Reply brings back the text you typed") }
+            if editor.exists && !kept { enter(body, into: editor, "reply text") }
             shot("reply-typed-" + label)
             if tap(app.buttons["draft.send"], "Send") {
                 check(app.buttons["preview.confirm"].waitForExistence(timeout: 8), "A preview sheet shows exactly what will be sent (\(label))")
@@ -224,7 +226,10 @@ final class AuditJobs: AuditCase {
                 check(app.buttons["preview.confirm"].waitForExistence(timeout: 8), "A preview says what Decline will do")
                 shot("decline-preview", screen: "Decline preview")
                 tap(app.buttons["preview.confirm"], "Confirm decline")
-                check(waitForRequest("fx-new/modify", timeout: 15), "The sender's mail was filed under the Lovely label, out of the inbox")
+                check(!text(containing: "Jordan Pike").waitForExistence(timeout: 3) || !app.buttons["screened.decline"].exists, "Jordan Pike leaves the list at once")
+                check(app.buttons["undo.banner"].waitForExistence(timeout: 5), "An Undo bar holds the decline for 10 seconds")
+                shot("decline-held", screen: "Undo bar after Decline")
+                check(waitForRequest("fx-new/modify", timeout: 25), "The sender's mail was filed under the Lovely label, out of the inbox")
                 check(count("DELETE") == 0 && count("trash") == 0, "Nothing was deleted or trashed")
                 shot("after-decline")
             }
@@ -284,6 +289,7 @@ final class AuditJobs: AuditCase {
         begin(9, "first-launch", "First launch through Connect", .signedOut)
         guard waitForHome() else { return }
         shot("first-home", screen: "Home (not connected)")
+        check(app.buttons["home.connect"].waitForExistence(timeout: 8), "Home says the mail is sample mail and offers Connect")
         if tap(app.buttons["home.settings"], "Settings") {
             let connect = app.buttons["settings.connect"]
             check(connect.waitForExistence(timeout: 8), "Settings offers 'Connect Gmail'")
@@ -346,6 +352,10 @@ final class AuditJobs: AuditCase {
             let disconnect = app.buttons["settings.disconnect"]
             scrollIntoView(disconnect)
             if tap(disconnect, "Disconnect Gmail") {
+                let confirm = app.buttons.matching(NSPredicate(format: "label == %@", "Disconnect")).firstMatch
+                check(confirm.waitForExistence(timeout: 5), "Disconnect asks once before signing out")
+                shot("disconnect-confirm", screen: "Disconnect confirmation")
+                tap(confirm, "Confirm Disconnect")
                 check(waitForRequest("CLIENT signOut", timeout: 8), "Disconnect signed out of Gmail")
                 settle(1.5)
                 shot("after-disconnect", screen: "Settings after Disconnect")

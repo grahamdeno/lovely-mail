@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var showingFiltered = false
+    @State private var confirmDisconnect = false
 
     private var sourceDetail: String {
         switch (store.mode, store.gmailConfigured) {
@@ -41,11 +42,16 @@ struct SettingsView: View {
                 }
                 if store.gmailConfigured, store.mode == .gmail, !store.needsReconnect {
                     // Quiet on purpose: it clears the mail kept on this phone.
-                    Button(role: .destructive) { Task { await store.disconnectGmail() } } label: {
+                    Button(role: .destructive) { confirmDisconnect = true } label: {
                         Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled")
                             .font(.subheadline).foregroundStyle(CalmStyle.roseInk)
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityIdentifier("settings.disconnect")
+                    .confirmationDialog("Disconnect Gmail?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
+                        Button("Disconnect", role: .destructive) { Task { await store.disconnectGmail() } }
+                    } message: {
+                        Text("Mail kept on this iPhone is cleared. Households, kids and your addresses stay. You can connect again any time.")
+                    }
                 }
 
                 SettingsHeader(text: "Your other addresses")

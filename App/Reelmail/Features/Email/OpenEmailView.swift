@@ -99,7 +99,7 @@ struct OpenEmailView: View {
                     }
                 }
                 if HandoffPrompt.isAllowed(address: post.email.from.email, name: post.email.from.name, subject: post.email.subject, sensitive: post.summary.sensitive) {
-                    Button { handoffPost = post } label: { Label("Hand off to an agent", systemImage: "square.and.arrow.up.on.square") }
+                    Button { handoffPost = post } label: { Label("Share with an AI assistant", systemImage: "square.and.arrow.up.on.square") }
                 }
                 if post.email.bulk, store.mode == .gmail {
                     Button { Task { await prepareUnsubscribe(post) } } label: { Label("Unsubscribe", systemImage: "hand.raised") }

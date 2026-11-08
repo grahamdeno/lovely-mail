@@ -61,7 +61,7 @@ struct ScreenedOutView: View {
         .sheet(item: $preview) { p in
             ActionPreviewSheet(preview: p, confirmTitle: "Decline", destructive: true) { confirmed in
                 guard let c = target else { return }
-                Task { await store.decline(c, confirmed: confirmed) }
+                store.decline(c, confirmed: confirmed)
             }
         }
         .sheet(item: $trashPreview) { p in

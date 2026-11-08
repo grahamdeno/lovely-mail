@@ -212,7 +212,7 @@ struct NudgeSheet: View {
                 Button { open() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                     .buttonStyle(CalmActionStyle(prominent: true))
             }
-            Text("Lovely never sends email. Review and send it yourself in Gmail.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("This one opens in Gmail for you to send.").font(.caption).foregroundStyle(CalmStyle.secondary)
         }
         .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)

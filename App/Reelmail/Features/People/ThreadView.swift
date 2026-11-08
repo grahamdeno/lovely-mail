@@ -44,7 +44,7 @@ struct ThreadView: View {
         .safeAreaInset(edge: .bottom) {
             if let latestIncoming {
                 HStack {
-                    Text("Draft here, send in Gmail").font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2).minimumScaleFactor(0.8)
+                    Text("Draft a reply here").font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2).minimumScaleFactor(0.8)
                     Spacer()
                     Button { router.draftPostID = latestIncoming.id } label: { Label("Draft reply", systemImage: "arrowshape.turn.up.left") }
                         .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1).fixedSize()
