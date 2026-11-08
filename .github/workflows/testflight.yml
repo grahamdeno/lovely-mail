@@ -78,13 +78,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee "$RUNNER_TEMP/archive.log" | tail -n 40 \
             || { grep -E "error:|Error|No profiles|No Accounts|certificate|provisioning" "$RUNNER_TEMP/archive.log" | sort -u | head -25 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
 
-      - name: Report entitlements in the archive
+      - name: Add entitlements to the unsigned archive
         run: |
-          # The archive is unsigned (Apple's SDK refuses ad hoc signing and development signing needs a registered device).
-          # Export re-signs it and takes entitlements from the archive's expanded entitlements file. Report what it holds.
+          # An unsigned archive carries no entitlements, and export re-signs with whatever the archive holds.
+          # Xcode reads archived-expanded-entitlements.xcent at export, so write it from Config/Reelmail.entitlements.
           APP="$RUNNER_TEMP/Reelmail.xcarchive/Products/Applications/Reelmail.app"
-          ls "$APP" | grep -i xcent || echo "no .xcent file in the app"
-          cat "$APP"/archived-expanded-entitlements.xcent 2>/dev/null || echo "no archived-expanded-entitlements.xcent"
+          TEAM=7MHDTK68M2
+          BUNDLE=com.grahamdeno.reelmail
+          cat > "$APP/archived-expanded-entitlements.xcent" <<P
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>application-identifier</key><string>$TEAM.$BUNDLE</string>
+            <key>com.apple.developer.team-identifier</key><string>$TEAM</string>
+            <key>com.apple.developer.ubiquity-kvstore-identifier</key><string>$TEAM.$BUNDLE</string>
+          </dict></plist>
+          P
+          plutil -lint "$APP/archived-expanded-entitlements.xcent"
+          cat "$APP/archived-expanded-entitlements.xcent"
 
       - name: Verify Gmail config in the archived app
         run: |
@@ -121,7 +132,8 @@ jobs:
           if [ "$DEST" = "export" ]; then
             IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
             mkdir -p "$RUNNER_TEMP/ipa" && unzip -q "$IPA" -d "$RUNNER_TEMP/ipa"
-            codesign -d --entitlements - --xml "$RUNNER_TEMP"/ipa/Payload/*.app > "$RUNNER_TEMP/ipa-ent.plist" 2>/dev/null || true
+            codesign -d --entitlements :- "$RUNNER_TEMP"/ipa/Payload/*.app > "$RUNNER_TEMP/ipa-ent.plist" 2>"$RUNNER_TEMP/ipa-ent.err" || true
+            echo "--- entitlements in the exported app ---"; cat "$RUNNER_TEMP/ipa-ent.plist" "$RUNNER_TEMP/ipa-ent.err"
             grep -q "ubiquity-kvstore-identifier" "$RUNNER_TEMP/ipa-ent.plist" || { echo "::error::iCloud entitlement lost in export"; exit 1; }
             echo "::notice::Dry run: exported and signed with the iCloud entitlement. Nothing uploaded."
           else
