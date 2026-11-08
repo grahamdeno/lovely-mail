@@ -155,4 +155,20 @@ final class GmailActionsTests: XCTestCase {
         XCTAssertTrue(ran)
         XCTAssertFalse(q.cancel(id2), "already went")
     }
+
+    func testUndoForADoneActionRunsOnlyWhenTapped() async {
+        let q = UndoQueue(); q.delay = 0.2
+        var restored = 0
+        let tapped = q.enqueue(title: "Moved to Trash: Example", work: {}, undone: { restored += 1 })
+        XCTAssertTrue(q.cancel(tapped))
+        XCTAssertEqual(restored, 1)
+        let failed = q.enqueue(title: "Moved to Trash: Example", work: {}, undone: { restored += 1 })
+        q.cancelQuietly(failed)
+        XCTAssertEqual(restored, 1, "a failed Trash removes the offer without restoring")
+        XCTAssertTrue(q.pending.isEmpty)
+        _ = q.enqueue(title: "Moved to Trash: Example", work: {}, undone: { restored += 1 })
+        try? await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(restored, 1, "no Undo after the window closes")
+        XCTAssertTrue(q.pending.isEmpty)
+    }
 }

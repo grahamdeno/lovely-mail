@@ -232,3 +232,8 @@ Design: docs/sprint6-design.md. Insights from mail, all on the iPhone: a full-pa
 - Delete, remove, decline, clear and disconnect buttons are rose-red (`role: .destructive`; CalmActionStyle honors it).
 - "Send to Shoebox" in an email's "…" menu when a Shoebox address is set and allowed; preview, 10-second Undo, health mail excluded.
 
+### Build 1025 feedback (Nov 7, 2026)
+- Tab switching much smoother after the Home caching fix.
+- Trash showed no Undo when used outside Home (the Undo bar lived only in Home). Fixed on `fix/trash-undo`: every Trash, from any screen, shows the app-wide Undo bar for 10 seconds; Undo takes it out of Gmail's Trash. No "are you sure" prompt, by the owner's choice.
+- Mark as done (read) still offers Undo only on Home.
+

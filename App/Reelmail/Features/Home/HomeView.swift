@@ -181,7 +181,6 @@ struct HomeView: View {
         }
         .animation(.easeOut(duration: 0.2), value: undo?.id)
         .onChange(of: store.lastDone?.id) { _, _ in if let post = store.lastDone { offer(.done(post)) } }
-        .onChange(of: store.lastTrashed?.id) { _, _ in if let post = store.lastTrashed { offer(.trash(post)) } }
         .onChange(of: store.lastPutOff?.post.id) { _, _ in if let item = store.lastPutOff { offer(.later(item.post, item.until)) } }
         .onChange(of: store.lastPromiseClosed?.id) { _, _ in if let item = store.lastPromiseClosed { offer(.promise(id: item.id, text: item.text)) } }
         .onChange(of: store.lastWaitingDismissed) { _, _ in if let id = store.lastWaitingDismissed { offer(.waitingGone(id: id)) } }
@@ -350,8 +349,7 @@ struct HomeView: View {
     }
 
     private func trash(_ post: Post) {
-        Task { await store.moveToTrash(post) }
-        offer(.trash(post))
+        Task { await store.moveToTrash(post) }  // the app-wide Undo bar offers Undo
     }
 
     private func offer(_ action: UndoAction) {

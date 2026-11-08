@@ -580,11 +580,14 @@ final class FeedStore {
     /// The last message moved to Trash, so a screen can offer Undo.
     private(set) var lastTrashed: Post?
 
+    /// Every Trash, from any screen, shows the app-wide Undo bar for 10 seconds. Undo takes it back out of Trash.
     func moveToTrash(_ post: Post) async {
         hidden.insert(post.id); lastTrashed = post; persist()
+        let offer = undo.enqueue(title: "Moved to Trash: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject),
+                                 work: {}, undone: { [self] in Task { await restoreFromTrash(post) } })
         guard mode == .gmail else { return }
         do { try await gmail.trash(messageID: post.id) }
-        catch { trashFailed(post, error) }
+        catch { undo.cancelQuietly(offer); trashFailed(post, error) }
     }
 
     /// Undo for `moveToTrash`.
