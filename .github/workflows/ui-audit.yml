@@ -1,0 +1,138 @@
+name: ui-audit
+# Manual UI audit. Runs the app in fixture mode (fictional mail, a fake Gmail, no network) on a simulator,
+# walks the ten jobs, crawls every screen, audits accessibility, measures smoothness, and exports every
+# screenshot plus audit-summary.json. Start it from the Actions tab. It never touches Gmail, TestFlight or any secret.
+# Before this file reaches the default branch GitHub cannot dispatch it, so adding the label `ui-audit` to a pull request
+# starts the same run. Nothing else starts it.
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Optional xcodebuild -only-testing filter, e.g. ReelmailUITests/AuditJobs (blank runs everything)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'ui-audit' }}
+    runs-on: macos-26
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Privacy guard
+        run: |
+          python3 -I scripts/privacy_guard.py selftest
+          python3 -I scripts/privacy_guard.py check
+          python3 -I scripts/export_audit.py selftest
+
+      - name: Select Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XC" ]; then echo '::error::Xcode 26 is unavailable'; exit 1; fi
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available iPhone | grep -Eo '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' | head -1)
+          if [ -z "$UDID" ]; then echo '::error::No available iPhone simulator'; exit 1; fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b || true
+
+      - name: Build for testing
+        run: |
+          mkdir -p ci-audit
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project Reelmail.xcodeproj -scheme ReelmailUIAudit \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ci-audit/build.log | tail -n 25 \
+            || { grep -E "error:" ci-audit/build.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+
+      - name: Run the UI audit
+        id: run
+        continue-on-error: true
+        env:
+          ONLY_INPUT: ${{ inputs.only }}
+        run: |
+          set -o pipefail
+          ONLY=""
+          if [ -n "$ONLY_INPUT" ]; then ONLY="-only-testing:$ONLY_INPUT"; fi
+          xcodebuild test-without-building \
+            -project Reelmail.xcodeproj -scheme ReelmailUIAudit \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/dd \
+            -resultBundlePath ci-audit/Audit.xcresult \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1500 \
+            $ONLY \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ci-audit/test.log | grep -E "Test Case|error:|failed|passed|Executed" | tail -n 120
+
+      - name: Export screenshots and audit-summary.json
+        if: ${{ !cancelled() && hashFiles('ci-audit/Audit.xcresult/Info.plist') != '' }}
+        run: python3 -I scripts/export_audit.py export ci-audit/Audit.xcresult ci-audit/out
+
+      - name: Print the summary
+        if: ${{ !cancelled() && hashFiles('ci-audit/out/audit-summary.json') != '' }}
+        run: |
+          echo "AUDIT-SUMMARY-BEGIN"
+          python3 -I - <<'PY'
+          import json
+          s = json.load(open('ci-audit/out/audit-summary.json'))
+          s['jobs'] = [{k: v for k, v in j.items() if k not in ('screenshots',)} for j in s['jobs']]
+          print(json.dumps(s, indent=1))
+          PY
+          echo "AUDIT-SUMMARY-END"
+          cat ci-audit/out/audit-summary.json | python3 -I -c "import json,sys; t=json.load(sys.stdin)['totals']; print(t)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Print screenshots for remote review
+        # Fictional fixture mail only. Lets a reviewer without artifact access read the captures from the job log.
+        if: ${{ !cancelled() && hashFiles('ci-audit/out/log-shots.txt') != '' }}
+        run: |
+          while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            out="${RUNNER_TEMP}/shot.jpg"
+            sips -s format jpeg -s formatOptions 45 --resampleWidth 330 "ci-audit/out/screenshots/$name" --out "$out" >/dev/null
+            echo "SHOT-BEGIN $name"
+            base64 -i "$out" | tr -d '\n'; echo
+            echo "SHOT-END"
+          done < ci-audit/out/log-shots.txt
+
+      - name: Upload screenshots and summary
+        if: ${{ !cancelled() && hashFiles('ci-audit/out/audit-summary.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-audit/out/
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload logs and result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-audit-raw-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci-audit/*.log
+            ci-audit/Audit.xcresult
+          retention-days: 7
+          if-no-files-found: warn

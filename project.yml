@@ -49,6 +49,18 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.grahamdeno.reelmail.tests
         GENERATE_INFOPLIST_FILE: YES
+  ReelmailUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - App/ReelmailUITests
+    dependencies:
+      - target: Reelmail
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.grahamdeno.reelmail.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Reelmail
 schemes:
   Reelmail:
     build:
@@ -57,3 +69,12 @@ schemes:
     test:
       targets:
         - ReelmailTests
+  # Manual UI audit (see .github/workflows/ui-audit.yml). Kept out of the Reelmail scheme so the normal unit-test run stays fast.
+  ReelmailUIAudit:
+    build:
+      targets:
+        Reelmail: all
+        ReelmailUITests: all
+    test:
+      targets:
+        - ReelmailUITests
