@@ -14,7 +14,7 @@ struct KidsRow: View {
             }
             .padding(.horizontal, 14).frame(minHeight: 48)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).accessibilityIdentifier("home.row.kids")
     }
 }
 

@@ -55,6 +55,9 @@ struct RootView: View {
         }
         .tint(CalmStyle.blue)
         .overlay(alignment: .bottom) { UndoBanner().padding(.bottom, 76) }
+        #if DEBUG
+        .overlay(alignment: .topLeading) { if FixtureMode.isRequested { FixtureRequestsOverlay() } }
+        #endif
         .sheet(item: Binding(
             get: { router.draftPostID.flatMap { id in store.posts.first { $0.id == id } } },
             set: { router.draftPostID = $0?.id }

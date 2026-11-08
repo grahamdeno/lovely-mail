@@ -391,7 +391,7 @@ struct TopBar: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 12)
-                .accessibilityLabel("Settings")
+                .accessibilityLabel("Settings").accessibilityIdentifier("home.settings")
             }
             .padding(.top, 4)
             ZStack {
@@ -550,7 +550,7 @@ struct UndoBar: View {
             Text(text).font(.subheadline)
             Spacer(minLength: 12)
             Button("Undo", action: undo).font(.subheadline.weight(.semibold)).foregroundStyle(Color.white)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("undo.home")
         }
         .padding(.horizontal, 16)
         .foregroundStyle(Color.white)
@@ -630,6 +630,7 @@ struct MailRow: View {
             if compact { compactBody } else { fullBody }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("mail.row." + post.id)
         .modifier(MailRowActions(post: post, assessment: assessment, fromPerson: fromPerson, waiting: waiting,
                                  onNotWaiting: onNotWaiting, onTrash: onTrash))
     }
@@ -842,23 +843,23 @@ struct NextUpCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Opens the message")
+            .accessibilityHint("Opens the message").accessibilityIdentifier("home.nextup.open")
             HStack(spacing: 8) {
                 Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark").labelStyle(.titleAndIcon) }
                     .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
-                    .accessibilityHint("Marks it read in Gmail")
+                    .accessibilityHint("Marks it read in Gmail").accessibilityIdentifier("home.nextup.done")
                 LaterMenu(post: post) {
                     Image(systemName: "clock").font(.body.weight(.medium)).foregroundStyle(CalmStyle.blue)
                         .frame(minWidth: 44, minHeight: 40)
                 }
                 if !organization {
                     Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left").labelStyle(.titleAndIcon) }
-                        .buttonStyle(CalmActionStyle()).lineLimit(1)
+                        .buttonStyle(CalmActionStyle()).lineLimit(1).accessibilityIdentifier("home.nextup.reply")
                 }
                 Spacer(minLength: 0)
                 Button(action: onTrash) {
                     Text("Trash").font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 40)
-                }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash")
+                }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash").accessibilityIdentifier("home.nextup.trash")
             }
         }
         .padding(14)

@@ -18,7 +18,7 @@ struct EnergyRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).accessibilityIdentifier("home.row.energy")
     }
 }
 

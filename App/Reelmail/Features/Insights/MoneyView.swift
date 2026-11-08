@@ -17,7 +17,7 @@ struct MoneyRow: View {
             .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 48)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).accessibilityIdentifier("home.row.money")
     }
 
     private var line: String {

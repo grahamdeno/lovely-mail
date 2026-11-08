@@ -18,7 +18,7 @@ struct RollingTabBar: View {
                     .frame(maxWidth: .infinity, minHeight: Self.barHeight)
                     .background(selection == tab ? CalmStyle.blue.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 12))
                     .contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel(tab.title)
+                }.buttonStyle(.plain).accessibilityLabel(tab.title).accessibilityIdentifier("tab." + tab.title.lowercased())
                     .accessibilityAddTraits(selection == tab ? .isSelected : [])
             }
         }.padding(6)

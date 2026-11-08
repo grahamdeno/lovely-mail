@@ -42,6 +42,7 @@ struct DraftReplySheet: View {
                     .font(.body)
                     .padding(8)
                     .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                    .accessibilityIdentifier("draft.editor")
                 if loading { ProgressView() }
             }
 
@@ -53,7 +54,7 @@ struct DraftReplySheet: View {
                     .buttonStyle(CalmActionStyle())
                 Spacer()
                 if canSend {
-                    Button { previewSend() } label: { Label("Send", systemImage: "paperplane") }
+                    Button { previewSend() } label: { Label("Send", systemImage: "paperplane") }.accessibilityIdentifier("draft.send")
                         .buttonStyle(CalmActionStyle(prominent: true))
                 }
                 Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }

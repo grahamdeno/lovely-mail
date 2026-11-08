@@ -25,6 +25,8 @@ final class FeedStore {
     private(set) var hidden: Set<String> = []
     private(set) var seen: Set<String> = []
     let gmail: any GmailInboxClient
+    /// How one-click unsubscribe requests are sent. Tests and the UI audit replace it so nothing leaves the phone.
+    @ObservationIgnored var httpTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
     /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
     let insights: InsightEngine
     /// Sends and forwards wait here for ten seconds so they can be undone.
@@ -154,7 +156,11 @@ final class FeedStore {
 
     /// Gmail writes beyond Trash and Done. Nil for demo mail and test doubles. Every call needs a ConfirmedAction.
     var actions: GmailActions? {
-        guard mode == .gmail, let service = gmail as? GmailService else { return nil }
+        guard mode == .gmail else { return nil }
+        #if DEBUG
+        if let fixture = gmail as? FixtureGmailClient { return fixture.makeActions() }
+        #endif
+        guard let service = gmail as? GmailService else { return nil }
         return GmailActions(token: { try await service.accessToken() })
     }
 

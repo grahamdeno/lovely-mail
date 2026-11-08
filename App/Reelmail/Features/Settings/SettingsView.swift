@@ -34,7 +34,7 @@ struct SettingsView: View {
                 if store.gmailConfigured, !(store.mode == .gmail && !store.needsReconnect) {
                     Button { Task { await store.connectGmail() } } label: {
                         Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
-                    }.buttonStyle(CalmActionStyle(prominent: true))
+                    }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("settings.connect")
                 }
                 if let error = store.errorMessage, !store.needsReconnect {
                     Text(error).font(.caption).foregroundStyle(CalmStyle.secondary)
@@ -45,7 +45,7 @@ struct SettingsView: View {
                         Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled")
                             .font(.subheadline).foregroundStyle(CalmStyle.roseInk)
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plain).accessibilityIdentifier("settings.disconnect")
                 }
 
                 SettingsHeader(text: "Your other addresses")
@@ -198,7 +198,7 @@ private struct SettingsRow: View {
             }
             .padding(.horizontal, 14).frame(minHeight: 48).frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).accessibilityIdentifier("settings.row." + title)
     }
 }
 

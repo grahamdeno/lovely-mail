@@ -66,11 +66,11 @@ struct OpenEmailView: View {
     private func actionBar(_ post: Post, assessment: TriageAssessment, organization: Bool) -> some View {
         HStack(spacing: 8) {
             if !organization {
-                Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+                Button { router.draftPostID = post.id } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }.accessibilityIdentifier("email.reply")
                     .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
             }
             if post.email.isUnread {
-                Button { Task { await store.markDone(post) }; leave() } label: { Label("Done", systemImage: "checkmark") }
+                Button { Task { await store.markDone(post) }; leave() } label: { Label("Done", systemImage: "checkmark") }.accessibilityIdentifier("email.done")
                     .buttonStyle(CalmActionStyle(prominent: organization)).lineLimit(1)
                     .accessibilityHint("Takes it off your to-do and marks it read in Gmail")
             }
@@ -88,7 +88,7 @@ struct OpenEmailView: View {
                 Image(systemName: "trash").font(.body.weight(.medium)).foregroundStyle(CalmStyle.roseInk)
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel("Move to Gmail Trash")
+            .accessibilityLabel("Move to Gmail Trash").accessibilityIdentifier("email.trash")
             Menu {
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                 if let shoebox = ShoeboxRule.address(),
@@ -132,7 +132,7 @@ struct OpenEmailView: View {
                 Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue)
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel("More actions")
+            .accessibilityLabel("More actions").accessibilityIdentifier("email.more")
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .background(CalmStyle.background)

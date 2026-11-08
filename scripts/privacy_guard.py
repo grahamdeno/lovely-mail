@@ -21,6 +21,9 @@ SERVICE = "Gmail/GmailService.swift"
 CONFIG = "Gmail/GmailConfig.swift"
 SHEET = "Features/Actions/ActionPreviewSheet.swift"
 GUARDS = "Gmail/ActionGuards.swift"
+# UI audit fixtures: a fake Gmail for simulator tests. Debug builds only; release builds must neither contain nor reach it.
+FIXTURES = "Fixtures/UITestFixtures.swift"
+FIXTURE_SYMBOLS = r"\b(FixtureMode|FixtureGmailClient|FixtureLog|FixtureRequestsOverlay|FixtureData|FixtureRecorder)\b|uiTestFixtures|uiTest(Expired|NoPermission|Offline|Empty|SignedOut|Appearance)"
 
 # Helpers in GmailActions.swift that do not change anything by themselves.
 HELPERS = {"request", "call", "deliver", "encode", "init"}
@@ -32,11 +35,50 @@ def strip_comments(text):
     return "\n".join(re.sub(r"(?<!:)//.*$", "", line) for line in text.splitlines())
 
 
+def without_debug_regions(text):
+    """The text with every line inside `#if DEBUG` removed (the `#else` side of it stays: that is the release build)."""
+    kept, stack = [], []
+    for line in text.splitlines():
+        t = line.strip()
+        if t.startswith("#if"):
+            stack.append("debug" if re.fullmatch(r"#if\s+DEBUG\s*", t) else "release" if re.fullmatch(r"#if\s+!\s*DEBUG\s*", t) else "other")
+            kept.append("")
+        elif t.startswith("#else") and stack:
+            stack[-1] = {"debug": "release", "release": "debug"}.get(stack[-1], "other")
+            kept.append("")
+        elif t.startswith("#endif") and stack:
+            stack.pop(); kept.append("")
+        else:
+            kept.append("" if "debug" in stack else line)
+    return "\n".join(kept)
+
+
+def check_fixture_file(text):
+    """The fixture file must be wrapped entirely in `#if DEBUG` and must never open a network connection."""
+    bad = []
+    code = [l.strip() for l in strip_comments(text).splitlines() if l.strip()]
+    if not code or code[0] != "#if DEBUG" or code[-1] != "#endif":
+        bad.append(f"{FIXTURES}: the whole file must sit inside #if DEBUG ... #endif.")
+    if any(l.startswith("#else") or l.startswith("#elseif") for l in code):
+        bad.append(f"{FIXTURES}: no #else or #elseif: the file must not exist in release builds at all.")
+    if any(l.startswith("#if") and l != "#if DEBUG" for l in code[1:]) or sum(1 for l in code if l.startswith("#if")) != sum(1 for l in code if l.startswith("#endif")):
+        bad.append(f"{FIXTURES}: only one #if DEBUG, closed once, at the ends of the file.")
+    if re.search(r"URLSession|URLConnection|NWConnection|CFNetwork", strip_comments(text)):
+        bad.append(f"{FIXTURES}: fixtures must not open network connections.")
+    return bad
+
+
 def check(files):
     """files: {relative path: text}. Returns a list of violation strings."""
     bad = []
     for rel, raw in files.items():
         text = strip_comments(raw)
+        if rel == FIXTURES:
+            bad.extend(check_fixture_file(raw))
+        else:
+            release_text = without_debug_regions(text)
+            for m in re.finditer(FIXTURE_SYMBOLS, release_text):
+                bad.append(f"{rel}:{release_text[: m.start()].count(chr(10)) + 1}: Fixture mode may be named only inside #if DEBUG (release builds must not reach it).")
         def hit(pattern, message, allowed=()):
             if rel in allowed:
                 return
@@ -56,7 +98,7 @@ def check(files):
         hit(r"(?<![\w.])gmail\.(labels|metadata|insert|addons|settings)", "Gmail scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
         hit(r"gmail\.googleapis\.com", "The Gmail API may be called only from GmailService.swift and GmailActions.swift.", allowed=(SERVICE, ACTIONS))
         hit(r"/messages/(import|insert)|/import\b|/insert\b|/settings/forwarding\b|/stop\b|/watch\b", "Importing, inserting, auto-forwarding and push watch are never allowed.")
-        hit(r'"(send|labels|filters|forwardingAddresses|settings|drafts)"', "Gmail endpoint names may appear only in GmailActions.swift.", allowed=(ACTIONS,))
+        hit(r'"(send|labels|filters|forwardingAddresses|settings|drafts)"', "Gmail endpoint names may appear only in GmailActions.swift.", allowed=(ACTIONS, FIXTURES))
         if rel != ACTIONS:
             for m in re.finditer(r"LabelIds", text):
                 window = text[m.start(): m.start() + 40]
@@ -131,9 +173,21 @@ struct GmailActions {
         "read-only func that writes": {ACTIONS: good_actions.replace('call("GET", "/settings/forwardingAddresses")', 'call("POST", "/settings/filters")')},
         "unconfirmed forwarding create": {ACTIONS: good_actions + '\nstruct Z { func addForwarding() async throws { call("GET", "/settings/forwardingAddresses") } }'},
         "endpoint built from parts": {"Model/X.swift": 'let u = "/messages/" + "send"'},
+        "fixture named in release code": {"Model/X.swift": "let s = FixtureMode.makeStoreIfRequested()"},
+        "fixture flag in release code": {"Model/X.swift": 'let on = args.contains("-uiTestFixtures")'},
+        "fixture after the debug block ends": {"Model/X.swift": "#if DEBUG\nlet a = 1\n#endif\nlet s = FixtureGmailClient()"},
+        "fixture on the not-debug side": {"Model/X.swift": "#if DEBUG\nlet a = 1\n#else\nlet s = FixtureData.inbox()\n#endif"},
+        "fixture under a different condition": {"Model/X.swift": "#if TESTING\nlet s = FixtureData.inbox()\n#endif"},
+        "fixture file not wrapped": {FIXTURES: "enum FixtureData {}"},
+        "fixture file with a release side": {FIXTURES: "#if DEBUG\nenum FixtureData {}\n#else\nenum FixtureData {}\n#endif"},
+        "fixture file with a second condition": {FIXTURES: "#if DEBUG\n#if os(iOS)\nenum A {}\n#endif\n#endif"},
+        "fixture file with network": {FIXTURES: "#if DEBUG\nlet s = URLSession.shared\n#endif"},
     }
     for name, files in cases.items():
         assert check(files), f"guard missed: {name}"
+    # Fixture mode is allowed inside #if DEBUG, in other files and in its own file.
+    assert check({"Model/X.swift": "#if DEBUG\nlet s = FixtureMode.makeStoreIfRequested()\n#endif\nlet t = 1", FIXTURES: "#if DEBUG\nenum FixtureData { let a = \"labels\" }\n#endif"}) == []
+    assert check({"Model/X.swift": "#if !DEBUG\nlet t = 1\n#else\nlet s = FixtureMode.isRequested\n#endif"}) == []
     # Comments never trip the guard.
     assert check({"Model/X.swift": "// we never call /messages/send here"}) == []
     print("privacy_guard selftest: ok")

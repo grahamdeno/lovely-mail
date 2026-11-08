@@ -5,7 +5,7 @@ extension FeedStore {
     /// One request to the sender's own unsubscribe address (RFC 8058). Sends no email.
     func unsubscribe(url: URL, sender: String) async {
         do {
-            let (_, response) = try await URLSession.shared.data(for: OneClickUnsubscribe.request(url))
+            let (_, response) = try await httpTransport(OneClickUnsubscribe.request(url))
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             if (200..<300).contains(code) {
                 ActivityLog().record(kind: "unsubscribe", summary: "Unsubscribed from \(sender) at \(url.host ?? "its own address")")
