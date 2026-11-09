@@ -64,12 +64,19 @@ final class SessionModel {
     }
 
     /// One at a time first, then the quick batch, then reading, then anything skipped, then the wrap-up.
-    func advance() {
+    func advance(skipping skippedNow: String? = nil) {
         let open = plan.items.filter(isOpen)
         if let next = open.first(where: { $0.group == .oneAtATime && !progress.skipped.contains($0.id) }) { phase = .item(next.id); return }
         if open.contains(where: { $0.group == .quick }) { phase = .batch; return }
         if open.contains(where: { $0.group == .reading }) { phase = .reading; return }
-        if let skipped = open.first(where: { $0.group == .oneAtATime }) { phase = .item(skipped.id); return }
+        // Back to skipped ones, but never straight back to the one just skipped: with only it left, Skip looked broken
+        // (it reopened the same email). Then the session wraps up and leaves it in the inbox.
+        let skipped = open.filter { $0.group == .oneAtATime && $0.id != skippedNow }
+        if let i = open.firstIndex(where: { $0.id == skippedNow }),
+           let after = skipped.first(where: { s in (open.firstIndex { $0.id == s.id } ?? 0) > i }) ?? skipped.first {
+            phase = .item(after.id); return
+        }
+        if let first = skipped.first { phase = .item(first.id); return }
         phase = .wrap
     }
 
@@ -172,7 +179,7 @@ final class SessionModel {
         advance()
     }
 
-    func skip(_ id: String) { progress.markSkipped(id); advance() }
+    func skip(_ id: String) { progress.markSkipped(id); advance(skipping: id) }
 
     func addedDate() { datesAdded += 1 }
 

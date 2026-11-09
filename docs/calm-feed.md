@@ -366,3 +366,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   then Your rules (Lovely filters + Gmail filters, New senders, Short-term), Morning brief, Clean up, Households and kids,
   Look and feel, AI, Privacy and activity; each row shows its value. Sign-in warnings and Connect stay on top. Testing tools
   hidden: tap the version line 5 times. Later moved to a Home chip ("Later · N") and its own page. UI audit steps updated.
+- Nov 9: Skip in the inbox session did nothing on the last open email (it reopened the same one). Now Skip moves to the next skipped email, never the one just skipped; with none left, the session wraps up and leaves it in the inbox.
