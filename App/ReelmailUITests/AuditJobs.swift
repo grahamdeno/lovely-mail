@@ -355,6 +355,8 @@ final class AuditJobs: AuditCase {
 
             // Disconnect.
             let disconnect = app.buttons["settings.disconnect"]
+            // Start from the top so the button is not under the navigation bar.
+            for _ in 0..<3 { app.swipeDown(); settle(0.2) }
             scrollIntoView(disconnect)
             if tap(disconnect, "Disconnect Gmail") {
                 let confirm = app.buttons.matching(NSPredicate(format: "label == %@", "Disconnect")).firstMatch
@@ -484,7 +486,13 @@ final class AuditJobs: AuditCase {
         check(waitForRequest("CLIENT markRead", atLeast: 1, timeout: 10), "Put-away mail was marked read")
         check(count("/messages/send") == 0, "Nothing was sent")
         check(count("DELETE") == 0, "Nothing was deleted")
-        if tap(app.buttons["session.done"], "Done") { check(waitForHome(timeout: 8), "Back on Home") }
+        if tap(app.buttons["session.done"], "Done") {
+            settle(1)
+            shot("after-done", screen: "Home after the session")
+            let home = waitForHome(timeout: 10)
+            if !home { note("After Done: " + visibleTexts(limit: 25).joined(separator: " | ")) }
+            check(home, "Back on Home")
+        }
         mark("session finished")
     }
 }

@@ -64,8 +64,11 @@ struct SessionHeader: View {
             HStack {
                 Text(title).font(.headline)
                 Spacer()
-                Button(action: close) { Image(systemName: "xmark").font(.body.weight(.semibold)).frame(width: 44, height: 44) }
-                    .buttonStyle(.plain).foregroundStyle(CalmStyle.secondary)
+                Button(action: close) {
+                    Image(systemName: "xmark").font(.body.weight(.semibold))
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).foregroundStyle(CalmStyle.secondary).frame(minWidth: 44, minHeight: 44)
                     .accessibilityLabel("Close session").accessibilityIdentifier("session.close")
             }
             if model.plan.count > 0 {
