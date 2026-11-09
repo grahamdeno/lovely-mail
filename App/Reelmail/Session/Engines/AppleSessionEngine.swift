@@ -4,7 +4,7 @@ import FoundationModels
 /// The on-device answer shape. Empty strings mean "none"; the validator decides what is allowed.
 @Generable
 struct AppleSessionCommand {
-    @Guide(description: "Exactly one of: reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, unclear.")
+    @Guide(description: "Exactly one of: reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, search, unclear.")
     var action: String
     @Guide(description: "For put_away, add_date or reply: a drawer name from the list, else empty.")
     var drawer: String
@@ -16,6 +16,8 @@ struct AppleSessionCommand {
     var task: String
     @Guide(description: "One short sentence for the owner: what will happen, or a question if unsure.")
     var say: String
+    @Guide(description: "For search: a Gmail search like to:name@example.com newer_than:30d, else empty.")
+    var query: String
 }
 
 /// Apple Intelligence on the iPhone. Never touches the network. Weaker than the cloud engines; when it is unsure it says so.
@@ -32,7 +34,7 @@ struct AppleSessionEngine: SessionEngine {
         func opt(_ s: String) -> String? { let t = s.trimmingCharacters(in: .whitespacesAndNewlines); return t.isEmpty ? nil : t }
         return EngineAnswer(command: SessionCommand(action: c.action.trimmingCharacters(in: .whitespaces).lowercased(),
                                                     drawer: opt(c.drawer), reply: opt(c.reply), later: opt(c.later),
-                                                    task: opt(c.task), say: opt(c.say)),
+                                                    task: opt(c.task), say: opt(c.say), query: opt(c.query)),
                             engine: .apple)
     }
 }

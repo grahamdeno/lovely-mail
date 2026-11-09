@@ -6,7 +6,7 @@ import Foundation
 
 /// What an engine sends back, exactly as the playbook's schema describes it.
 struct SessionCommand: Codable, Equatable, Sendable {
-    /// reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, unclear
+    /// reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, search, unclear
     var action: String
     /// For put_away, add_date and reply: one of the drawer names in the playbook ("Money", "Kids/Avery").
     var drawer: String?
@@ -18,12 +18,16 @@ struct SessionCommand: Codable, Equatable, Sendable {
     var task: String?
     /// One short sentence to show the owner: what will happen, or what is unclear.
     var say: String?
+    /// For search: a Gmail search ("to:support@example.com newer_than:30d"). Lovely runs it read-only on the phone.
+    var query: String?
 
-    init(action: String, drawer: String? = nil, reply: String? = nil, later: String? = nil, task: String? = nil, say: String? = nil) {
+    init(action: String, drawer: String? = nil, reply: String? = nil, later: String? = nil, task: String? = nil, say: String? = nil,
+         query: String? = nil) {
         self.action = action; self.drawer = drawer; self.reply = reply; self.later = later; self.task = task; self.say = say
+        self.query = query
     }
 
-    static let actions = ["reply", "put_away", "add_date", "later", "leave_unread", "archive", "trash", "skip", "handoff", "unclear"]
+    static let actions = ["reply", "put_away", "add_date", "later", "leave_unread", "archive", "trash", "skip", "handoff", "search", "unclear"]
     static let laterChoices = ["this evening", "tomorrow", "this weekend", "next week"]
 }
 
@@ -39,6 +43,8 @@ enum SessionAction: Equatable, Sendable {
     case trash
     case skip
     case handoff(task: String)
+    /// Look something up in his Gmail (read-only, on the phone; results never go to an engine).
+    case search(query: String)
     case unclear(String)
 
     /// The one-line description on the confirm card.
@@ -53,6 +59,7 @@ enum SessionAction: Equatable, Sendable {
         case .trash: return "Move to Trash"
         case .skip: return "Skip for now"
         case .handoff: return "Hand this to an agent"
+        case .search(let q): return "Searched Gmail: \(q)"
         case .unclear(let why): return why
         }
     }
@@ -114,6 +121,10 @@ enum SessionCommandValidator {
         case "handoff":
             let task = (c.task ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return task.isEmpty ? .unclear("What should the agent do?") : .handoff(task: String(task.prefix(600)))
+        case "search":
+            let q = (c.query ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !q.isEmpty else { return .unclear("What should I look for in your Gmail?") }
+            return .search(query: String(q.prefix(200)))
         default:
             return .unclear(c.say?.isEmpty == false ? c.say! : "I did not follow that. Try one of the buttons.")
         }

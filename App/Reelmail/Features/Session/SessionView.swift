@@ -1072,6 +1072,9 @@ extension SessionItemScreen {
                 handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account,
                                               links: FormScripts.links(in: post.email.body, senderAddress: post.email.from.email))
             }.buttonStyle(SessionButtonStyle()).lineLimit(3)
+        case .search(let query):
+            // Reading, not changing: it runs at once, on the phone, and the results stay here.
+            GmailSearchResults(query: query)
         case .unclear:
             EmptyView()
         }
@@ -1088,6 +1091,7 @@ extension SessionItemScreen {
         case .trash: return "trash"
         case .skip: return "skip"
         case .handoff: return "handoff"
+        case .search: return "search"
         case .unclear: return "unclear"
         }
     }
