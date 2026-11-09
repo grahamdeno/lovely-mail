@@ -23,8 +23,9 @@ struct PhotoCalendarReading {
     var events: [PhotoCalendarEvent]
 }
 
-/// "Add events from a photo": pick a photo or screenshot of a calendar, check what Lovely read, and add the new ones to
-/// the Work calendar (the Google calendar synced to this iPhone). Read on the phone only; nothing goes to Claude or Grok.
+/// "Add events from a photo": take or pick a photo of a calendar, check what Lovely read, and add the new ones to the
+/// Work calendar (the Google calendar synced to this iPhone). With a Claude key the photo is read by Claude (the owner
+/// said his work calendar is not sensitive); otherwise on this iPhone.
 /// Events already there (same title, overlapping time) start unchecked. Adding waits 10 seconds for Undo.
 struct PhotoEventsView: View {
     @Environment(FeedStore.self) private var store
@@ -36,6 +37,7 @@ struct PhotoEventsView: View {
     @State private var target: EKCalendar?
     @State private var note: String?
     @State private var showCamera = false
+    @State private var readBy: String?
     private let eventStore = EKEventStore()
 
     enum Phase: Equatable { case start, reading, review, added(Int) }
@@ -91,7 +93,9 @@ struct PhotoEventsView: View {
             }
             .buttonStyle(SessionButtonStyle(prominent: !UIImagePickerController.isSourceTypeAvailable(.camera)))
             .accessibilityIdentifier("photoEvents.pick")
-            Text("Nothing is sent to Claude or Grok. Events already on your calendar at the same time with the same title are skipped.")
+            Text(EngineSettings.hasKey(.claude) && EngineSettings.key(.claude) != nil
+                 ? "Claude reads the photo with your key (only the photo is sent). Events already on your calendar at the same time with the same title start unchecked."
+                 : "Read on this iPhone. Add a Claude key in Settings > AI for much better reading. Events already on your calendar at the same time with the same title start unchecked.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
     }
@@ -102,6 +106,7 @@ struct PhotoEventsView: View {
         return VStack(alignment: .leading, spacing: 12) {
             Text(rows.isEmpty ? "No events found in that picture." : "\(rows.count) event\(rows.count == 1 ? "" : "s") found. Check them, then add.")
                 .font(.headline)
+            if let readBy { Text(readBy).font(.caption).foregroundStyle(CalmStyle.secondary) }
             ForEach(byDay, id: \.key) { entry in
                 Text(entry.key.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())).font(.caption.weight(.semibold))
                     .foregroundStyle(CalmStyle.secondary).padding(.top, 6)
@@ -121,7 +126,7 @@ struct PhotoEventsView: View {
             Button(chosen == 0 ? "Nothing to add" : "Add \(chosen) to \(target?.title ?? "Work")") { add() }
                 .buttonStyle(SessionButtonStyle()).disabled(chosen == 0 || target == nil)
                 .accessibilityIdentifier("photoEvents.add")
-            Button("Try another photo") { rows = []; pick = nil; phase = .start }
+            Button("Try another photo") { rows = []; pick = nil; readBy = nil; phase = .start }
                 .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(maxWidth: .infinity, minHeight: 44)
         }
     }
@@ -163,9 +168,22 @@ struct PhotoEventsView: View {
     private func read(_ image: UIImage) async {
         phase = .reading; note = nil
         guard let cg = Self.upright(image).cgImage else { note = "That picture could not be opened."; phase = .start; return }
-        let lines = await Self.recognize(cg)
-        var events = await Self.interpret(lines)
-        if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
+        var events: [PhotoEvent] = []
+        // Claude reads calendar grids far better than on-device text recognition; used whenever there is a Claude key.
+        if let key = EngineSettings.key(.claude), let jpeg = Self.jpeg(for: image) {
+            do {
+                events = try await Self.withClaude(jpeg: jpeg, key: key)
+                readBy = "Read by Claude"
+            } catch {
+                note = "Claude could not read it (\(error.localizedDescription)), so this iPhone read it instead. Check each one."
+            }
+        }
+        if events.isEmpty {
+            let lines = await Self.recognize(cg)
+            events = await Self.interpret(lines)
+            if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
+            if readBy == nil { readBy = "Read on this iPhone" }
+        }
         await loadCalendars()
         let existing = existingEvents(around: events)
         rows = events.map { e in
@@ -173,6 +191,32 @@ struct PhotoEventsView: View {
             return Row(event: e, include: !dup, duplicate: dup)
         }
         phase = .review
+    }
+
+    /// The photo, at most 1,568 pixels on its long side (Claude's sweet spot), as JPEG.
+    static func jpeg(for image: UIImage) -> Data? {
+        let up = upright(image)
+        let longSide = max(up.size.width, up.size.height)
+        let scale = min(1, 1_568 / max(longSide, 1))
+        let size = CGSize(width: up.size.width * scale, height: up.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in up.draw(in: CGRect(origin: .zero, size: size)) }
+            .jpegData(compressionQuality: 0.8)
+    }
+
+    static func withClaude(jpeg: Data, key: String) async throws -> [PhotoEvent] {
+        let today = Date().formatted(.iso8601.year().month().day())
+        let found = try await CalendarPhotoReader.read(jpeg: jpeg, today: today, timeZone: TimeZone.current.identifier,
+                                                       model: EngineSettings().claudeModel, key: key)
+        return found.compactMap { e in
+            let allDay = e.allDay || e.start.isEmpty
+            guard let start = PhotoEvents.date(e.day, allDay ? "" : e.start) else { return nil }
+            let end = (allDay || e.end.isEmpty ? nil : PhotoEvents.date(e.day, e.end)).flatMap { $0 > start ? $0 : nil }
+                ?? start.addingTimeInterval(allDay ? 86_400 : 1_800)
+            let title = e.title.trimmingCharacters(in: .whitespaces)
+            return PhotoEvent(title: title.isEmpty ? "Untitled" : title, start: start, end: end, allDay: allDay,
+                              unsure: title.isEmpty || (!allDay && e.end.isEmpty))
+        }
     }
 
     /// Camera photos carry a rotation flag; text recognition needs the pixels upright.
