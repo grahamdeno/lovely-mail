@@ -62,6 +62,10 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Otherwise a splash (icon's l and dot, "lovely" wordmark, "Mail from your people.") shows until Lovely knows what to show (`hasStarted`), then fades.
 - Not done: the system launch screen is still the generated blank one (a fraction of a second before the splash).
 
+## Text someone about an email (Nov 9, 2026)
+- Email ⋯ > "Text someone about this": pick a person (Apple's contact picker, no Contacts permission; then the last 5 people texted, most recent first), an editable draft (sender, subject, on-device summary, first date, "Want to talk about it?"; sensitive mail gets sender and subject only), "Text <name>" opens Apple's Messages sheet. Lovely never sends; the owner taps Send. Recipients stay on this phone.
+- Next: offer it from the session (⋯) and as a quick command ("text Sarah about this").
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
