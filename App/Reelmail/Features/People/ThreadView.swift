@@ -6,6 +6,9 @@ struct ThreadView: View {
     let person: Person
     @State private var showingInfo = false
     @State private var dismissedAsk: String?
+    /// Swipe left anywhere to show each message's time, sender address and read state (like Messages).
+    @State private var reveal: CGFloat = 0
+    static let revealWidth: CGFloat = 92
     var body: some View {
         let messages = store.conversation(with: person)
         let latestIncoming = messages.last { !$0.isFromMe }.flatMap { store.post(for: $0) }
@@ -32,14 +35,35 @@ struct ThreadView: View {
                             .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
                             .multilineTextAlignment(.center).padding(.horizontal, 24).padding(.bottom, 4)
                     }
-                    ConversationBubble(email: email, mine: Set([store.account ?? ""] + store.otherAddresses).subtracting([""]), summary: summary,
-                        later: store.post(for: email).flatMap { post in
-                            store.laterUntil[post.id].flatMap { LaterSchedule.isPending($0, now: Date()) ? "Later \u{00B7} " + LaterSchedule.label($0, now: Date()) : nil }
-                        },
-                        grouped: ConversationPresentation.groups(email, after: previous))
+                    ZStack(alignment: .trailing) {
+                        ConversationBubble(email: email, mine: Set([store.account ?? ""] + store.otherAddresses).subtracting([""]), summary: summary,
+                            later: store.post(for: email).flatMap { post in
+                                store.laterUntil[post.id].flatMap { LaterSchedule.isPending($0, now: Date()) ? "Later \u{00B7} " + LaterSchedule.label($0, now: Date()) : nil }
+                            },
+                            grouped: ConversationPresentation.groups(email, after: previous))
+                        .offset(x: reveal)
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(email.date.formatted(date: .omitted, time: .shortened)).font(.caption2.weight(.semibold))
+                            Text(Self.revealCaption(email)).font(.caption2).lineLimit(3).multilineTextAlignment(.trailing)
+                        }
+                        .foregroundStyle(CalmStyle.secondary)
+                        .frame(width: Self.revealWidth - 6, alignment: .trailing)
+                        .offset(x: Self.revealWidth + reveal)
+                        .opacity(Double(-reveal / Self.revealWidth))
+                        .accessibilityHidden(true)
+                    }
                 }
             }.padding(16)
         }
+        .clipped()
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 16)
+                .onChanged { v in
+                    guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                    reveal = max(-Self.revealWidth, min(0, v.translation.width))
+                }
+                .onEnded { _ in withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { reveal = 0 } }
+        )
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .safeAreaInset(edge: .bottom) {
             if let latestIncoming {
@@ -82,6 +106,17 @@ struct ThreadView: View {
         .sheet(isPresented: $showingInfo) {
             ConversationInfoSheet(person: person, mode: store.mode)
         }
+    }
+}
+
+extension ThreadView {
+    /// Under the time: who it came from (the address, since a person can have several), how many it went to, and read state.
+    static func revealCaption(_ email: Email) -> String {
+        var parts: [String] = []
+        parts.append(email.isFromMe ? "You sent" : email.from.email)
+        if email.recipients.count > 1 { parts.append("to \(email.recipients.count)") }
+        if !email.isFromMe { parts.append(email.isUnread ? "Unread" : "Read") }
+        return parts.joined(separator: " \u{00B7} ")
     }
 }
 

@@ -444,7 +444,8 @@ struct AppearanceCard: View {
             }
             .pickerStyle(.segmented)
             Text(appearance == .neon ? "Midnight violet, hot pink and electric cyan. Totally tubular."
-                                     : "Automatic follows your iPhone's light and dark setting.")
+                 : appearance == .playful ? "Bright and bouncy: chunky buttons you press down, a rounded font, a fresh green."
+                 : "Auto follows your iPhone's light and dark setting.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)

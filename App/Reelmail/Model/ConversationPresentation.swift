@@ -32,7 +32,7 @@ enum ConversationPresentation {
         if isSensitive(email, summary: summary) {
             return ConversationPreview(text: "Private details hidden. Open the source to read.", label: nil, concealed: true)
         }
-        let body = email.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = newText(email.body)
         if body.isEmpty {
             return ConversationPreview(text: "No readable text was imported.", label: nil, concealed: false)
         }
@@ -46,6 +46,24 @@ enum ConversationPresentation {
         }
         return ConversationPreview(text: String(body.prefix(320)) + (body.count > 320 ? "…" : ""), label: "Excerpt", concealed: false)
     }
+    /// Only what this email adds: the quoted earlier mail ("On … wrote:", "> " lines, "From: … Sent: …") and
+    /// "Sent from my iPhone" are cut, so a bubble shows what was actually said this time.
+    static func newText(_ body: String) -> String {
+        var kept: [String] = []
+        for raw in body.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix(">") { break }
+            if line.hasPrefix("On "), line.hasSuffix("wrote:") || line.contains(" wrote:") { break }
+            if line.hasPrefix("-----Original Message") || line.hasPrefix("________________") { break }
+            if line.hasPrefix("From:"), kept.contains(where: { !$0.isEmpty }) { break }
+            if line.range(of: #"^Sent from my (iPhone|iPad|Android|Galaxy|Samsung)"#, options: [.regularExpression, .caseInsensitive]) != nil { continue }
+            kept.append(raw)
+        }
+        let text = kept.joined(separator: "\n").replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? body.trimmingCharacters(in: .whitespacesAndNewlines) : text
+    }
+
     static func groups(_ email: Email, after previous: Email?, calendar: Calendar = .current) -> Bool {
         guard let previous else { return false }
         let gap = email.date.timeIntervalSince(previous.date)

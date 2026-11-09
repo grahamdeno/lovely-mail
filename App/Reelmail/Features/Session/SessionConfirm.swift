@@ -28,14 +28,23 @@ struct SessionConfirmButton: View {
 struct SessionButtonStyle: ButtonStyle {
     var prominent = true
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        if ThemeState.playful {
+            return AnyView(configuration.label
+                .font(.body.weight(.heavy)).textCase(.uppercase)
+                .lineLimit(2).multilineTextAlignment(.center)
+                .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 54)
+                .foregroundStyle(prominent ? CalmStyle.onBlue : CalmStyle.blue)
+                .modifier(PlayfulLedge(fill: prominent ? CalmStyle.blue : CalmStyle.background, pressed: configuration.isPressed, outline: !prominent))
+                .contentShape(RoundedRectangle(cornerRadius: 16)))
+        }
+        return AnyView(configuration.label
             .font(.body.weight(.semibold))
             .lineLimit(2).multilineTextAlignment(.center)
             .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 54)
             .foregroundStyle(prominent ? CalmStyle.onBlue : CalmStyle.blue)
             .background(prominent ? CalmStyle.blue : CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
             .opacity(configuration.isPressed ? 0.75 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 16))
+            .contentShape(RoundedRectangle(cornerRadius: 16)))
     }
 }
 

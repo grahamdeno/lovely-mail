@@ -170,6 +170,8 @@ struct SessionItemScreen: View {
     @State private var pendingDateApproval: ConfirmedAction?
     /// What he said last, for learning from the proposal he picks.
     @State private var lastSaid = ""
+    /// What he typed about this email so far, shown as his bubbles and sent with each new ask so Lovely keeps the context.
+    @State private var askHistory: [String] = []
     /// Bumped to clear the ask field after a proposal is used.
     @State private var askResetCount = 0
     /// The keyboard is up for the ask field: the bar shrinks to just the field, like Messages.
@@ -552,12 +554,14 @@ struct SessionCalendarBox: Identifiable {
 
 /// Who, what and when for one email. Tapping "Open the email" shows the original.
 struct SessionMailCard: View {
+    @Environment(FeedStore.self) private var store
     let item: SessionItem
     let post: Post
     let open: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            SenderWarning(verdict: store.senderVerdict(post.email), compact: true)
             HStack(spacing: 12) {
                 CalmAvatar(person: post.email.from, size: 44, waiting: item.message.section == .waiting, organization: !item.message.isPerson)
                 VStack(alignment: .leading, spacing: 2) {
@@ -605,7 +609,7 @@ struct SessionBatchScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
-                    Text("Each goes in its drawer, marked read and out of your inbox. Swipe a row's choices to decide it differently.")
+                    Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Always to make it a Gmail filter for that sender.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(page) { item in
@@ -618,9 +622,23 @@ struct SessionBatchScreen: View {
                 .padding(.horizontal, 20).padding(.bottom, 20)
             }
             VStack(spacing: 10) {
-                SessionConfirmButton(title: allFiled ? "Put away all \(acting)" : (acting == page.count ? "Do all \(acting)" : "Do \(acting)"),
-                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)], enabled: acting > 0,
+                let pageIDs = Set(page.map(\.id))
+                let always = model.alwaysItems(page).compactMap { item in
+                    SessionFateStrip.alwaysRule(item, fate: model.batchFate(item), drawer: model.batchDrawer(item), store: store, skipping: pageIDs)
+                        .map { (sender: item.message.fromAddress, rule: $0) }
+                }
+                // The button is the preview (Sprint 7): it says when it also makes Gmail filters.
+                let base = allFiled ? "Put away all \(acting)" : (acting == page.count ? "Do all \(acting)" : "Do \(acting)")
+                SessionConfirmButton(title: always.isEmpty ? base : base + " + \(always.count) Gmail filter\(always.count == 1 ? "" : "s")",
+                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)] + always.map(\.rule.preview),
+                                     enabled: acting > 0,
                                      identifier: "session.batch.confirm") { approvals in
+                    // "Always" rows: one Gmail filter each, confirmed by the same tap (each has its own preview).
+                    for (i, a) in always.enumerated() where approvals.count > i + 1 {
+                        store.applySenderRule(sender: a.sender, label: a.rule.label, posts: a.rule.posts,
+                                              markRead: a.rule.markRead, screenOut: a.rule.screenOut, confirmed: approvals[i + 1])
+                    }
+                    model.alwaysRows.subtract(pageIDs)
                     store.rememberFates(model.fatesToRemember(page))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
@@ -644,6 +662,7 @@ struct SessionBatchScreen: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                if let post { SenderWarning(verdict: store.senderVerdict(post.email), compact: true).padding(.top, 4) }
                 let tags = model.batchTags(item)
                 if !tags.isEmpty {
                     Text(tags.map(\.title).joined(separator: " · ")).font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1)
@@ -731,8 +750,8 @@ struct SessionFateStrip: View {
 
     var body: some View {
         let fate = model.batchFate(item, reading: reading)
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+        // Wraps onto a second line instead of scrolling sideways, so no choice is cut off.
+        WrapLayout(spacing: 6) {
                 Menu {
                     ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
                         Button(d.title) { model.batchDrawers[item.id] = d; model.setBatchFate(.file, for: item) }
@@ -747,8 +766,43 @@ struct SessionFateStrip: View {
                     Button { model.setBatchFate(f, for: item) } label: { chip(f.title, selected: fate == f, rose: f == .trash) }
                         .buttonStyle(.plain).accessibilityIdentifier("session.fate.\(f.rawValue)")
                 }
-            }
+                if !reading, store.actions != nil, !item.message.isPerson, SessionModel.alwaysAllowed(fate) {
+                    let on = model.alwaysRows.contains(item.id)
+                    let suggested = !on && model.suggestsAlways(item, reading: reading)
+                    Button {
+                        if on { model.alwaysRows.remove(item.id) } else { model.alwaysRows.insert(item.id) }
+                    } label: {
+                        Label(suggested ? "Always?" : "Always", systemImage: on ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                            .font(.caption.weight(.semibold)).lineLimit(1)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .foregroundStyle(on ? CalmStyle.onBlue : CalmStyle.blue)
+                            .background(on ? CalmStyle.blue : Color.clear, in: Capsule())
+                            .overlay(Capsule().strokeBorder(CalmStyle.blue.opacity(on ? 0 : (suggested ? 0.9 : 0.4)), style: StrokeStyle(lineWidth: 1.5, dash: suggested ? [] : [4, 3])))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(on ? "Always for this sender, on" : "Always do this for this sender")
+                    .accessibilityIdentifier("session.fate.always")
+                }
         }
+    }
+
+    /// The Gmail filter an "Always" row makes, with its preview: filing goes to the drawer's label, 2 weeks to
+    /// Short-term, Trash to Screened Out (future mail skips the inbox; nothing is deleted).
+    static func alwaysRule(_ item: SessionItem, fate: BatchFate, drawer: DrawerChoice?, store: FeedStore, skipping page: Set<String>)
+        -> (label: String, screenOut: Bool, markRead: Bool, posts: [Post], preview: ActionPreview)? {
+        let sender = item.message.fromAddress
+        let others = store.inboxPosts(from: sender).filter { !page.contains($0.id) }
+        let rule: (String, Bool, Bool)
+        switch fate {
+        case .file:
+            guard let drawer else { return nil }
+            rule = (drawer.labelName, false, true)
+        case .keepTwoWeeks: rule = (ShortTerm.label, false, true)
+        case .trash: rule = (ScreenedOut.label, true, false)
+        default: return nil
+        }
+        let preview = FeedStore.senderRulePreview(sender: sender, label: rule.0, inboxCount: others.count, screenOut: rule.1)
+        return (rule.0, rule.1, rule.2, others, preview)
     }
 
     private func chip(_ title: String, selected: Bool, rose: Bool = false) -> some View {
@@ -868,6 +922,14 @@ extension SessionItemScreen {
     /// What came back from the engine, in the scroll area above the bar.
     @ViewBuilder func askResults(_ item: SessionItem, _ post: Post) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            // His words, like a sent message, so it is clear they went somewhere.
+            ForEach(Array(askHistory.enumerated()), id: \.offset) { _, said in
+                Text(said).font(.body).foregroundStyle(CalmStyle.onBlue)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18))
+                    .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 48)
+                    .accessibilityLabel("You said: " + said)
+            }
             if thinking { ProgressView().frame(maxWidth: .infinity) }
             if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
@@ -879,7 +941,7 @@ extension SessionItemScreen {
         .id("session.askResults")
     }
 
-    func clearAsk() { proposals = []; askNote = nil; askResetCount += 1 }
+    func clearAsk() { proposals = []; askNote = nil; askHistory = []; askResetCount += 1 }
 
     private func hint(_ item: SessionItem) -> String {
         let engine = EngineSettings().engine
@@ -893,8 +955,12 @@ extension SessionItemScreen {
         lastSaid = said
         askNote = nil
         proposals = []
+        // Sent: show it as his bubble and empty the field (it used to stay there, so the send looked lost).
+        let earlier = askHistory
+        askHistory.append(said)
+        askResetCount += 1
         // "text Julia", "text my wife about this": open Messages with a short summary (he taps Send there).
-        if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askResetCount += 1; return }
+        if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askHistory.removeLast(); return }
         let kids = store.sessionKids
         if let quick = SessionQuickCommands.parse(said, kids: kids, fromPerson: item.message.isPerson) {
             proposals = [SessionProposal(engine: .apple, action: SessionCommandValidator.validate(quick, item: item, kids: kids),
@@ -905,7 +971,9 @@ extension SessionItemScreen {
         let kinds = EngineRouter.plan(for: item, settings: settings)
         if settings.engine.isCloud, !EngineRouter.allowsCloud(item) { askNote = EngineError.notForCloud.localizedDescription }
         else if settings.engine.isCloud, !EngineSettings.hasKey(settings.engine) { askNote = EngineError.noKey(settings.engine).localizedDescription }
-        let request = EngineRouter.request(for: item, said: said, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
+        // Earlier lines about this email go with the new one, so a follow-up keeps its context.
+        let context = earlier.isEmpty ? said : (earlier + [said]).joined(separator: "\n")
+        let request = EngineRouter.request(for: item, said: context, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
         thinking = true
         Task {
             var results: [SessionProposal] = []

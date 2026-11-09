@@ -49,6 +49,10 @@ struct Email: Identifiable, Hashable, Sendable, Codable {
     /// The mail's own headers say it is an automatic reply. Optional so mail cached before this field still decodes.
     var autoReplyMark: Bool?
     var isMarkedAutoReply: Bool { autoReplyMark ?? false }
+    /// Gmail's Authentication-Results header (SPF, DKIM, DMARC), for the sender check. Optional: older cached mail has none.
+    var authResults: String?
+    /// The Reply-To address when it is set, for the sender check.
+    var replyTo: String?
     /// Out-of-office and other automatic replies: by header, subject or wording.
     var isAutoReply: Bool { AutoReply.isAutoReply(self) }
 

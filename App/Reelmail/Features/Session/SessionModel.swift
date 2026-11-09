@@ -36,6 +36,23 @@ final class SessionModel {
     var batchFates: [String: BatchFate] = [:]
     /// What he chose for each sender before (address, lowercased): a row starts there, so Lovely learns his habits.
     var rememberedFates: [String: BatchFate] = [:]
+    /// Batch rows he marked "Always": the row's choice becomes a Gmail filter for that sender when he taps Do.
+    var alwaysRows: Set<String> = []
+
+    /// "Always" makes sense for filing, 2 weeks and Trash (Trash becomes Screen out: future mail skips the inbox).
+    static func alwaysAllowed(_ fate: BatchFate) -> Bool { fate == .file || fate == .keepTwoWeeks || fate == .trash }
+
+    /// Lovely suggests "Always" when he picks the same thing for a sender he picked it for last time.
+    func suggestsAlways(_ item: SessionItem, reading: Bool = false) -> Bool {
+        let fate = batchFate(item, reading: reading)
+        guard Self.alwaysAllowed(fate), !item.message.isPerson else { return false }
+        return rememberedFates[item.message.fromAddress.lowercased()] == fate
+    }
+
+    /// The rows marked Always whose current choice still allows it.
+    func alwaysItems(_ items: [SessionItem], reading: Bool = false) -> [SessionItem] {
+        items.filter { alwaysRows.contains($0.id) && Self.alwaysAllowed(batchFate($0, reading: reading)) }
+    }
     /// Reading screen: rows kept unread.
     var readingKept: Set<String> = []
 
@@ -64,12 +81,19 @@ final class SessionModel {
     }
 
     /// One at a time first, then the quick batch, then reading, then anything skipped, then the wrap-up.
-    func advance() {
+    func advance(skipping skippedNow: String? = nil) {
         let open = plan.items.filter(isOpen)
         if let next = open.first(where: { $0.group == .oneAtATime && !progress.skipped.contains($0.id) }) { phase = .item(next.id); return }
         if open.contains(where: { $0.group == .quick }) { phase = .batch; return }
         if open.contains(where: { $0.group == .reading }) { phase = .reading; return }
-        if let skipped = open.first(where: { $0.group == .oneAtATime }) { phase = .item(skipped.id); return }
+        // Back to skipped ones, but never straight back to the one just skipped: with only it left, Skip looked broken
+        // (it reopened the same email). Then the session wraps up and leaves it in the inbox.
+        let skipped = open.filter { $0.group == .oneAtATime && $0.id != skippedNow }
+        if let i = open.firstIndex(where: { $0.id == skippedNow }),
+           let after = skipped.first(where: { s in (open.firstIndex { $0.id == s.id } ?? 0) > i }) ?? skipped.first {
+            phase = .item(after.id); return
+        }
+        if let first = skipped.first { phase = .item(first.id); return }
         phase = .wrap
     }
 
@@ -172,7 +196,7 @@ final class SessionModel {
         advance()
     }
 
-    func skip(_ id: String) { progress.markSkipped(id); advance() }
+    func skip(_ id: String) { progress.markSkipped(id); advance(skipping: id) }
 
     func addedDate() { datesAdded += 1 }
 
