@@ -44,3 +44,17 @@ final class HomeAndNotesTests: XCTestCase {
         XCTAssertTrue(NoteThreadStore(account: "other@example.com", defaults: defaults).messages.isEmpty)
     }
 }
+
+final class NotesThreadDetailTests: XCTestCase {
+    func testDayHeaders() {
+        let cal = Calendar(identifier: .gregorian)
+        let now = cal.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 12))!
+        XCTAssertEqual(NotesThreadView.dayHeader(now, now: now, calendar: cal), "Today")
+        XCTAssertEqual(NotesThreadView.dayHeader(cal.date(byAdding: .day, value: -1, to: now)!, now: now, calendar: cal), "Yesterday")
+    }
+
+    func testPlaybookExplainsTheThreadIsKept() {
+        let s = NotesPlaybook.system(ownerName: "Graham")
+        XCTAssertTrue(s.contains("stays for future conversations"))
+    }
+}
