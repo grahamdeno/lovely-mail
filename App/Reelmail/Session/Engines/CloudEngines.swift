@@ -133,3 +133,77 @@ enum CloudHTTP {
         return c
     }
 }
+
+// MARK: Web forms (Sprint 7, section 9)
+
+/// Engines that can propose values for a web form. Cloud only: Apple's on-device model is too small for this.
+protocol FormFiller: Sendable {
+    var kind: EngineKind { get }
+    func fillForm(system: String, user: String) async throws -> (FormFillPlan, EngineAnswer)
+}
+
+extension AnthropicEngine: FormFiller {
+    func fillForm(system: String, user: String) async throws -> (FormFillPlan, EngineAnswer) {
+        guard let key else { throw EngineError.noKey(.claude) }
+        var r = URLRequest(url: Self.endpoint)
+        r.httpMethod = "POST"; r.timeoutInterval = 60
+        r.setValue("application/json", forHTTPHeaderField: "content-type")
+        r.setValue(key, forHTTPHeaderField: "x-api-key")
+        r.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
+        let body: [String: Any] = [
+            "model": model, "max_tokens": 1_500, "system": system,
+            "messages": [["role": "user", "content": user]],
+            "tools": [["name": FormFillPrompt.toolName, "description": "Values for fields on this page.", "input_schema": FormFillPrompt.schema]],
+            "tool_choice": ["type": "tool", "name": FormFillPrompt.toolName],
+        ]
+        r.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await transport(r)
+        try CloudHTTP.check(data, response)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let content = json["content"] as? [[String: Any]],
+              let tool = content.first(where: { ($0["type"] as? String) == "tool_use" }),
+              let input = tool["input"] as? [String: Any] else { throw EngineError.badAnswer }
+        let plan = try CloudHTTP.formPlan(from: input)
+        let usage = json["usage"] as? [String: Any]
+        return (plan, EngineAnswer(command: SessionCommand(action: "handoff"), engine: .claude,
+                                   inputTokens: usage?["input_tokens"] as? Int ?? 0, outputTokens: usage?["output_tokens"] as? Int ?? 0))
+    }
+}
+
+extension XAIEngine: FormFiller {
+    func fillForm(system: String, user: String) async throws -> (FormFillPlan, EngineAnswer) {
+        guard let key else { throw EngineError.noKey(.grok) }
+        var r = URLRequest(url: Self.endpoint)
+        r.httpMethod = "POST"; r.timeoutInterval = 60
+        r.setValue("application/json", forHTTPHeaderField: "content-type")
+        r.setValue("Bearer " + key, forHTTPHeaderField: "authorization")
+        let body: [String: Any] = [
+            "model": model, "temperature": 0.1,
+            "messages": [["role": "system", "content": system], ["role": "user", "content": user]],
+            "tools": [["type": "function", "function": ["name": FormFillPrompt.toolName, "description": "Values for fields on this page.",
+                                                       "parameters": FormFillPrompt.schema]]],
+            "tool_choice": ["type": "function", "function": ["name": FormFillPrompt.toolName]],
+        ]
+        r.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await transport(r)
+        try CloudHTTP.check(data, response)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = (json["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any] else { throw EngineError.badAnswer }
+        let arguments = ((message["tool_calls"] as? [[String: Any]])?.first?["function"] as? [String: Any])?["arguments"] as? String
+            ?? message["content"] as? String ?? ""
+        guard let argData = arguments.data(using: .utf8),
+              let input = try? JSONSerialization.jsonObject(with: argData) as? [String: Any] else { throw EngineError.badAnswer }
+        let plan = try CloudHTTP.formPlan(from: input)
+        let usage = json["usage"] as? [String: Any]
+        return (plan, EngineAnswer(command: SessionCommand(action: "handoff"), engine: .grok,
+                                   inputTokens: usage?["prompt_tokens"] as? Int ?? 0, outputTokens: usage?["completion_tokens"] as? Int ?? 0))
+    }
+}
+
+extension CloudHTTP {
+    static func formPlan(from input: [String: Any]) throws -> FormFillPlan {
+        let data = try JSONSerialization.data(withJSONObject: input)
+        guard let plan = try? JSONDecoder().decode(FormFillPlan.self, from: data) else { throw EngineError.badAnswer }
+        return plan
+    }
+}

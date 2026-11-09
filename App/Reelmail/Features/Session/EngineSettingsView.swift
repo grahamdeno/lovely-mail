@@ -12,6 +12,7 @@ struct EngineSettingsView: View {
     @State private var hasClaude = EngineSettings.hasKey(.claude)
     @State private var hasGrok = EngineSettings.hasKey(.grok)
     @State private var examplesCleared = false
+    @State private var details = OwnerDetails.load()
 
     var body: some View {
         ScrollView {
@@ -43,6 +44,18 @@ struct EngineSettingsView: View {
 
                 usageCard
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("YOUR DETAILS FOR FORMS").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("Used only when Lovely fills a website form for you. Stays on this iPhone until a form needs it.")
+                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    detailField("Full name", $details.fullName, .name)
+                    detailField("Email", $details.email, .emailAddress)
+                    detailField("Phone", $details.phone, .telephoneNumber)
+                    detailField("Address", $details.address, .fullStreetAddress)
+                }
+                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                .onChange(of: details) { _, new in new.save() }
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("WHAT IS SENT").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                     Text("With Claude or Grok on, Lovely sends the email's own words (no quoted history, codes or account numbers), its sender and subject, what you said, and Lovely's instructions. Health mail is never sent; Apple handles it on this iPhone. Keys stay in this iPhone's Keychain.")
@@ -61,6 +74,12 @@ struct EngineSettingsView: View {
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .navigationTitle("Conversation engine").navigationBarTitleDisplayMode(.inline)
         .onDisappear { EngineSettings().claudeModel = claudeModel; EngineSettings().grokModel = grokModel }
+    }
+
+    private func detailField(_ title: String, _ value: Binding<String>, _ type: UITextContentType) -> some View {
+        TextField(title, text: value)
+            .textContentType(type).autocorrectionDisabled()
+            .padding(10).background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var explanation: String {

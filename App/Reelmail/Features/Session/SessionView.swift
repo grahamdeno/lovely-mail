@@ -600,6 +600,8 @@ struct SessionHandoffOffer: Identifiable {
     let task: String
     let item: SessionItem
     let reportTo: String?
+    /// Links in the full email, most likely first, for doing the task inside Lovely.
+    var links: [URL] = []
 }
 
 extension SessionItemScreen {
@@ -743,7 +745,9 @@ extension SessionItemScreen {
             Button(p.action.title) { pick(); model.skip(item.id) }.buttonStyle(SessionButtonStyle())
         case .handoff(let task):
             Button("Hand off: \(task)") {
-                pick(); handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account)
+                pick()
+                handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account,
+                                              links: FormScripts.links(in: post.email.body, senderAddress: post.email.from.email))
             }.buttonStyle(SessionButtonStyle()).lineLimit(3)
         case .unclear:
             EmptyView()
@@ -781,6 +785,10 @@ struct SessionHandoffSheet: View {
     let sent: () -> Void
     @State private var reportID = HandoffPrompt.newReportID()
     @State private var copied = false
+    @State private var webForm: WebFormModel?
+
+    /// A link to open and a cloud engine to read the page.
+    private var canDoHere: Bool { !offer.links.isEmpty && WebFormModel.filler() != nil }
 
     private func prompt(_ agent: HandoffAgent) -> String {
         HandoffPrompt.sessionPrompt(task: offer.task, item: offer.item, agent: agent, reportTo: offer.reportTo, reportID: reportID)
@@ -797,12 +805,17 @@ struct SessionHandoffSheet: View {
                 Text("Hand this off").font(.title2.weight(.bold))
                 Text(offer.task).font(.body)
                 if allowed {
-                    Text("The agent stops before anything you cannot undo, like Submit or Pay, and emails you a report when it is done.")
+                    Text(canDoHere ? "Do it here: the site opens in Lovely, the form is filled while you watch, and you press Submit."
+                                   : "The agent stops before anything you cannot undo, like Submit or Pay, and emails you a report when it is done.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     Spacer()
                     let first = HandoffAgent.current
                     let second: HandoffAgent = first == .grok ? .claude : .grok
-                    Button("Send to \(first.name)") { send(first) }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("handoff.first")
+                    if canDoHere, let url = offer.links.first {
+                        Button("Do it here in Lovely") { webForm = WebFormModel(task: offer.task, emailFacts: offer.item.message.subject + "\n" + offer.item.message.text, url: url) }
+                            .buttonStyle(SessionButtonStyle()).accessibilityIdentifier("handoff.here")
+                    }
+                    Button("Send to \(first.name)") { send(first) }.buttonStyle(SessionButtonStyle(prominent: !canDoHere)).accessibilityIdentifier("handoff.first")
                     Button("Send to \(second.name)") { send(second) }.buttonStyle(SessionButtonStyle(prominent: false)).accessibilityIdentifier("handoff.second")
                     Button(copied ? "Copied" : "Copy the prompt") { UIPasteboard.general.string = prompt(first); copied = true }
                         .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
@@ -814,6 +827,7 @@ struct SessionHandoffSheet: View {
             .padding(20)
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
             .toolbar { Button("Cancel") { dismiss() } }
+            .fullScreenCover(item: $webForm) { model in WebFormView(model: model) { sent(); dismiss() } }
         }
         .presentationDetents([.medium, .large])
     }
