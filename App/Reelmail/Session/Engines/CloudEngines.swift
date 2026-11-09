@@ -222,3 +222,95 @@ extension CloudHTTP {
         return plan
     }
 }
+
+// MARK: Calendar photos (Nov 9)
+
+/// Reads a photo of a calendar with Claude's vision, when the owner has a Claude key. He said his work calendar holds
+/// nothing sensitive and the on-device reading made him fix every event. Only the photo, today's date and his time zone
+/// are sent; never mail.
+enum CalendarPhotoReader {
+    struct Event: Equatable, Sendable {
+        var title: String
+        var day: String
+        var start: String
+        var end: String
+        var allDay: Bool
+        var unsure = false
+    }
+
+    static let toolName = "calendar_events"
+
+    static var schema: [String: Any] {
+        [
+            "type": "object",
+            "properties": [
+                "events": [
+                    "type": "array",
+                    "items": [
+                        "type": "object",
+                        "properties": [
+                            "title": ["type": "string", "description": "The event title exactly as shown."],
+                            "day": ["type": "string", "description": "YYYY-MM-DD."],
+                            "start": ["type": "string", "description": "HH:mm, 24-hour. Empty for all-day."],
+                            "end": ["type": "string", "description": "HH:mm, 24-hour. Empty if not visible."],
+                            "all_day": ["type": "boolean"],
+                            "unsure": ["type": "boolean", "description": "True when the title is cut off, the end runs past the picture, or the time is a guess."],
+                        ],
+                        "required": ["title", "day", "start", "end", "all_day", "unsure"],
+                    ],
+                ],
+            ],
+            "required": ["events"],
+        ]
+    }
+
+    static func prompt(today: String, timeZone: String) -> String {
+        """
+        This is a photo or screenshot of a work calendar (Outlook, Teams or similar), possibly taken of a computer screen. \
+        List every event you can see, once each. Today is \(today); the time zone is \(timeZone). In a week view, match each \
+        event to its day column using the header dates, and read start and end times from the hour lines and the event's \
+        own text; events are usually on the hour, half hour or quarter hour. Keep titles as written, without the meeting \
+        app name, organizer or room lines under them (for "ATLAS Sync / Microsoft Teams Meeting / Raya, Thomas" the title \
+        is "ATLAS Sync"); if a title is cut off, keep what is visible and mark it unsure. Skip events marked Canceled or \
+        declined. Skip all-day or multi-day out-of-office banners about other people (names with OOO or OoO). If an event \
+        runs past the bottom of the picture, give its start, your best end, and mark it unsure. Never invent an event. \
+        Answer by calling the \(toolName) tool once.
+        """
+    }
+
+    static func read(jpeg: Data, today: String, timeZone: String, model: String, key: String,
+                     transport: EngineTransport = { try await URLSession.shared.data(for: $0) }) async throws -> [Event] {
+        var r = URLRequest(url: AnthropicEngine.endpoint)
+        r.httpMethod = "POST"
+        r.timeoutInterval = 60
+        r.setValue("application/json", forHTTPHeaderField: "content-type")
+        r.setValue(key, forHTTPHeaderField: "x-api-key")
+        r.setValue(AnthropicEngine.apiVersion, forHTTPHeaderField: "anthropic-version")
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 4_000,
+            "messages": [["role": "user", "content": [
+                ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
+                ["type": "text", "text": prompt(today: today, timeZone: timeZone)],
+            ]]],
+            "tools": [["name": toolName, "description": "Every event visible in the calendar picture.", "input_schema": schema]],
+            "tool_choice": ["type": "auto"],
+        ]
+        r.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await transport(r)
+        try CloudHTTP.check(data, response)
+        return try parse(data)
+    }
+
+    static func parse(_ data: Data) throws -> [Event] {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let content = json["content"] as? [[String: Any]],
+              let input = AnthropicEngine.toolInput(content),
+              let events = input["events"] as? [[String: Any]] else { throw EngineError.badAnswer }
+        return events.compactMap { e in
+            guard let title = e["title"] as? String, let day = e["day"] as? String else { return nil }
+            return Event(title: title, day: day, start: e["start"] as? String ?? "", end: e["end"] as? String ?? "",
+                         allDay: e["all_day"] as? Bool ?? false, unsure: e["unsure"] as? Bool ?? false)
+        }
+    }
+}
