@@ -36,6 +36,23 @@ final class SessionModel {
     var batchFates: [String: BatchFate] = [:]
     /// What he chose for each sender before (address, lowercased): a row starts there, so Lovely learns his habits.
     var rememberedFates: [String: BatchFate] = [:]
+    /// Batch rows he marked "Always": the row's choice becomes a Gmail filter for that sender when he taps Do.
+    var alwaysRows: Set<String> = []
+
+    /// "Always" makes sense for filing, 2 weeks and Trash (Trash becomes Screen out: future mail skips the inbox).
+    static func alwaysAllowed(_ fate: BatchFate) -> Bool { fate == .file || fate == .keepTwoWeeks || fate == .trash }
+
+    /// Lovely suggests "Always" when he picks the same thing for a sender he picked it for last time.
+    func suggestsAlways(_ item: SessionItem, reading: Bool = false) -> Bool {
+        let fate = batchFate(item, reading: reading)
+        guard Self.alwaysAllowed(fate), !item.message.isPerson else { return false }
+        return rememberedFates[item.message.fromAddress.lowercased()] == fate
+    }
+
+    /// The rows marked Always whose current choice still allows it.
+    func alwaysItems(_ items: [SessionItem], reading: Bool = false) -> [SessionItem] {
+        items.filter { alwaysRows.contains($0.id) && Self.alwaysAllowed(batchFate($0, reading: reading)) }
+    }
     /// Reading screen: rows kept unread.
     var readingKept: Set<String> = []
 

@@ -137,7 +137,7 @@ struct OpenEmailView: View {
                     } else if store.isMarkedNotWaiting(post) {
                         Button { store.undoNotWaiting(post) } label: { Label("Put back in Waiting", systemImage: "arrow.uturn.backward") }
                     }
-                    Button { store.setSenderRule(post.email.from.email, destination: .reading) } label: { Label("Move sender to Reading", systemImage: "newspaper") }
+                    Button { store.setSenderRule(post.email.from.email, destination: .reading) } label: { Label("Treat as a newsletter (hides its dates)", systemImage: "newspaper") }
                     Button { store.filterSender(post.email.from.email) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
                 }
                 Section {

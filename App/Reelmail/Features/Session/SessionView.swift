@@ -609,7 +609,7 @@ struct SessionBatchScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
-                    Text("Each goes in its drawer, marked read and out of your inbox. Swipe a row's choices to decide it differently.")
+                    Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Always to make it a Gmail filter for that sender.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(page) { item in
@@ -622,9 +622,23 @@ struct SessionBatchScreen: View {
                 .padding(.horizontal, 20).padding(.bottom, 20)
             }
             VStack(spacing: 10) {
-                SessionConfirmButton(title: allFiled ? "Put away all \(acting)" : (acting == page.count ? "Do all \(acting)" : "Do \(acting)"),
-                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)], enabled: acting > 0,
+                let pageIDs = Set(page.map(\.id))
+                let always = model.alwaysItems(page).compactMap { item in
+                    SessionFateStrip.alwaysRule(item, fate: model.batchFate(item), drawer: model.batchDrawer(item), store: store, skipping: pageIDs)
+                        .map { (sender: item.message.fromAddress, rule: $0) }
+                }
+                // The button is the preview (Sprint 7): it says when it also makes Gmail filters.
+                let base = allFiled ? "Put away all \(acting)" : (acting == page.count ? "Do all \(acting)" : "Do \(acting)")
+                SessionConfirmButton(title: always.isEmpty ? base : base + " + \(always.count) Gmail filter\(always.count == 1 ? "" : "s")",
+                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)] + always.map(\.rule.preview),
+                                     enabled: acting > 0,
                                      identifier: "session.batch.confirm") { approvals in
+                    // "Always" rows: one Gmail filter each, confirmed by the same tap (each has its own preview).
+                    for (i, a) in always.enumerated() where approvals.count > i + 1 {
+                        store.applySenderRule(sender: a.sender, label: a.rule.label, posts: a.rule.posts,
+                                              markRead: a.rule.markRead, screenOut: a.rule.screenOut, confirmed: approvals[i + 1])
+                    }
+                    model.alwaysRows.subtract(pageIDs)
                     store.rememberFates(model.fatesToRemember(page))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
@@ -736,8 +750,8 @@ struct SessionFateStrip: View {
 
     var body: some View {
         let fate = model.batchFate(item, reading: reading)
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+        // Wraps onto a second line instead of scrolling sideways, so no choice is cut off.
+        WrapLayout(spacing: 6) {
                 Menu {
                     ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
                         Button(d.title) { model.batchDrawers[item.id] = d; model.setBatchFate(.file, for: item) }
@@ -752,8 +766,43 @@ struct SessionFateStrip: View {
                     Button { model.setBatchFate(f, for: item) } label: { chip(f.title, selected: fate == f, rose: f == .trash) }
                         .buttonStyle(.plain).accessibilityIdentifier("session.fate.\(f.rawValue)")
                 }
-            }
+                if !reading, store.actions != nil, !item.message.isPerson, SessionModel.alwaysAllowed(fate) {
+                    let on = model.alwaysRows.contains(item.id)
+                    let suggested = !on && model.suggestsAlways(item, reading: reading)
+                    Button {
+                        if on { model.alwaysRows.remove(item.id) } else { model.alwaysRows.insert(item.id) }
+                    } label: {
+                        Label(suggested ? "Always?" : "Always", systemImage: on ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                            .font(.caption.weight(.semibold)).lineLimit(1)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .foregroundStyle(on ? CalmStyle.onBlue : CalmStyle.blue)
+                            .background(on ? CalmStyle.blue : Color.clear, in: Capsule())
+                            .overlay(Capsule().strokeBorder(CalmStyle.blue.opacity(on ? 0 : (suggested ? 0.9 : 0.4)), style: StrokeStyle(lineWidth: 1.5, dash: suggested ? [] : [4, 3])))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(on ? "Always for this sender, on" : "Always do this for this sender")
+                    .accessibilityIdentifier("session.fate.always")
+                }
         }
+    }
+
+    /// The Gmail filter an "Always" row makes, with its preview: filing goes to the drawer's label, 2 weeks to
+    /// Short-term, Trash to Screened Out (future mail skips the inbox; nothing is deleted).
+    static func alwaysRule(_ item: SessionItem, fate: BatchFate, drawer: DrawerChoice?, store: FeedStore, skipping page: Set<String>)
+        -> (label: String, screenOut: Bool, markRead: Bool, posts: [Post], preview: ActionPreview)? {
+        let sender = item.message.fromAddress
+        let others = store.inboxPosts(from: sender).filter { !page.contains($0.id) }
+        let rule: (String, Bool, Bool)
+        switch fate {
+        case .file:
+            guard let drawer else { return nil }
+            rule = (drawer.labelName, false, true)
+        case .keepTwoWeeks: rule = (ShortTerm.label, false, true)
+        case .trash: rule = (ScreenedOut.label, true, false)
+        default: return nil
+        }
+        let preview = FeedStore.senderRulePreview(sender: sender, label: rule.0, inboxCount: others.count, screenOut: rule.1)
+        return (rule.0, rule.1, rule.2, others, preview)
     }
 
     private func chip(_ title: String, selected: Bool, rose: Bool = false) -> some View {

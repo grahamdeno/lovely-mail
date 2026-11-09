@@ -20,12 +20,15 @@ struct MoneySummary: Equatable {
 enum MoneyInsights {
     static let defaultHousehold = Household(id: "home", name: "Home")
 
-    static func summary(_ store: InsightStore, households configured: [Household], today: Date = Date()) -> MoneySummary {
+    static func summary(_ store: InsightStore, households configured: [Household], today: Date = Date(),
+                        markedPaid: Set<String> = MoneyPaidMarks().ids) -> MoneySummary {
         let households = configured.isEmpty ? [defaultHousehold] : configured
         let statements = store.bills.filter { $0.kind == .statement }
         let payments = store.bills.filter { $0.kind == .payment }
 
         func isOpen(_ b: Bill) -> Bool {
+            // He tapped "Paid" on Money: the mail never showed a payment, but he knows it is paid.
+            if markedPaid.contains(b.id) { return false }
             if payments.contains(where: { $0.domain == b.domain && $0.postedOn >= b.postedOn }) { return false }
             guard let due = b.dueOn else { return today.timeIntervalSince(b.postedOn) < 45 * 86_400 }
             return due >= today.addingTimeInterval(-30 * 86_400)

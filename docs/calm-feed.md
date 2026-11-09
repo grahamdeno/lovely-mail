@@ -371,3 +371,10 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - Nov 9: sender check (SenderCheck.swift, on the phone): failed DMARC/SPF from Gmail's Authentication-Results, brand names from other or personal domains, look-alike domains (paypa1, amazon-secure-…, xn--), an address in the display name, replies to a personal address. Warning on the email, the session card and batch rows. Older cached mail has no auth header, so only the name and domain checks apply to it.
 - Nov 9: Playful theme (Settings > Look and feel): white, fresh green, rounded font, chunky buttons with a ledge they press into (PlayfulLedge). Inspired by friendly learning apps; no borrowed logos, mascots or names. Neon: darker background, calmer card, brighter secondary text for readability.
 - Nov 9: conversation threads: swipe left for each message's time, sender address, recipient count and read state (as in Notes). Bubbles show only what was said this time: quoted mail ("On … wrote:", "> ") and "Sent from my iPhone" are cut (ConversationPresentation.newText).
+- Nov 9: Money redesign: Next (one line answer), "Did you pay these?" with Paid / Not yet (MoneyPaidMarks; marked bills stop counting
+  everywhere), Also coming up, a 6-month bills chart with a trend line, Renewals, accounts only when asking for action, History collapsed.
+  Empty households hidden.
+- Nov 9: batch rows: an "Always" chip (file, 2 weeks, Trash = Screen out) makes a Gmail filter for that sender with the same Do tap
+  (each filter has its own preview; the button says "+ N Gmail filters"). "Always?" is suggested when he repeats last time's choice.
+  Row choices wrap onto two lines instead of scrolling sideways. Not on the newsletter page yet.
+- Nov 9: "Move sender to Reading" renamed "Treat as a newsletter (hides its dates)".
