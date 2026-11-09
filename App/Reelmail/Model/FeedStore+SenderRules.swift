@@ -8,7 +8,7 @@ import Foundation
 extension FeedStore {
 
     /// What "Always put away" and "Screen out" would do, as the button's preview.
-    static func senderRulePreview(sender: String, label: String, inboxCount: Int, screenOut: Bool) -> ActionPreview {
+    nonisolated static func senderRulePreview(sender: String, label: String, inboxCount: Int, screenOut: Bool) -> ActionPreview {
         let shownLabel = label.replacingOccurrences(of: LovelyLabels.prefix, with: "")
         var lines = ["Creates a Gmail filter: new mail from \(sender) skips your inbox and goes to \(screenOut ? "Screened Out" : shownLabel)."]
         if inboxCount > 0 {
