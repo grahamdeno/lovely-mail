@@ -66,8 +66,10 @@ struct CalmAvatar: View {
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
                 } else {
+                    // Zoomed in a little: many contact photos (initials images) carry white corners of their own.
                     Image(uiImage: picture).resizable().scaledToFill()
                         .frame(width: size, height: size)
+                        .scaleEffect(1.14)
                         .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
                 }
             } else {

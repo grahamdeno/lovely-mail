@@ -7,6 +7,8 @@ struct ReelmailApp: App {
     @State private var router = Router()
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
     @Environment(\.scenePhase) private var scenePhase
+    /// The opening animation, on a cold start only (this state is created once per launch).
+    @State private var showIntro = LaunchAnimation.isOn && !UIAccessibility.isReduceMotionEnabled
 
     init() {
         let store: FeedStore
@@ -46,6 +48,7 @@ struct ReelmailApp: App {
             .overlay {
                 if !store.hasStarted { LaunchSplash().transition(.opacity) }
             }
+            .overlay { if showIntro { LaunchAnimation { showIntro = false } } }
             .animation(.easeOut(duration: 0.3), value: store.hasStarted)
             .environment(store)
             .environment(router)

@@ -59,6 +59,7 @@ struct SettingsView: View {
 
                 SettingsHeader(text: "Appearance")
                 AppearanceCard()
+                OpeningAnimationToggle()
 
                 SettingsHeader(text: "Pictures")
                 PicturesCard()
@@ -408,5 +409,17 @@ struct ICloudBackupCard: View {
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+/// Turns the opening animation (the l writing itself and the dot bouncing into place) on or off.
+struct OpeningAnimationToggle: View {
+    @AppStorage(LaunchAnimation.settingKey) private var on = true
+    var body: some View {
+        Toggle("Opening animation", isOn: $on)
+            .font(.body).tint(CalmStyle.blue)
+            .padding(.horizontal, 14).frame(minHeight: 50)
+            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+            .accessibilityIdentifier("settings.openingAnimation")
     }
 }
