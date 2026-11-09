@@ -57,6 +57,10 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Lovely remembers each sender's choice (SenderFateMemory, exact address, per account) and starts that sender's rows there next time.
 - Open question for the owner: auto-trash short-term mail after 14 days without a tap (needs explicit approval; today every trash waits for a tap).
 
+## Text someone about an email (Nov 9, 2026)
+- Email ⋯ > "Text someone about this": pick a person (Apple's contact picker, no Contacts permission; then the last 5 people texted, most recent first), an editable draft (sender, subject, on-device summary, first date, "Want to talk about it?"; sensitive mail gets sender and subject only), "Text <name>" opens Apple's Messages sheet. Lovely never sends; the owner taps Send. Recipients stay on this phone.
+- Next: offer it from the session (⋯) and as a quick command ("text Sarah about this").
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
