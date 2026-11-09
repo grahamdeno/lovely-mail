@@ -46,6 +46,11 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Opus 5.5 returned 400 for forced tool_choice. Claude requests (session and forms) now use tool_choice auto plus a system line asking for the tool; parsing also accepts the JSON written as text. Works on Sonnet, Haiku and Opus. Quick commands gained "file it away".
 - Home: "N done today" now opens a Done today list (the messages done, put away or filed today, newest first) instead of To do. Lovely saves the ids with the daily count.
 
+## Lag fix (Nov 9, 2026, build 1030 test)
+- Apple Intelligence summaries were applied one at a time after launch; each one rebuilt triage for all mail and redrew every screen. Now applied in batches of 25 (or every 20 seconds), one change to `posts` per batch.
+- `sessionCandidates` and `backlogCandidates` (read by Home on every redraw) are cached until mail, hidden or Later changes.
+- Pending: device check. If lag remains, profile with Instruments on a Mac (SwiftUI and Time Profiler) during typing.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
