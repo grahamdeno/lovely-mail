@@ -33,6 +33,8 @@ final class FeedStore {
     @ObservationIgnored var savedDrafts: [String: String] = [:]
     /// A save failed while Lovely was in the background; it is retried when Lovely is back on screen.
     @ObservationIgnored private var saveWaiting = false
+    /// Bumped when the outbox changes, so Home's "changes from earlier" notice refreshes.
+    var outboxVersion = 0
     /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
     var declinedSenders: Set<String> = []
     /// Short-term mail past two weeks, from the last check (Home shows a note when above zero).
@@ -71,6 +73,7 @@ final class FeedStore {
         self.cacheStore = cacheStore
         demoRules = LocalTriageRules(accountID: "demo-home-v1", defaults: triageDefaults)
         demoReview = SortingReview(accountID: "demo-home-v1", defaults: triageDefaults)
+        _ = AppLaunch.at
         // Signed in with mail saved on this phone: show it from the first frame, before the refresh starts.
         if self.gmail.isSignedIn, let cached = cacheStore?.loadCurrent() {
             mode = .gmail
@@ -636,12 +639,17 @@ final class FeedStore {
     /// Every Trash, from any screen, shows the app-wide Undo bar for 10 seconds. Undo takes it back out of Trash.
     func moveToTrash(_ post: Post) async {
         hidden.insert(post.id); lastTrashed = post; persist()
+        let op = OutboxOp(kind: .trash, messageID: post.id, batch: UUID().uuidString)
+        outboxAdd([op])
         let offer = undo.enqueue(title: "Moved to Trash: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject),
-                                 work: {}, undone: { [self] in Task { await restoreFromTrash(post) } })
+                                 work: {}, undone: { [self] in outboxDone(op.id); Task { await restoreFromTrash(post) } })
         guard mode == .gmail else { return }
         await undo.keepAlive { [self] in
-            do { try await gmail.trash(messageID: post.id) }
-            catch { undo.cancelQuietly(offer); trashFailed(post, error) }
+            do { try await gmail.trash(messageID: post.id); outboxDone(op.id) }
+            catch let error where NetworkRetry.isTransient(error) {
+                // No signal: it stays out of sight and goes to Trash next time Lovely opens.
+            }
+            catch { outboxDone(op.id); undo.cancelQuietly(offer); trashFailed(post, error) }
         }
     }
 
@@ -682,10 +690,16 @@ final class FeedStore {
         lastDone = post
         persist()
         let title = "Done: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject)
-        let offer = undo.enqueue(title: title, work: {}, undone: { [self] in Task { await undoDone(post) } })
+        let op = OutboxOp(kind: .markRead, messageID: post.id, batch: UUID().uuidString)
+        outboxAdd([op])
+        let offer = undo.enqueue(title: title, work: {}, undone: { [self] in outboxDone(op.id); Task { await undoDone(post) } })
         guard mode == .gmail else { return }
-        do { try await gmail.markRead(messageID: post.id) }
+        do { try await gmail.markRead(messageID: post.id); outboxDone(op.id) }
+        catch let error where NetworkRetry.isTransient(error) {
+            // No signal: it stays done here and finishes in Gmail next time Lovely opens.
+        }
         catch {
+            outboxDone(op.id)
             undo.cancelQuietly(offer)
             setUnread(post.id, true); countDone(-1, id: post.id); persist()
             if lastDone?.id == post.id { lastDone = nil }

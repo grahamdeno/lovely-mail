@@ -106,15 +106,22 @@ extension FeedStore {
             persist()
         }
         let gmail = self.gmail
-        undo.enqueue(title: title, work: {
+        let batch = UUID().uuidString
+        let ops = list.map { OutboxOp(kind: .file, messageID: $0.id, labels: [label], batch: batch) }
+        outboxAdd(ops)
+        undo.enqueue(title: title, work: { [self] in
             let labelID = try await actions.ensureLabel(label, confirmed: confirmed)
-            for post in list {
-                try await actions.file(messageID: post.id, labelID: labelID, removeFromInbox: true, confirmed: confirmed)
-                try await gmail.markRead(messageID: post.id)
+            for (post, op) in zip(list, ops) {
+                do {
+                    try await actions.file(messageID: post.id, labelID: labelID, removeFromInbox: true, confirmed: confirmed)
+                    try await gmail.markRead(messageID: post.id)
+                    outboxDone(op.id)
+                } catch let error where NetworkRetry.isTransient(error) { continue }   // Home offers to finish it next time
             }
         }, finished: { [self] error in
-            if let error { restore(); errorMessage = "Those emails are still in your inbox. \(error.localizedDescription)" }
-        }, undone: { restore() })
+            if let error, NetworkRetry.isTransient(error) { return }   // stays put away; Home offers to finish it next time
+            if let error { outboxCancel(batch: batch); restore(); errorMessage = "Those emails are still in your inbox. \(error.localizedDescription)" }
+        }, undone: { [self] in outboxCancel(batch: batch); restore() })
     }
 
     /// Short-term mail past two weeks, oldest first. Read-only search.

@@ -596,6 +596,19 @@ struct StatusNotices: View {
     @Environment(FeedStore.self) private var store
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            let waiting = store.waitingChanges
+            if !waiting.isEmpty, store.actions != nil {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("\(waiting.count) change\(waiting.count == 1 ? "" : "s") from earlier did not reach Gmail.", systemImage: "tray.and.arrow.up")
+                        .font(.subheadline)
+                    SessionConfirmButton(title: "Finish them", previews: [Outbox.preview(waiting)], identifier: "home.outbox.finish") { approvals in
+                        store.finishWaitingChanges(confirmed: approvals[0])
+                    }
+                    Button("Put them back") { store.dropWaitingChanges() }
+                        .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                }
+                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+            }
             if store.needsMailAccess {
                 notice("Google didn't give Lovely access to your mail. Tap Reconnect, and on Google's screen tick the Gmail box (or Select all) before Continue.", button: "Reconnect Gmail")
             } else if store.needsReconnect {
