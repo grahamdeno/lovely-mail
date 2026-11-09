@@ -540,7 +540,7 @@ struct DigestListView: View {
         case "waiting": return ("Waiting on you", d.waiting)
         case "notes": return ("Notes to self", d.notes)
         case "todo", "new": return ("To do", d.todo)
-        case "done": return ("Done today", store.doneTodayPosts)
+        case "done": return ("Done today", [])
         case "people": return ("People", d.people)
         case "organizations": return ("Organizations", d.organizations.flatMap(\.posts).sorted { $0.email.date > $1.email.date })
         default: break
@@ -550,8 +550,12 @@ struct DigestListView: View {
         return (group?.name ?? "Organization", group?.posts ?? [])
     }
     var body: some View {
+        if key == "done" { DoneTodayList() } else { list }
+    }
+
+    private var list: some View {
         let c = content
-        List {
+        return List {
             if c.posts.isEmpty { Text("Nothing here now.").foregroundStyle(CalmStyle.secondary).listRowBackground(CalmStyle.background) }
             ForEach(c.posts) { post in
                 MailRow(post: post, assessment: store.assessment(for: post), compact: key != "waiting", showAge: key == "todo",
@@ -564,6 +568,42 @@ struct DigestListView: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle(c.title).navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// What you finished today, from the saved records (mail that left the inbox still shows). Tap one still loaded to open it.
+struct DoneTodayList: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+
+    var body: some View {
+        let records = store.doneTodayRecords
+        List {
+            if records.isEmpty {
+                Text("Nothing done yet today.").foregroundStyle(CalmStyle.secondary).listRowBackground(CalmStyle.background)
+            }
+            ForEach(records) { r in
+                let loaded = store.sessionPost(r.id) != nil
+                Button { if loaded { router.open(.email(r.id)) } } label: {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(CalmStyle.blue).padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.from).font(.subheadline.weight(.semibold)).lineLimit(1)
+                            Text(r.subject.isEmpty ? "(no subject)" : r.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                            Text("Done " + r.doneAt.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(minHeight: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+            }
+        }
+        .listStyle(.plain).scrollContentBackground(.hidden)
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Done today").navigationBarTitleDisplayMode(.inline)
     }
 }
 
