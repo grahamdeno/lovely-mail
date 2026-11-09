@@ -44,14 +44,16 @@ struct SessionStartCard: View {
     @Environment(Router.self) private var router
     let count: Int
     let waiting: Int
+    /// No new mail, but older read mail is still in the inbox.
+    var backlog = false
 
     var body: some View {
-        Button { router.open(.session) } label: {
+        Button { router.open(backlog ? .backlog : .session) } label: {
             HStack(spacing: 14) {
                 Image(systemName: "tray.full").font(.title3.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
                     .frame(width: 44, height: 44).background(CalmStyle.blue, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Go through your inbox").font(.headline).foregroundStyle(CalmStyle.ink)
+                    Text(backlog ? "Clear older mail" : "Go through your inbox").font(.headline).foregroundStyle(CalmStyle.ink)
                     Text(subtitle).font(.subheadline).foregroundStyle(CalmStyle.secondary)
                 }
                 Spacer(minLength: 8)
@@ -67,6 +69,7 @@ struct SessionStartCard: View {
     }
 
     private var subtitle: String {
+        if backlog { return count == 1 ? "1 read email still in your inbox" : "\(count) read emails still in your inbox" }
         let base = count == 1 ? "1 to go through" : "\(count) to go through"
         return waiting > 0 ? base + " · \(waiting) waiting on you" : base
     }

@@ -98,9 +98,11 @@ enum SessionPlanner {
     /// Above this, quick items are split into pages so one confirm never covers a long list.
     static let batchPageSize = 10
 
+    /// `backlog`: read mail still in the inbox. It was already dealt with once, so mail from people and notes to self
+    /// may go in a batch; everything else in the never-in-a-batch list still gets its own turn.
     static func plan(_ messages: [SessionMessage], memory: DrawerMemory, kids: [KidProfile],
-                     promises: [CarriedPromise] = [], modelGuesses: [String: DrawerGuess] = [:]) -> SessionPlan {
-        let items = messages.map { item(for: $0, memory: memory, kids: kids, modelGuess: modelGuesses[$0.id]) }
+                     promises: [CarriedPromise] = [], modelGuesses: [String: DrawerGuess] = [:], backlog: Bool = false) -> SessionPlan {
+        let items = messages.map { item(for: $0, memory: memory, kids: kids, modelGuess: modelGuesses[$0.id], backlog: backlog) }
         return SessionPlan(items: items.sorted(by: order), carried: promises.sorted { $0.sent < $1.sent })
     }
 
@@ -114,7 +116,7 @@ enum SessionPlanner {
         return DrawerGuesser.guess(input, kids: kids) ?? modelGuess
     }
 
-    static func item(for m: SessionMessage, memory: DrawerMemory, kids: [KidProfile], modelGuess: DrawerGuess? = nil) -> SessionItem {
+    static func item(for m: SessionMessage, memory: DrawerMemory, kids: [KidProfile], modelGuess: DrawerGuess? = nil, backlog: Bool = false) -> SessionItem {
         let guess = drawer(for: m, memory: memory, kids: kids, modelGuess: modelGuess)
 
         // Reading: newsletters and promotions, archived without a drawer unless the owner says otherwise.
@@ -123,7 +125,7 @@ enum SessionPlanner {
             return SessionItem(message: m, group: .reading, suggestion: .archive, drawer: guess, heldBecause: nil)
         }
 
-        if let held = holdReason(m, guess: guess) {
+        if let held = holdReason(m, guess: guess, backlog: backlog) {
             let suggestion: SessionSuggestion
             if m.section == .waiting { suggestion = .reply }
             else if m.isPerson || m.asksForAction || m.isHealth || m.isFirstTimeSender { suggestion = .decide }
@@ -141,13 +143,13 @@ enum SessionPlanner {
 
     /// Why an item must get its own turn, or nil when it may go in a batch.
     /// Order matters only for the reason shown; any one of these holds it back.
-    static func holdReason(_ m: SessionMessage, guess: DrawerGuess?) -> String? {
+    static func holdReason(_ m: SessionMessage, guess: DrawerGuess?, backlog: Bool = false) -> String? {
         if m.section == .waiting { return m.ask.map { "Asks: \($0)" } ?? "Waiting on your answer" }
         if HandoffPrompt.isReport(subject: m.subject) { return "A report from your agent" }
         if m.isHealth { return "Health mail" }
         if m.asksForAction { return "Asks you to pay, sign or act" }
-        if m.section == .notes { return "A note you sent yourself" }
-        if m.isPerson { return "From \(m.fromName)" }
+        if m.section == .notes, !backlog { return "A note you sent yourself" }
+        if m.isPerson, !backlog { return "From \(m.fromName)" }
         if m.isFirstTimeSender { return "First mail from this sender" }
         guard let guess else { return "Not sure where this goes" }
         if guess.confidence < .rule { return "Not sure where this goes" }

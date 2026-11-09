@@ -218,6 +218,15 @@ final class SessionEngineTests: XCTestCase {
         XCTAssertEqual(progress.next(in: p)?.id, "stmt")
     }
 
+    func testBacklogLetsReadPersonalMailGoInABatch() {
+        let jo = msg("jo", from: "Aunt Jo", address: "jo@gmail.com", subject: "Lake photos", section: .people, person: true)
+        let pay = msg("pay", subject: "Payment failed", text: "Your statement is ready", action: true)
+        let p = SessionPlanner.plan([jo, pay], memory: DrawerMemory(), kids: kids, backlog: true)
+        XCTAssertEqual(p.items.first { $0.id == "jo" }?.group, .quick, "Already read once: file it with the batch")
+        XCTAssertEqual(p.items.first { $0.id == "jo" }?.suggestion, .putAway(DrawerChoice(.people)))
+        XCTAssertEqual(p.items.first { $0.id == "pay" }?.group, .oneAtATime, "Asks for action: still its own turn")
+    }
+
     // MARK: From the app's model
 
     func testBuildsFromAPost() {

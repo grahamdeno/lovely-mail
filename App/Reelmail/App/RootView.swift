@@ -49,6 +49,7 @@ struct RootView: View {
                     case .testingTools: TestingToolsView()
                     case .aboutPrivacy: AboutPrivacyView()
                     case .session: SessionView()
+                    case .backlog: SessionView(backlog: true)
                     case .engineSettings: EngineSettingsView()
                     case .engineScorecard: EngineScorecardView()
                     }

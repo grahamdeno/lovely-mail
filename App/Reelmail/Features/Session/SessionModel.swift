@@ -34,7 +34,11 @@ final class SessionModel {
     /// Reading screen: rows kept unread.
     var readingKept: Set<String> = []
 
-    init(plan: SessionPlan) {
+    /// Older read mail rather than new mail.
+    let backlog: Bool
+
+    init(plan: SessionPlan, backlog: Bool = false) {
+        self.backlog = backlog
         self.plan = plan
         self.progress = SessionProgress(plan: plan)
     }

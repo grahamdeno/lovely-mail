@@ -16,15 +16,24 @@ extension FeedStore {
         return (d.waiting + d.todo).filter { !hidden.contains($0.id) && seen.insert($0.id).inserted }
     }
 
+    /// Older mail: read, still in the inbox, not waiting on you. Oldest first, one page at a time.
+    static let backlogPage = 50
+    var backlogCandidates: [Post] {
+        let current = Set(sessionCandidates.map(\.id))
+        return posts.filter { !$0.email.isUnread && !$0.email.isFromMe && !hidden.contains($0.id) && !current.contains($0.id) }
+            .sorted { $0.email.date < $1.email.date }
+    }
+
     /// A fresh plan from what is loaded now.
-    func makeSessionPlan(modelGuesses: [String: DrawerGuess] = [:]) -> SessionPlan {
+    func makeSessionPlan(modelGuesses: [String: DrawerGuess] = [:], backlog: Bool = false) -> SessionPlan {
         let firstTime = Set(newSenders.map { $0.address.lowercased() })
-        let messages = sessionCandidates.map { post in
+        let source = backlog ? Array(backlogCandidates.prefix(Self.backlogPage)) : sessionCandidates
+        let messages = source.map { post in
             SessionMessage(post: post, assessment: assessment(for: post),
                            isFirstTimeSender: firstTime.contains(post.email.from.email.lowercased()))
         }
         return SessionPlanner.plan(messages, memory: drawerMemory, kids: sessionKids,
-                                   promises: promises.map(CarriedPromise.init), modelGuesses: modelGuesses)
+                                   promises: backlog ? [] : promises.map(CarriedPromise.init), modelGuesses: modelGuesses, backlog: backlog)
     }
 
     func sessionPost(_ id: String) -> Post? { posts.first { $0.id == id } }

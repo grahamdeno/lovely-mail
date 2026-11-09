@@ -6,11 +6,12 @@ struct SessionView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var model: SessionModel?
+    var backlog = false
 
     var body: some View {
         VStack(spacing: 0) {
             if let model {
-                SessionHeader(model: model, close: close)
+                SessionHeader(model: model, title: backlog ? "Older mail" : "Inbox session", close: close)
                 content(model)
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -21,40 +22,47 @@ struct SessionView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task {
             guard model == nil else { return }
-            let plan = store.makeSessionPlan()
-            let fresh = SessionModel(plan: plan)
+            let plan = store.makeSessionPlan(backlog: backlog)
+            let fresh = SessionModel(plan: plan, backlog: backlog)
             model = fresh
             // Routine mail the rules could not place gets an on-device drawer suggestion, so its screen has one main button.
             let unplaced = plan.items.filter { $0.drawer == nil && !$0.message.isPerson && $0.group != .reading }.map(\.message)
             guard !unplaced.isEmpty else { return }
             let guesses = await AppleDrawerGuesser.guesses(for: unplaced)
-            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses)) }
+            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses, backlog: backlog)) }
         }
     }
 
     @ViewBuilder private func content(_ m: SessionModel) -> some View {
         switch m.phase {
-        case .start: SessionStartScreen(model: m)
+        case .start: SessionStartScreen(model: m, openBacklog: openBacklog)
         case .item(let id): SessionItemScreen(model: m, itemID: id).id(id)
         case .batch: SessionBatchScreen(model: m)
         case .reading: SessionReadingScreen(model: m)
-        case .wrap: SessionWrapScreen(model: m, close: close)
+        case .wrap: SessionWrapScreen(model: m, close: close, openBacklog: openBacklog)
         }
     }
 
     private func close() { if !router.path.isEmpty { router.path.removeLast() } }
+
+    /// Older mail waiting in the inbox, if any, as a next step from the start or wrap-up screens.
+    private var openBacklog: (() -> Void)? {
+        guard store.backlogCandidates.count > 0 else { return nil }
+        return { close(); router.open(.backlog) }
+    }
 }
 
 // MARK: Header
 
 struct SessionHeader: View {
     let model: SessionModel
+    var title = "Inbox session"
     let close: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Inbox session").font(.headline)
+                Text(title).font(.headline)
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark").font(.body.weight(.semibold)).frame(width: 44, height: 44) }
                     .buttonStyle(.plain).foregroundStyle(CalmStyle.secondary)
@@ -86,6 +94,7 @@ struct SessionHeader: View {
 
 struct SessionStartScreen: View {
     let model: SessionModel
+    var openBacklog: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -93,9 +102,10 @@ struct SessionStartScreen: View {
                 VStack(alignment: .leading, spacing: 18) {
                     if model.isEmpty {
                         Text("Nothing to go through").font(.largeTitle.weight(.bold))
-                        Text("Your inbox is clear. New mail will be here next time.").foregroundStyle(CalmStyle.secondary)
+                        Text(model.backlog ? "No older mail is left in your inbox." : "Nothing new is waiting. New mail will be here next time.")
+                            .foregroundStyle(CalmStyle.secondary)
                     } else {
-                        Text("\(model.plan.count) to go through").font(.largeTitle.weight(.bold))
+                        Text(model.backlog ? "\(model.plan.count) older emails" : "\(model.plan.count) to go through").font(.largeTitle.weight(.bold))
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(SessionGroup.allCases, id: \.self) { group in
                                 let n = model.plan.items.filter { $0.group == group }.count
@@ -129,6 +139,10 @@ struct SessionStartScreen: View {
                 Button("Start") { model.start() }
                     .buttonStyle(SessionButtonStyle()).padding(20)
                     .accessibilityIdentifier("session.start")
+            } else if let openBacklog, !model.backlog {
+                Button("Clear older mail in your inbox") { openBacklog() }
+                    .buttonStyle(SessionButtonStyle()).padding(20)
+                    .accessibilityIdentifier("session.backlog")
             }
         }
     }
@@ -528,6 +542,7 @@ struct SessionReadingScreen: View {
 struct SessionWrapScreen: View {
     let model: SessionModel
     let close: () -> Void
+    var openBacklog: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -568,7 +583,15 @@ struct SessionWrapScreen: View {
                 }
                 .padding(20)
             }
-            Button("Done") { close() }.buttonStyle(SessionButtonStyle()).padding(20).accessibilityIdentifier("session.done")
+            VStack(spacing: 10) {
+                Button("Done") { close() }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("session.done")
+                if let openBacklog {
+                    Button(model.backlog ? "Clear the next page" : "Clear older mail too") { openBacklog() }
+                        .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                        .accessibilityIdentifier("session.backlog.next")
+                }
+            }
+            .padding(20)
         }
     }
 
