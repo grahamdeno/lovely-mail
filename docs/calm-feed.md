@@ -354,3 +354,15 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   made SwiftUI redraw Home, which saved again, so the app never finished launching and iOS closed it (no crash report,
   which matches a launch watchdog kill). Fix: save only when the steps changed. Regression test in TodayPlanTests.
 - Rule: never write settings or files from a view body.
+- Nov 9: "Text someone about this" is now in the email screen's … menu on every email (named for the last person texted,
+  e.g. "Text Sam about this"). Before, it showed only on read organization mail.
+- Nov 9: the Brief's "Walk through today's mail" (old cards: no Ask, no Trash) now opens the inbox session instead. WalkthroughView is unused; remove it later.
+- Nov 9: inbox session: "Text Julia about this" in the … sheet, and typing "text Julia" (or "send this to …") in the ask field opens the same Messages sheet.
+- Nov 9: Money links and the Pay step opened "Email not found": Money lists a year of bills, but only recent inbox mail is
+  loaded. Mail not loaded is now read from Gmail (read-only, FetchedEmailView). Today's Pay step skips bills due more than
+  3 days ago (a month-old bill showed as "Due Sun"), opens the bill's email, and past dates read as dates or "Yesterday".
+- Build 1047 opened fine: the launch freeze fix worked.
+- Nov 9: Settings redesign. Top level is one screen: account card (opens Account: addresses, iCloud backup, Disconnect),
+  then Your rules (Lovely filters + Gmail filters, New senders, Short-term), Morning brief, Clean up, Households and kids,
+  Look and feel, AI, Privacy and activity; each row shows its value. Sign-in warnings and Connect stay on top. Testing tools
+  hidden: tap the version line 5 times. Later moved to a Home chip ("Later · N") and its own page. UI audit steps updated.

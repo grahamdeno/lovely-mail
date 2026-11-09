@@ -57,6 +57,13 @@ struct RootView: View {
                     case .shortTermCleanup: CleanupView(kind: .shortTerm)
                     case .notes: NotesThreadView()
                     case .glance: GlanceView()
+                    case .settingsAccount: SettingsAccountView()
+                    case .settingsRules: SettingsRulesView()
+                    case .settingsBrief: SettingsBriefView()
+                    case .settingsLook: SettingsLookView()
+                    case .settingsAI: SettingsAIView()
+                    case .settingsPrivacy: SettingsPrivacyView()
+                    case .later: LaterListView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

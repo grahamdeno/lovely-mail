@@ -78,7 +78,7 @@ struct TodayStepsCard: View {
         switch step.kind {
         case .answer: step.postID == nil ? "See who" : "Open"
         case .session: "Go through your inbox"
-        case .bill: "See bills"
+        case .bill: step.postID == nil ? "See bills" : "Open the bill"
         case .date: "Open"
         }
     }
@@ -87,7 +87,7 @@ struct TodayStepsCard: View {
         switch step.kind {
         case .answer: router.open(step.postID.map { .email($0) } ?? .mailList("waiting"))
         case .session: router.open(.session)
-        case .bill: router.open(.money)
+        case .bill: router.open(step.postID.map { .email($0) } ?? .money)
         case .date: if let id = step.postID { router.open(.email(id)) }
         }
     }

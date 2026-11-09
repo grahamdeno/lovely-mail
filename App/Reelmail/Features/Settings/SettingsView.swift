@@ -1,10 +1,131 @@
 import SwiftUI
 
-/// Settings: account, addresses, appearance, pictures, rules, testing tools and how Lovely handles mail.
+/// Settings, top level: one screen of rows, each showing its current value, each opening one topic (Nov 9 redesign).
+/// Things you act on (Later, clean-ups) live where you work; this page is only for setting things.
 struct SettingsView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
-    @State private var showingFiltered = false
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    @AppStorage(BriefSettings.enabledKey) private var briefOn = false
+    @AppStorage(BriefSettings.minutesKey) private var briefMinutes = BriefSettings.defaultMinutes
+    @AppStorage(SettingsView.testingKey) private var showTesting = false
+    @State private var versionTaps = 0
+
+    static let testingKey = "lovely.settings.showTesting"
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                AccountHeaderCard { router.open(.settingsAccount) }
+                AccountAttention()
+                VStack(spacing: 8) {
+                    SettingsRow(title: "Your rules", value: Self.rulesValue(store)) { router.open(.settingsRules) }
+                    SettingsRow(title: "Morning brief", value: briefOn ? Self.timeLabel(briefMinutes) : "Off") { router.open(.settingsBrief) }
+                    if store.mode == .gmail { SettingsRow(title: "Clean up", value: "Old login emails") { router.open(.cleanup) } }
+                    SettingsRow(title: "Households and kids", value: Self.householdsValue()) { router.open(.insightSettings) }
+                    SettingsRow(title: "Look and feel", value: appearance.title) { router.open(.settingsLook) }
+                    SettingsRow(title: "AI", value: EngineSettings().engine.name) { router.open(.settingsAI) }
+                    SettingsRow(title: "Privacy and activity") { router.open(.settingsPrivacy) }
+                    if showTesting { SettingsRow(title: "Testing tools") { router.open(.testingTools) } }
+                }
+                .padding(.top, 8)
+                Text(Self.versionLabel)
+                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+                    .onTapGesture {
+                        // Five taps show Testing tools (and five more hide them): not an everyday setting.
+                        versionTaps += 1
+                        if versionTaps >= 5 { showTesting.toggle(); versionTaps = 0 }
+                    }
+                    .accessibilityIdentifier("settings.version")
+            }
+            .padding(.horizontal, 20).padding(.bottom, 24)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Settings").navigationBarTitleDisplayMode(.large)
+    }
+
+    static var versionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let v = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = info?["CFBundleVersion"] as? String ?? "?"
+        return "Lovely \(v) (\(b))"
+    }
+
+    static func timeLabel(_ minutes: Int) -> String {
+        let h = minutes / 60, m = minutes % 60
+        let hour12 = h % 12 == 0 ? 12 : h % 12
+        return String(format: "%d:%02d %@", hour12, m, h < 12 ? "AM" : "PM")
+    }
+
+    @MainActor static func rulesValue(_ store: FeedStore) -> String {
+        let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
+        return filtered == 0 ? "" : (filtered == 1 ? "1 sender" : "\(filtered) senders")
+    }
+
+    static func householdsValue() -> String {
+        let d = InsightSettings().load()
+        var parts: [String] = []
+        if !d.households.isEmpty { parts.append("\(d.households.count) home\(d.households.count == 1 ? "" : "s")") }
+        if !d.kids.isEmpty { parts.append("\(d.kids.count) kid\(d.kids.count == 1 ? "" : "s")") }
+        return parts.joined(separator: ", ")
+    }
+}
+
+/// The account at the top of Settings: who is connected and when mail last loaded. Opens the Account page.
+struct AccountHeaderCard: View {
+    @Environment(FeedStore.self) private var store
+    let open: () -> Void
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 12) {
+                Image(systemName: store.mode == .gmail ? "envelope.fill" : "envelope")
+                    .foregroundStyle(CalmStyle.onBlue).frame(width: 44, height: 44)
+                    .background(CalmStyle.blue, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(store.mode == .gmail ? (store.account ?? "Gmail") : "Demo mail").font(.headline).lineLimit(1).truncationMode(.middle)
+                    Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+            }
+            .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).accessibilityIdentifier("settings.account")
+    }
+    private var detail: String {
+        guard store.mode == .gmail else { return "Connect Gmail to see your own mail" }
+        if let fetched = store.lastFetched { return "Gmail · updated " + MailTime.label(fetched).lowercased() }
+        return "Gmail"
+    }
+}
+
+/// Sign-in problems and Connect, shown on the top level so they are never buried.
+struct AccountAttention: View {
+    @Environment(FeedStore.self) private var store
+    var body: some View {
+        if store.needsReconnect {
+            Text(store.needsMailAccess
+                 ? "Google didn't give Lovely access to your mail. Tap Reconnect, and on Google's screen tick the Gmail box (or Select all) before Continue."
+                 : "Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
+                .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
+        }
+        if store.gmailConfigured, !(store.mode == .gmail && !store.needsReconnect) {
+            Button { Task { await store.connectGmail() } } label: {
+                Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
+            }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("settings.connect")
+        }
+        if let error = store.errorMessage, !store.needsReconnect {
+            Text(error).font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+    }
+}
+
+/// Account: the connected Gmail, your other addresses, iCloud backup, and Disconnect.
+struct SettingsAccountView: View {
+    @Environment(FeedStore.self) private var store
     @State private var confirmDisconnect = false
 
     private var sourceDetail: String {
@@ -20,110 +141,144 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                SettingsHeader(text: "Account", first: true)
-                ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail" : "Demo", detail: sourceDetail)
-
-                if store.needsReconnect {
-                    Text(store.needsMailAccess
-                         ? "Google didn't give Lovely access to your mail. Tap Reconnect, and on Google's screen tick the Gmail box (or Select all) before Continue."
-                         : "Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
-                        .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
+        SettingsPage(title: "Account") {
+            ProfileCard(title: "Mail source", value: store.mode == .gmail ? "Gmail" : "Demo", detail: sourceDetail)
+            AccountAttention()
+            SettingsHeader(text: "Your other addresses")
+            OtherAddressesCard()
+            SettingsHeader(text: "Backup")
+            ICloudBackupCard()
+            if store.gmailConfigured, store.mode == .gmail, !store.needsReconnect {
+                // Quiet on purpose, and last: it clears the mail kept on this phone.
+                Button(role: .destructive) { confirmDisconnect = true } label: {
+                    Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled")
+                        .font(.subheadline).foregroundStyle(CalmStyle.roseInk)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                }.buttonStyle(.plain).padding(.top, 18).accessibilityIdentifier("settings.disconnect")
+                .confirmationDialog("Disconnect Gmail?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
+                    Button("Disconnect", role: .destructive) { Task { await store.disconnectGmail() } }
+                } message: {
+                    Text("Mail kept on this iPhone is cleared. Households, kids and your addresses stay. You can connect again any time.")
                 }
-                if store.gmailConfigured, !(store.mode == .gmail && !store.needsReconnect) {
-                    Button { Task { await store.connectGmail() } } label: {
-                        Label(store.needsReconnect ? "Reconnect Gmail" : "Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)
-                    }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("settings.connect")
-                }
-                if let error = store.errorMessage, !store.needsReconnect {
-                    Text(error).font(.caption).foregroundStyle(CalmStyle.secondary)
-                }
-                if store.gmailConfigured, store.mode == .gmail, !store.needsReconnect {
-                    // Quiet on purpose: it clears the mail kept on this phone.
-                    Button(role: .destructive) { confirmDisconnect = true } label: {
-                        Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled")
-                            .font(.subheadline).foregroundStyle(CalmStyle.roseInk)
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityIdentifier("settings.disconnect")
-                    .confirmationDialog("Disconnect Gmail?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
-                        Button("Disconnect", role: .destructive) { Task { await store.disconnectGmail() } }
-                    } message: {
-                        Text("Mail kept on this iPhone is cleared. Households, kids and your addresses stay. You can connect again any time.")
-                    }
-                }
-
-                SettingsHeader(text: "Your other addresses")
-                OtherAddressesCard()
-
-                SettingsHeader(text: "Appearance")
-                AppearanceCard()
-                OpeningAnimationToggle()
-
-                SettingsHeader(text: "Pictures")
-                PicturesCard()
-
-                SettingsHeader(text: "Morning brief")
-                MorningBriefCard()
-
-                SettingsHeader(text: "Inbox session")
-                SettingsRow(title: "Conversation engine") { router.open(.engineSettings) }
-                if store.actions != nil { SettingsRow(title: "New senders") { router.open(.screenedOut) } }
-                if store.mode == .gmail { SettingsRow(title: "Clean up old login emails") { router.open(.cleanup) } }
-                if store.mode == .gmail { SettingsRow(title: "Short-term mail") { router.open(.shortTermCleanup) } }
-
-                SettingsHeader(text: "Households and kids")
-                SettingsRow(title: "Households and kids") { router.open(.insightSettings) }
-                ICloudBackupCard()
-
-                SettingsHeader(text: "Gmail actions")
-                SettingsRow(title: "Forwarding addresses") { router.open(.forwardingAddresses) }
-                SettingsRow(title: "Gmail filters") { router.open(.gmailFilters) }
-                SettingsRow(title: "Gmail activity") { router.open(.gmailActivity) }
-
-                SettingsHeader(text: "Rules")
-                ProfileCard(title: "Your rules", value: rulesSummary, detail: "Long-press a message to filter a sender or move it to Reading. Rules change this app only.")
-                Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
-                    .buttonStyle(CalmActionStyle())
-                if !store.hiddenPosts.isEmpty {
-                    Button { store.restoreAll() } label: { Label("Show hidden mail (\(store.hiddenPosts.count))", systemImage: "eye").frame(maxWidth: .infinity) }
-                        .buttonStyle(CalmActionStyle())
-                }
-                let later = store.laterPosts
-                if !later.isEmpty {
-                    SettingsHeader(text: "Later (\(later.count))")
-                    ForEach(later, id: \.post.id) { item in
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                Text("Back " + LaterSchedule.label(item.until, now: Date())).font(.caption).foregroundStyle(CalmStyle.secondary)
-                            }
-                            Spacer(minLength: 8)
-                            Button("Bring back now") { store.bringBack(item.post.id) }
-                                .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
-                        }
-                    }
-                }
-
-                SettingsHeader(text: "Testing")
-                SettingsRow(title: "Testing tools") { router.open(.testingTools) }
-
-                SettingsHeader(text: "About")
-                let status = ModelStatus.current
-                ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
-                SettingsRow(title: "How Lovely handles your mail") { router.open(.aboutPrivacy) }
             }
-            .padding(.horizontal, 20).padding(.bottom, 24)
         }
-        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
-        .navigationTitle("Settings").navigationBarTitleDisplayMode(.large)
+    }
+}
+
+/// Your rules: everything that decides where mail goes, in Lovely and in Gmail, in one place.
+struct SettingsRulesView: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    @State private var showingFiltered = false
+
+    var body: some View {
+        SettingsPage(title: "Your rules") {
+            SettingsHeader(text: "In Lovely only", first: true)
+            ProfileCard(title: "Filtered senders", value: filteredSummary,
+                        detail: "Long-press a message to filter a sender or move it to Reading. These change Lovely only, not Gmail.")
+            Button { showingFiltered = true } label: { Label("Review filtered senders", systemImage: "line.3.horizontal.decrease.circle").frame(maxWidth: .infinity) }
+                .buttonStyle(CalmActionStyle())
+            if !store.hiddenPosts.isEmpty {
+                Button { store.restoreAll() } label: { Label("Show hidden mail (\(store.hiddenPosts.count))", systemImage: "eye").frame(maxWidth: .infinity) }
+                    .buttonStyle(CalmActionStyle())
+            }
+            SettingsHeader(text: "In Gmail too")
+            VStack(spacing: 8) {
+                SettingsRow(title: "Gmail filters", value: "Always put away, screen out") { router.open(.gmailFilters) }
+                if store.actions != nil { SettingsRow(title: "New senders", value: "Screen out first-timers") { router.open(.screenedOut) } }
+                if store.mode == .gmail { SettingsRow(title: "Short-term mail", value: "Trash after 2 weeks") { router.open(.shortTermCleanup) } }
+            }
+        }
         .sheet(isPresented: $showingFiltered) { FilteredMailReview() }
     }
 
-    private var rulesSummary: String {
+    private var filteredSummary: String {
         let filtered = Set(store.filteredPosts.map(\.email.from.email)).count
         return filtered == 0 ? "No senders filtered" : (filtered == 1 ? "1 sender filtered" : "\(filtered) senders filtered")
+    }
+}
+
+/// Morning brief on its own page.
+struct SettingsBriefView: View {
+    var body: some View { SettingsPage(title: "Morning brief") { MorningBriefCard() } }
+}
+
+/// Look and feel: appearance, the opening animation, and pictures.
+struct SettingsLookView: View {
+    var body: some View {
+        SettingsPage(title: "Look and feel") {
+            SettingsHeader(text: "Appearance", first: true)
+            AppearanceCard()
+            OpeningAnimationToggle()
+            SettingsHeader(text: "Pictures")
+            PicturesCard()
+        }
+    }
+}
+
+/// AI: which engine talks with you in the inbox session, and whether Apple Intelligence is ready.
+struct SettingsAIView: View {
+    @Environment(Router.self) private var router
+    var body: some View {
+        SettingsPage(title: "AI") {
+            SettingsRow(title: "Conversation engine", value: EngineSettings().engine.name) { router.open(.engineSettings) }
+            let status = ModelStatus.current
+            ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
+        }
+    }
+}
+
+/// Privacy and activity: what Lovely does with mail, what it changed in Gmail, and where it may forward.
+struct SettingsPrivacyView: View {
+    @Environment(Router.self) private var router
+    var body: some View {
+        SettingsPage(title: "Privacy and activity") {
+            VStack(spacing: 8) {
+                SettingsRow(title: "How Lovely handles your mail") { router.open(.aboutPrivacy) }
+                SettingsRow(title: "Gmail activity", value: "What Lovely changed") { router.open(.gmailActivity) }
+                SettingsRow(title: "Forwarding addresses") { router.open(.forwardingAddresses) }
+            }
+        }
+    }
+}
+
+/// Mail you put off with Later, and when each comes back. Opened from Home's "Later" chip.
+struct LaterListView: View {
+    @Environment(FeedStore.self) private var store
+    var body: some View {
+        SettingsPage(title: "Later") {
+            let later = store.laterPosts
+            if later.isEmpty {
+                Text("Nothing put off.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+            }
+            ForEach(later, id: \.post.id) { item in
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Text(item.post.email.subject).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                        Text("Back " + LaterSchedule.label(item.until, now: Date())).font(.caption).foregroundStyle(CalmStyle.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Bring back now") { store.bringBack(item.post.id) }
+                        .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
+                }
+                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+    }
+}
+
+/// A settings sub-page: a scrolling column with the app's background.
+struct SettingsPage<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) { content }
+                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -188,7 +343,7 @@ struct MorningBriefCard: View {
 }
 
 /// A small-caps group title in Settings.
-private struct SettingsHeader: View {
+struct SettingsHeader: View {
     let text: String
     var first = false
     var body: some View {
@@ -198,15 +353,17 @@ private struct SettingsHeader: View {
     }
 }
 
-/// A full-width row that opens another screen.
-private struct SettingsRow: View {
+/// A full-width row that opens another screen, with its current value on the right (like the iPhone's Settings).
+struct SettingsRow: View {
     let title: String
+    var value: String = ""
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(title).font(.body)
                 Spacer(minLength: 8)
+                if !value.isEmpty { Text(value).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1) }
                 Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
             }
             .padding(.horizontal, 14).frame(minHeight: 48).frame(maxWidth: .infinity, alignment: .leading)
@@ -268,7 +425,7 @@ struct MorningBriefTestCard: View {
 struct AboutPrivacyView: View {
     var body: some View {
         ScrollView {
-            Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off in Settings under Pictures. It changes Gmail in only two ways, both when you ask and both undoable: moving a message to Trash, and marking a message read when you tap Done. It never sends mail, never deletes anything for good, and never changes other labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
+            Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off in Settings under Look and feel. It changes Gmail in only two ways, both when you ask and both undoable: moving a message to Trash, and marking a message read when you tap Done. It never sends mail, never deletes anything for good, and never changes other labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
                 .font(.body).foregroundStyle(CalmStyle.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(20)
         }

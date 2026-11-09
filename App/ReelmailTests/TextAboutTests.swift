@@ -35,4 +35,19 @@ final class TextAboutTests: XCTestCase {
         XCTAssertFalse(store.all.contains { $0.name == "Person 3" })
         XCTAssertEqual(TextAboutSheet.smsURL(phone: "+1 (555) 000-0001", body: "Hi there")?.absoluteString, "sms:+15550000001?body=Hi%20there")
     }
+
+    /// The email screen's "…" menu names the last person he texted about an email.
+    func testMenuNamesTheLastPersonTexted() {
+        XCTAssertEqual(OpenEmailView.textAboutTitle(nil), "Text someone about this")
+        XCTAssertEqual(OpenEmailView.textAboutTitle(TextRecipient(name: "Sam Rivera", phone: "+15550100")), "Text Sam about this")
+    }
+
+    func testAskFieldRecognizesTextRequests() {
+        for said in ["text Sam", "Text my wife about this", "send this to Sam", "message Sam about it."] {
+            XCTAssertTrue(TextAbout.isTextRequest(said), said)
+        }
+        for said in ["text", "put it in school", "what is this about", "trash it"] {
+            XCTAssertFalse(TextAbout.isTextRequest(said), said)
+        }
+    }
 }

@@ -146,6 +146,9 @@ enum Route: Hashable {
     case shortTermCleanup
     case notes
     case glance
+    // Settings pages (Nov 9 redesign) and the Later list (moved from Settings to a Home chip).
+    case settingsAccount, settingsRules, settingsBrief, settingsLook, settingsAI, settingsPrivacy
+    case later
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

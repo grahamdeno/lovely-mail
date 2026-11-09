@@ -37,7 +37,7 @@ enum TodayPlan {
         var waiting: [(postID: String, name: String, about: String)] = []
         var toGoThrough = 0
         /// Bills not paid, with a due date.
-        var bills: [(payee: String, due: Date)] = []
+        var bills: [(payee: String, due: Date, postID: String?)] = []
         /// Dates in mail that fall today.
         var today: [(postID: String, label: String, title: String)] = []
     }
@@ -59,10 +59,13 @@ enum TodayPlan {
         for d in i.today.prefix(1) {
             out.append(TodayStep(id: "date-" + d.postID, kind: .date, title: d.label + ": " + d.title, detail: "Today", postID: d.postID))
         }
-        let soon = i.bills.filter { $0.due.timeIntervalSince(now) < 4 * 86_400 }.sorted { $0.due < $1.due }
+        // Due in the next 4 days or the last 3. Older ones are almost always paid already (a bill from October showed as "Due Sun").
+        let soon = i.bills.filter { (-3 * 86_400 ..< 4 * 86_400).contains($0.due.timeIntervalSince(now)) }.sorted { $0.due < $1.due }
         if let bill = soon.first {
+            let past = bill.due < calendar.startOfDay(for: now)
             out.append(TodayStep(id: "bill-" + bill.payee.lowercased(), kind: .bill, title: "Pay \(bill.payee)",
-                                 detail: "Due " + HomeGlance.dayLabel(bill.due, hasTime: false, now: now, calendar: calendar)))
+                                 detail: (past ? "Was due " : "Due ") + HomeGlance.dayLabel(bill.due, hasTime: false, now: now, calendar: calendar),
+                                 postID: bill.postID))
         }
         return out
     }

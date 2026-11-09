@@ -175,6 +175,10 @@ struct SessionItemScreen: View {
     /// The keyboard is up for the ask field: the bar shrinks to just the field, like Messages.
     @State private var typing = false
     @State private var showMore = false
+    /// "Text Julia about this" from the … sheet (opens Messages with a short summary; he taps Send).
+    @State private var textAbout: Post?
+    /// The same, from typing "text Julia" in the ask field.
+    @State private var textAboutFromAsk: Post?
     @State private var thinking = false
     @State private var proposals: [SessionProposal] = []
     @State private var askNote: String?
@@ -223,6 +227,7 @@ struct SessionItemScreen: View {
             .sheet(item: $calendar, onDismiss: finishDate) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
             .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
             .sheet(isPresented: $showMore) { moreSheet(item, post) }
+            .sheet(item: $textAboutFromAsk) { TextAboutSheet(post: $0) }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -331,6 +336,10 @@ struct SessionItemScreen: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Just this email.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                        Button { textAbout = post } label: {
+                            Label(OpenEmailView.textAboutTitle(TextRecipients().all.first), systemImage: "message").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(CalmActionStyle()).accessibilityIdentifier("session.textAbout")
                         keepTwoWeeksButton(item, prominent: false)
                         trashButton(item, post, prominent: false)
                     }
@@ -339,6 +348,7 @@ struct SessionItemScreen: View {
             }
             .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
             .toolbar { Button("Cancel") { showMore = false } }
+            .sheet(item: $textAbout) { TextAboutSheet(post: $0) }
         }
         .presentationDetents([.large])
     }
@@ -883,6 +893,8 @@ extension SessionItemScreen {
         lastSaid = said
         askNote = nil
         proposals = []
+        // "text Julia", "text my wife about this": open Messages with a short summary (he taps Send there).
+        if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askResetCount += 1; return }
         let kids = store.sessionKids
         if let quick = SessionQuickCommands.parse(said, kids: kids, fromPerson: item.message.isPerson) {
             proposals = [SessionProposal(engine: .apple, action: SessionCommandValidator.validate(quick, item: item, kids: kids),
