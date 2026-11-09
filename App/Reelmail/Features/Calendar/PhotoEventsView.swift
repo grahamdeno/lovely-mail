@@ -35,6 +35,7 @@ struct PhotoEventsView: View {
     @State private var calendars: [EKCalendar] = []
     @State private var target: EKCalendar?
     @State private var note: String?
+    @State private var showCamera = false
     private let eventStore = EKEventStore()
 
     enum Phase: Equatable { case start, reading, review, added(Int) }
@@ -65,16 +66,30 @@ struct PhotoEventsView: View {
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Events from a photo").navigationBarTitleDisplayMode(.inline)
         .onChange(of: pick) { _, item in if let item { Task { await read(item) } } }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraCapture { image in
+                showCamera = false
+                if let image { Task { await read(image) } }
+            }
+            .ignoresSafeArea()
+        }
     }
 
     private var startView: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Take a screenshot or photo of your calendar, then pick it here. Lovely reads it on this iPhone, shows you each event, and adds the new ones to your Work calendar.")
+            Text("Point your camera at your calendar on the computer screen. Lovely reads it on this iPhone, shows you each event, and adds the new ones to your Work calendar.")
                 .font(.callout).foregroundStyle(CalmStyle.secondary)
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button { showCamera = true } label: {
+                    Label("Take a photo", systemImage: "camera").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SessionButtonStyle())
+                .accessibilityIdentifier("photoEvents.camera")
+            }
             PhotosPicker(selection: $pick, matching: .images) {
                 Label("Choose a photo or screenshot", systemImage: "photo.on.rectangle").frame(maxWidth: .infinity)
             }
-            .buttonStyle(SessionButtonStyle())
+            .buttonStyle(SessionButtonStyle(prominent: !UIImagePickerController.isSourceTypeAvailable(.camera)))
             .accessibilityIdentifier("photoEvents.pick")
             Text("Nothing is sent to Claude or Grok. Events already on your calendar at the same time with the same title are skipped.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
@@ -106,7 +121,7 @@ struct PhotoEventsView: View {
             Button(chosen == 0 ? "Nothing to add" : "Add \(chosen) to \(target?.title ?? "Work")") { add() }
                 .buttonStyle(SessionButtonStyle()).disabled(chosen == 0 || target == nil)
                 .accessibilityIdentifier("photoEvents.add")
-            Button("Choose another photo") { rows = []; pick = nil; phase = .start }
+            Button("Try another photo") { rows = []; pick = nil; phase = .start }
                 .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(maxWidth: .infinity, minHeight: 44)
         }
     }
@@ -139,9 +154,15 @@ struct PhotoEventsView: View {
 
     private func read(_ item: PhotosPickerItem) async {
         phase = .reading; note = nil
-        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data), let cg = image.cgImage else {
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else {
             note = "That picture could not be opened."; phase = .start; return
         }
+        await read(image)
+    }
+
+    private func read(_ image: UIImage) async {
+        phase = .reading; note = nil
+        guard let cg = Self.upright(image).cgImage else { note = "That picture could not be opened."; phase = .start; return }
         let lines = await Self.recognize(cg)
         var events = await Self.interpret(lines)
         if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
@@ -152,6 +173,12 @@ struct PhotoEventsView: View {
             return Row(event: e, include: !dup, duplicate: dup)
         }
         phase = .review
+    }
+
+    /// Camera photos carry a rotation flag; text recognition needs the pixels upright.
+    static func upright(_ image: UIImage) -> UIImage {
+        guard image.imageOrientation != .up else { return image }
+        return UIGraphicsImageRenderer(size: image.size).image { _ in image.draw(in: CGRect(origin: .zero, size: image.size)) }
     }
 
     /// Apple's on-device text recognition, with where each line sits.
@@ -233,5 +260,30 @@ struct PhotoEventsView: View {
             if let error { self.store.errorMessage = "The events were not added. \(error.localizedDescription)" }
         })
         phase = .added(chosen.count)
+    }
+}
+
+/// The iPhone camera, for photographing a calendar on a computer screen. The photo is read on the phone and not saved.
+struct CameraCapture: UIViewControllerRepresentable {
+    let done: (UIImage?) -> Void
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.cameraCaptureMode = .photo
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ controller: UIImagePickerController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(done: done) }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let done: (UIImage?) -> Void
+        init(done: @escaping (UIImage?) -> Void) { self.done = done }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            done(info[.originalImage] as? UIImage)
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { done(nil) }
     }
 }
