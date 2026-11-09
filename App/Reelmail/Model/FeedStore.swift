@@ -635,7 +635,7 @@ final class FeedStore {
     func markDone(_ post: Post) async {
         guard setUnread(post.id, false) else { return }
         InteractionLog().recordDone()
-        countDone(+1)
+        countDone(+1, id: post.id)
         lastDone = post
         persist()
         let title = "Done: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject)
@@ -644,7 +644,7 @@ final class FeedStore {
         do { try await gmail.markRead(messageID: post.id) }
         catch {
             undo.cancelQuietly(offer)
-            setUnread(post.id, true); countDone(-1); persist()
+            setUnread(post.id, true); countDone(-1, id: post.id); persist()
             if lastDone?.id == post.id { lastDone = nil }
             changeFailed(error)
             errorMessage = "That message is still unread in Gmail. \(error.localizedDescription)"
@@ -657,7 +657,7 @@ final class FeedStore {
             do { try await gmail.markUnread(messageID: post.id) }
             catch { errorMessage = "Gmail could not mark that message unread again. Mark it unread in Gmail to put it back. \(error.localizedDescription)"; return }
         }
-        if setUnread(post.id, true) { countDone(-1) }
+        if setUnread(post.id, true) { countDone(-1, id: post.id) }
         if lastDone?.id == post.id { lastDone = nil }
         persist()
     }
@@ -677,15 +677,30 @@ final class FeedStore {
     private var doneDay = ""
     private var doneCount = 0
     private var doneKey: String { "lovely.doneToday." + (mode == .gmail ? MailCache.accountKey(account ?? "") : "demo") }
+    /// Which messages were done today, newest first, so "done today" can show them. Same day rule as the count.
+    private var doneIDs: [String] = []
+    var doneTodayIDs: [String] { doneDay == Self.dayKey(Date()) ? doneIDs : [] }
+    /// Today's done mail that Lovely still has loaded, newest done first.
+    var doneTodayPosts: [Post] {
+        let byID = Dictionary(posts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return doneTodayIDs.compactMap { byID[$0] }
+    }
     private func loadDoneCount() {
         let saved = triageDefaults.dictionary(forKey: doneKey)
         doneDay = saved?["day"] as? String ?? ""
         doneCount = saved?["count"] as? Int ?? 0
+        doneIDs = saved?["ids"] as? [String] ?? []
     }
-    func countDone(_ delta: Int) {
+    func countDone(_ delta: Int, id: String? = nil) {
+        let sameDay = doneDay == Self.dayKey(Date())
+        if !sameDay { doneIDs = [] }
         doneCount = max(0, doneToday + delta)
+        if let id {
+            doneIDs.removeAll { $0 == id }
+            if delta > 0 { doneIDs.insert(id, at: 0) }
+        }
         doneDay = Self.dayKey(Date())
-        triageDefaults.set(["day": doneDay, "count": doneCount], forKey: doneKey)
+        triageDefaults.set(["day": doneDay, "count": doneCount, "ids": Array(doneIDs.prefix(500))], forKey: doneKey)
     }
     // MARK: You said you would / Waiting on them (local; reads only)
 

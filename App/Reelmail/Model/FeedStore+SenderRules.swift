@@ -37,14 +37,14 @@ extension FeedStore {
         }
         if screenOut { _ = rules.setSender(key, destination: .filtered) }
         for post in moving {
-            if markRead, setUnread(post.id, false) { countDone(+1) }
+            if markRead, setUnread(post.id, false) { countDone(+1, id: post.id) }
             hide(post)
         }
         persist()
         let restore: @MainActor () -> Void = { [self] in
             if screenOut { _ = rules.setSender(key, destination: nil) }
             for post in moving {
-                if markRead, setUnread(post.id, true) { countDone(-1) }
+                if markRead, setUnread(post.id, true) { countDone(-1, id: post.id) }
                 unhide(post)
             }
             persist()

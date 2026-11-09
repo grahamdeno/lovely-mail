@@ -44,6 +44,7 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 
 ## Claude engine fix (Nov 9, 2026, build 1029 test)
 - Opus 5.5 returned 400 for forced tool_choice. Claude requests (session and forms) now use tool_choice auto plus a system line asking for the tool; parsing also accepts the JSON written as text. Works on Sonnet, Haiku and Opus. Quick commands gained "file it away".
+- Home: "N done today" now opens a Done today list (the messages done, put away or filed today, newest first) instead of To do. Lovely saves the ids with the daily count.
 
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
