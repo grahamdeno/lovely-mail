@@ -98,3 +98,18 @@ Order of preference, most seamless first:
 Each engine gets the same playbook in its own format: a system prompt plus tool definitions for Claude and Grok, and a compact version with `@Generable` types for Apple, whose on-device context is small.
 
 **Engine scorecard** (Testing tools): a fictional set of owner sentences, each with the expected action, run against every enabled engine. It shows how often each one gets it right, including how far Apple only falls behind, and catches a regression when the playbook changes. Same pattern as the sorting scorecard.
+
+## 11. Categories, tags and discovery (owner, Nov 9, 2026)
+Approved: ten primary categories replace the seven drawers: Money, Home, Kids and family, Health, Work and career, Projects and business, Orders, Travel, Personal, Accounts and security. Newsletters and promotions get no category (archived). Every email gets one primary category plus tags from a fixed list: type (Bill, Statement, Receipt, Payment, Invoice, Appointment, Confirmation, Contract, Notice), topic tags per category, property, person. Existing user labels the owner already uses (Taxes, Crypto) are reused as tags, not duplicated. Labels: `Lovely/<Category>`, `Lovely/Tag/<Tag>`, `Lovely/Property/<Name>`, `Lovely/Person/<Name>`.
+
+Properties have a status. Active properties are suggested for new mail; past properties (a sold home) keep their tag on old mail but are never suggested for new mail. A property tag goes only on Home mail or mail from a sender linked to that property, never because an address appears in a shipping receipt.
+
+Retention: Lovely never deletes on a timer. Mail is labeled and archived, and Gmail keeps it. Any future "clean up old codes" rule would move only Accounts and security mail older than a set age to Trash, as a rule the owner turns on and previews first.
+
+**For any user (App Store):** the same flow must work for someone Lovely knows nothing about.
+1. **Discover from their own mail, on the phone:** a first-run scan of 12 months proposes the user's own categories, tags and entities with evidence ("seen in 14 emails"), and the user confirms.
+2. **Entities are proposed, never assumed:** children (from school, childcare, activity and portal mail: student name fields, "parent of", report cards, rosters), partner (shared threads, forwards), properties (mortgage, utility, lease, insurance and closing mail, with sold/closed signals marking past), businesses (registered agent and filing mail), vehicles, apps. Each shows its evidence; the user confirms or removes. Names and households never leave the phone.
+3. **A built-in sender directory:** common senders mapped to category and tags from public knowledge (utilities, banks, brokers, carriers, airlines, retailers, school platforms), shipped with the app and containing no user data. It is the biggest single accuracy lever after the user's own corrections.
+4. **Rules, then directory, then the user's memory, then Apple Intelligence (fixed lists), then an optional cloud engine.** Low confidence asks one short question in the session instead of guessing ("Is Silas one of your children?").
+5. **Every correction teaches,** per user and per sender; the scorecard reports the share of suggestions accepted.
+6. **No assumptions about the household:** any number of children, properties or partners, including none; no gendered wording; every label name editable.
