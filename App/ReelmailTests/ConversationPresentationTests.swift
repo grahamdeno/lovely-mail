@@ -35,4 +35,11 @@ final class ConversationPresentationTests: XCTestCase {
         XCTAssertFalse(ConversationPresentation.groups(email("Other topic", date: 1700000060, thread: "other"), after: first))
         XCTAssertFalse(ConversationPresentation.groups(email("Reply", sent: true, date: 1700000060), after: first))
     }
+
+    /// A reply bubble showed "Sent from my iPhone" and the whole quoted email under "On … wrote:".
+    func testReplyShowsOnlyWhatWasSaidThisTime() {
+        let body = "I submitted it again. Your coach should see it.\n\nSent from my iPhone\nThanks,\nSam\n\n> On Sep 9, 2026, at 11:53 AM, Kid <kid@school.example> wrote:\n>\n> I need the forms again."
+        let result = ConversationPresentation.preview(email(body, sent: true), summary: nil)
+        XCTAssertEqual(result.text, "I submitted it again. Your coach should see it.\n\nThanks,\nSam")
+    }
 }
