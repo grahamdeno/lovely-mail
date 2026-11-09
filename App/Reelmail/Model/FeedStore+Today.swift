@@ -37,8 +37,11 @@ extension FeedStore {
         }
         let day = Self.dayKey(now)
         let store = TodayPlanStore(account: account ?? "demo")
-        let steps = TodayPlan.merge(saved: store.load(day: day), candidates: TodayPlan.candidates(inputs, now: now))
-        store.save(steps, day: day)
+        let saved = store.load(day: day)
+        let steps = TodayPlan.merge(saved: saved, candidates: TodayPlan.candidates(inputs, now: now))
+        // Only write when they changed. Home calls this while drawing; a write on every draw made SwiftUI redraw Home,
+        // which wrote again, so build 1046 froze at launch and iOS closed it.
+        if steps != saved { store.save(steps, day: day) }
         return steps
     }
 }
