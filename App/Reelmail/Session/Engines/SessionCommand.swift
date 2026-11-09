@@ -136,6 +136,7 @@ enum SessionQuickCommands {
             "keep it unread": SessionCommand(action: "leave_unread"), "leave unread": SessionCommand(action: "leave_unread"),
             "archive": SessionCommand(action: "archive"), "archive it": SessionCommand(action: "archive"),
             "file it": SessionCommand(action: "put_away"), "put it away": SessionCommand(action: "put_away"),
+            "file it away": SessionCommand(action: "put_away"), "file this away": SessionCommand(action: "put_away"),
             "done": SessionCommand(action: "put_away"), "yes": SessionCommand(action: "put_away"), "ok": SessionCommand(action: "put_away"),
             "later": SessionCommand(action: "later", later: "tomorrow"),
             "delete": SessionCommand(action: "trash"), "delete it": SessionCommand(action: "trash"), "delete this": SessionCommand(action: "trash"),

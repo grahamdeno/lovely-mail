@@ -32,21 +32,37 @@ struct AnthropicEngine: SessionEngine {
         let body: [String: Any] = [
             "model": model,
             "max_tokens": 1_200,
-            "system": request.system,
+            "system": request.system + toolReminder(SessionPlaybook.toolName),
             "messages": [["role": "user", "content": request.user]],
             "tools": [["name": SessionPlaybook.toolName, "description": SessionPlaybook.toolDescription,
                        "input_schema": SessionPlaybook.schema]],
-            "tool_choice": ["type": "tool", "name": SessionPlaybook.toolName],
+            // "auto", not a forced tool: newer Claude models (Opus 5.5 and later) reject forced tool_choice with a 400.
+            // The system prompt asks for the tool, and parse() also reads the JSON if a model answers in text.
+            "tool_choice": ["type": "auto"],
         ]
         r.httpBody = try JSONSerialization.data(withJSONObject: body)
         return r
     }
 
+    static func toolReminder(_ tool: String) -> String {
+        "\n\nAlways answer by calling the \(tool) tool exactly once. Do not answer in plain text."
+    }
+
+    /// The tool's input: from the tool_use block, or a JSON object a model wrote as text instead.
+    static func toolInput(_ content: [[String: Any]]) -> [String: Any]? {
+        if let tool = content.first(where: { ($0["type"] as? String) == "tool_use" }), let input = tool["input"] as? [String: Any] {
+            return input
+        }
+        let text = content.compactMap { ($0["type"] as? String) == "text" ? $0["text"] as? String : nil }.joined(separator: "\n")
+        guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"), start < end,
+              let object = try? JSONSerialization.jsonObject(with: Data(text[start...end].utf8)) as? [String: Any] else { return nil }
+        return object
+    }
+
     static func parse(_ data: Data) throws -> EngineAnswer {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = json["content"] as? [[String: Any]],
-              let tool = content.first(where: { ($0["type"] as? String) == "tool_use" }),
-              let input = tool["input"] as? [String: Any] else { throw EngineError.badAnswer }
+              let input = toolInput(content) else { throw EngineError.badAnswer }
         let command = try CloudHTTP.command(from: input)
         let usage = json["usage"] as? [String: Any]
         return EngineAnswer(command: command, engine: .claude,
@@ -151,18 +167,17 @@ extension AnthropicEngine: FormFiller {
         r.setValue(key, forHTTPHeaderField: "x-api-key")
         r.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
         let body: [String: Any] = [
-            "model": model, "max_tokens": 1_500, "system": system,
+            "model": model, "max_tokens": 1_500, "system": system + Self.toolReminder(FormFillPrompt.toolName),
             "messages": [["role": "user", "content": user]],
             "tools": [["name": FormFillPrompt.toolName, "description": "Values for fields on this page.", "input_schema": FormFillPrompt.schema]],
-            "tool_choice": ["type": "tool", "name": FormFillPrompt.toolName],
+            "tool_choice": ["type": "auto"],
         ]
         r.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await transport(r)
         try CloudHTTP.check(data, response)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = json["content"] as? [[String: Any]],
-              let tool = content.first(where: { ($0["type"] as? String) == "tool_use" }),
-              let input = tool["input"] as? [String: Any] else { throw EngineError.badAnswer }
+              let input = Self.toolInput(content) else { throw EngineError.badAnswer }
         let plan = try CloudHTTP.formPlan(from: input)
         let usage = json["usage"] as? [String: Any]
         return (plan, EngineAnswer(command: SessionCommand(action: "handoff"), engine: .claude,

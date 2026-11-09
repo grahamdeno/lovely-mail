@@ -83,7 +83,7 @@ extension FeedStore {
 
         let posts = moves.compactMap { sessionPost($0.messageID) }
         for post in posts {
-            if setUnread(post.id, false) { countDone(+1) }
+            if setUnread(post.id, false) { countDone(+1, id: post.id) }
             hide(post)
         }
         persist()
@@ -93,7 +93,7 @@ extension FeedStore {
         let gmail = self.gmail
         let restore: @MainActor (Set<String>) -> Void = { [self] ids in
             for post in posts where ids.contains(post.id) {
-                if setUnread(post.id, true) { countDone(-1) }
+                if setUnread(post.id, true) { countDone(-1, id: post.id) }
                 unhide(post)
             }
             persist()
@@ -178,10 +178,10 @@ extension FeedStore {
         if let drawer {
             var memory = drawerMemory; memory.remember(drawer, for: to); memory.save(account: account ?? "demo")
         }
-        if setUnread(post.id, false) { countDone(+1) }
+        if setUnread(post.id, false) { countDone(+1, id: post.id) }
         hide(post); persist()
         let restore: @MainActor () -> Void = { [self] in
-            if setUnread(post.id, true) { countDone(-1) }
+            if setUnread(post.id, true) { countDone(-1, id: post.id) }
             unhide(post); persist()
         }
         let gmail = self.gmail

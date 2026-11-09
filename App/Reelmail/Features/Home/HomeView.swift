@@ -200,7 +200,24 @@ struct HomeView: View {
     /// A section title that opens that section's full list.
     private func title(_ text: String, _ count: Int, rose: Bool = false, note: String? = nil, opens key: String? = nil) -> some View {
         Group {
-            if let key {
+            if let key, let note {
+                // Two targets in one row: the heading opens the list, "N done today" opens what you finished.
+                HStack(spacing: 8) {
+                    Button { router.open(.mailList(key)) } label: { DigestTitle(text: text, count: count, rose: rose) }
+                        .buttonStyle(.borderless).accessibilityHint("Shows all of them")
+                    Spacer(minLength: 8)
+                    Button { router.open(.mailList("done")) } label: {
+                        HStack(spacing: 6) {
+                            Label(note, systemImage: "checkmark.circle.fill").labelStyle(.titleAndIcon)
+                            Image(systemName: "chevron.right").font(.caption2.weight(.bold)).accessibilityHidden(true)
+                        }
+                        .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                        .frame(minHeight: 44).padding(.top, 18).padding(.bottom, 2).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless).accessibilityHint("Shows what you finished today")
+                    .accessibilityIdentifier("home.doneToday")
+                }
+            } else if let key {
                 Button { router.open(.mailList(key)) } label: { DigestTitle(text: text, count: count, rose: rose, note: note, chevron: true) }
                     .buttonStyle(.plain).accessibilityHint("Shows all of them")
             } else {
@@ -353,7 +370,7 @@ struct HomeView: View {
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
             }
         } else if !store.isLoading, !store.posts.isEmpty {
-            title("To do", 0, note: note)
+            title("To do", 0, note: note, opens: note == nil ? nil : "todo")
             Text("Nothing unread. All caught up.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
                 .padding(.vertical, 6)
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -508,6 +525,7 @@ struct DigestListView: View {
         case "waiting": return ("Waiting on you", d.waiting)
         case "notes": return ("Notes to self", d.notes)
         case "todo", "new": return ("To do", d.todo)
+        case "done": return ("Done today", store.doneTodayPosts)
         case "people": return ("People", d.people)
         case "organizations": return ("Organizations", d.organizations.flatMap(\.posts).sorted { $0.email.date > $1.email.date })
         default: break

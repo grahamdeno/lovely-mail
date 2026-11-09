@@ -91,12 +91,14 @@ final class FeedStoreTests: XCTestCase {
         XCTAssertEqual(client.markedRead, ["fixture-live"])
         XCTAssertFalse(store.isTodo(post))
         XCTAssertEqual(store.doneToday, 1)
+        XCTAssertEqual(store.doneTodayPosts.map(\.id), ["fixture-live"], "Done today lists what was finished")
         XCTAssertEqual(store.lastDone?.id, "fixture-live")
         XCTAssertTrue(store.undo.pending.contains { $0.title.hasPrefix("Done") }, "Done offers the app-wide Undo bar")
         await store.undoDone(post)
         XCTAssertEqual(client.markedUnread, ["fixture-live"])
         XCTAssertTrue(store.isTodo(post))
         XCTAssertEqual(store.doneToday, 0)
+        XCTAssertTrue(store.doneTodayPosts.isEmpty, "Undo takes it off the done list")
     }
 
     func testRefusedDoneStaysOnTheToDo() async {
