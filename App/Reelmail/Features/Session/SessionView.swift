@@ -969,6 +969,7 @@ extension SessionItemScreen {
         }
         let settings = EngineSettings()
         let kinds = EngineRouter.plan(for: item, settings: settings)
+        EngineRoute.recordPlan(kinds, settings: settings, item: item)
         if settings.engine.isCloud, !EngineRouter.allowsCloud(item) { askNote = EngineError.notForCloud.localizedDescription }
         else if settings.engine.isCloud, !EngineSettings.hasKey(settings.engine) { askNote = EngineError.noKey(settings.engine).localizedDescription }
         // Earlier lines about this email go with the new one, so a follow-up keeps its context.
