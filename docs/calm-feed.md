@@ -356,3 +356,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - Rule: never write settings or files from a view body.
 - Nov 9: "Text someone about this" is now in the email screen's … menu on every email (named for the last person texted,
   e.g. "Text Sam about this"). Before, it showed only on read organization mail.
+- Nov 9: the Brief's "Walk through today's mail" (old cards: no Ask, no Trash) now opens the inbox session instead. WalkthroughView is unused; remove it later.

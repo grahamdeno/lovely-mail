@@ -62,7 +62,8 @@ struct BriefView: View {
                 if !money.actionNeeded.isEmpty {
                     line("Accounts asking for action", sub: money.actionNeeded.map(\.institution).joined(separator: ", ")) { router.open(.money) }
                 }
-                Button { router.open(.walkthrough) } label: { Label("Walk through today's mail", systemImage: "rectangle.stack").frame(maxWidth: .infinity) }
+                // The inbox session replaces the old Walk through cards: same one-at-a-time flow, plus Ask, Trash and Keep 2 weeks.
+                Button { router.open(.session) } label: { Label("Go through your inbox", systemImage: "rectangle.stack").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle(prominent: true))
             }.padding(20)
         }
