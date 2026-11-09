@@ -137,6 +137,7 @@ enum Route: Hashable {
     case cleanup
     case shortTermCleanup
     case notes
+    case glance
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

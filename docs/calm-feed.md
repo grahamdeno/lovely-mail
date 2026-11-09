@@ -88,6 +88,13 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Off with Reduce Motion, and in Settings > Appearance > Opening animation. All in `Features/Home/LaunchAnimation.swift`; to remove, delete the file and its one overlay line in ReelmailApp.swift. UI audits pass `-lovely.launchAnimation NO`.
 - Contact photos are zoomed 14% inside the avatar so photos with baked-in white corners (initials images) fill the shape.
 
+## Home as Today steps (design D, chosen Nov 9, 2026)
+- Home top: "Today" with up to three steps (TodayPlan, pure): Answer <name> (or N people), Go through N emails, a date today, Pay <bill> due within 4 days. Only the first open step is lit and has the button; steps check off by themselves when their reason is gone; the day's steps are saved per account (TodayPlanStore) so finished ones stay checked, and new ones join while fewer than three are open. "Today ›" opens the brief.
+- Below: "When you have a minute" chips (To do, Waiting on you, dates this week, Notes, Bills, Kids, Energy, You said you would, Waiting on them, older, Clear older mail, All cards). "All cards" opens the glance cards (Route.glance).
+- Removed from Home: Waiting rows, Next up, the glance grid, the Today card.
+- Coming up ignores "today" with no time (Tamara's "post your kit today" showed as an event).
+- UI audit jobs that tap Next up (home.nextup.*) need updating to the new Home; not done yet.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
