@@ -392,3 +392,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   Not yet: a share-sheet entry from Photos (needs an app extension).
 - Nov 9: Playful theme removed at Graham's request (all code: palette values, ThemeState.playful, PlayfulLedge, rounded font, Appearance case). Anyone set to Playful falls back to Auto.
 - Nov 9: Neon is now Outrun sunset (Graham picked it): background #1A0B2E, cards #2B1250, taps hot magenta #FF2E97 with white text, Waiting rose = sunset orange #FF8A3D, warnings yellow #FFD319, top stripe yellow-orange-magenta-purple.
+- Nov 9: six Form/List screens (Households and kids, New senders, Forwarding addresses, Gmail filters, Gmail activity, Hand off) used the system grey background and rows; now .calmForm() and CalmStyle.card rows, so Neon (and every palette) reaches them.

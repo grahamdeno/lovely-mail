@@ -148,6 +148,7 @@ struct InsightSettingsView: View {
 
     var body: some View {
         Form {
+            Group {
             if !(foundKids + foundPlaces).filter({ !dismissed.contains($0.id) }).isEmpty {
                 Section {
                     ForEach(foundKids.filter { !dismissed.contains($0.id) }) { c in
@@ -192,6 +193,9 @@ struct InsightSettingsView: View {
             }
             Section { Text("Saved on this iPhone and backed up to your iCloud. Kept when you disconnect Gmail.").font(.caption).foregroundStyle(CalmStyle.secondary) }
         }
+            .listRowBackground(CalmStyle.card)
+        }
+        .calmForm()
         .navigationTitle("Households and kids").navigationBarTitleDisplayMode(.inline)
         .onChange(of: data) { _, new in InsightSettings().save(new) }
         .task { discover() }
