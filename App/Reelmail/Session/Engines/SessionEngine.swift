@@ -105,7 +105,18 @@ enum EngineRoute {
         let time = date.formatted(date: .abbreviated, time: .shortened)
         defaults.set("\(kind.name) answered, \(time)" + (reason.map { ". \($0)" } ?? ""), forKey: key)
     }
-    static func last(defaults: UserDefaults = .standard) -> String? { defaults.string(forKey: key) }
+    static func last(defaults: UserDefaults = .standard) -> String? {
+        guard let line = defaults.string(forKey: key) else { return nil }
+        return line + (defaults.string(forKey: planKey).map { "\n" + $0 } ?? "")
+    }
+
+    static let planKey = "lovely.engine.lastPlan"
+    /// What Lovely saw when it chose the engine, the moment it chose (Graham saw Apple answer with Claude selected).
+    static func recordPlan(_ kinds: [EngineKind], settings: EngineSettings, item: SessionItem, defaults: UserDefaults = .standard) {
+        let raw = settings.defaults.string(forKey: EngineSettings.engineKey) ?? "none"
+        let line = "Chose \(kinds.map(\.name).joined(separator: " + ")). Setting: \(raw), key: \(EngineSettings.hasKey(settings.engine) ? "yes" : "no"), health: \(item.message.isHealth ? "yes" : "no")"
+        defaults.set(line, forKey: planKey)
+    }
 
     /// Why the plan is Apple even though the owner may have chosen a cloud engine. Nil when the chosen engine is used.
     static func appleReason(for item: SessionItem, settings: EngineSettings = EngineSettings()) -> String? {
