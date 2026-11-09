@@ -266,7 +266,7 @@ enum CalendarPhotoReader {
 
     static func prompt(today: String, timeZone: String) -> String {
         """
-        This is a photo or screenshot of a work calendar (Outlook, Teams or similar), possibly taken of a computer screen. \
+        This is a photo, screenshot or PDF of a work calendar (Outlook, Teams or similar), possibly a photo of a computer screen. \
         List every event you can see, once each. Today is \(today); the time zone is \(timeZone). In a week view, match each \
         event to its day column using the header dates, and read start and end times from the hour lines and the event's \
         own text; events are usually on the hour, half hour or quarter hour. Keep titles as written, without the meeting \
@@ -278,7 +278,24 @@ enum CalendarPhotoReader {
         """
     }
 
+    /// A photo (JPEG) or a PDF of a calendar.
+    enum Source {
+        case jpeg(Data)
+        case pdf(Data)
+        var block: [String: Any] {
+            switch self {
+            case .jpeg(let d): return ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": d.base64EncodedString()]]
+            case .pdf(let d): return ["type": "document", "source": ["type": "base64", "media_type": "application/pdf", "data": d.base64EncodedString()]]
+            }
+        }
+    }
+
     static func read(jpeg: Data, today: String, timeZone: String, model: String, key: String,
+                     transport: EngineTransport = { try await URLSession.shared.data(for: $0) }) async throws -> [Event] {
+        try await read(.jpeg(jpeg), today: today, timeZone: timeZone, model: model, key: key, transport: transport)
+    }
+
+    static func read(_ source: Source, today: String, timeZone: String, model: String, key: String,
                      transport: EngineTransport = { try await URLSession.shared.data(for: $0) }) async throws -> [Event] {
         var r = URLRequest(url: AnthropicEngine.endpoint)
         r.httpMethod = "POST"
@@ -290,7 +307,7 @@ enum CalendarPhotoReader {
             "model": model,
             "max_tokens": 4_000,
             "messages": [["role": "user", "content": [
-                ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
+                source.block,
                 ["type": "text", "text": prompt(today: today, timeZone: timeZone)],
             ]]],
             "tools": [["name": toolName, "description": "Every event visible in the calendar picture.", "input_schema": schema]],

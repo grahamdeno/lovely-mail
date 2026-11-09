@@ -1,7 +1,9 @@
 import EventKit
 import FoundationModels
+import PDFKit
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 import Vision
 
 /// Apple Intelligence's reading of a calendar photo: one entry per event.
@@ -37,6 +39,8 @@ struct PhotoEventsView: View {
     @State private var target: EKCalendar?
     @State private var note: String?
     @State private var showCamera = false
+    @State private var showLibrary = false
+    @State private var showFiles = false
     @State private var readBy: String?
     private let eventStore = EKEventStore()
 
@@ -66,8 +70,12 @@ struct PhotoEventsView: View {
             .padding(20)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
-        .navigationTitle("Events from a photo").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Add events").navigationBarTitleDisplayMode(.inline)
         .onChange(of: pick) { _, item in if let item { Task { await read(item) } } }
+        .photosPicker(isPresented: $showLibrary, selection: $pick, matching: .images)
+        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image]) { result in
+            if case .success(let url) = result { Task { await read(file: url) } }
+        }
         .fullScreenCover(isPresented: $showCamera) {
             CameraCapture { image in
                 showCamera = false
@@ -79,20 +87,20 @@ struct PhotoEventsView: View {
 
     private var startView: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Point your camera at your calendar on the computer screen. Lovely reads it on this iPhone, shows you each event, and adds the new ones to your Work calendar.")
+            Text("Take a photo of your calendar, or pick a screenshot or PDF. Lovely shows you each event and adds the new ones to your Work calendar.")
                 .font(.callout).foregroundStyle(CalmStyle.secondary)
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button { showCamera = true } label: {
-                    Label("Take a photo", systemImage: "camera").frame(maxWidth: .infinity)
+            // One button, like every other upload: take a photo, pick one, or choose a file (a PDF works too).
+            Menu {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button { showCamera = true } label: { Label("Take Photo", systemImage: "camera") }
                 }
-                .buttonStyle(SessionButtonStyle())
-                .accessibilityIdentifier("photoEvents.camera")
+                Button { showLibrary = true } label: { Label("Photo Library", systemImage: "photo.on.rectangle") }
+                Button { showFiles = true } label: { Label("Choose File", systemImage: "folder") }
+            } label: {
+                Label("Add a photo or file", systemImage: "plus.circle").frame(maxWidth: .infinity)
             }
-            PhotosPicker(selection: $pick, matching: .images) {
-                Label("Choose a photo or screenshot", systemImage: "photo.on.rectangle").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SessionButtonStyle(prominent: !UIImagePickerController.isSourceTypeAvailable(.camera)))
-            .accessibilityIdentifier("photoEvents.pick")
+            .buttonStyle(SessionButtonStyle())
+            .accessibilityIdentifier("photoEvents.add.source")
             Text(EngineSettings.hasKey(.claude) && EngineSettings.key(.claude) != nil
                  ? "Claude reads the photo with your key (only the photo is sent). Events already on your calendar at the same time with the same title start unchecked."
                  : "Read on this iPhone. Add a Claude key in Settings > AI for much better reading. Events already on your calendar at the same time with the same title start unchecked.")
@@ -165,6 +173,31 @@ struct PhotoEventsView: View {
         await read(image)
     }
 
+    /// A PDF goes to Claude as a document; without a key its text is read on the phone. An image file reads like a photo.
+    private func read(file url: URL) async {
+        phase = .reading; note = nil
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { note = "That file could not be opened."; phase = .start; return }
+        if url.pathExtension.lowercased() != "pdf" {
+            guard let image = UIImage(data: data) else { note = "That file is not a picture or a PDF."; phase = .start; return }
+            await read(image); return
+        }
+        var events: [PhotoEvent] = []
+        if let key = EngineSettings.key(.claude) {
+            do { events = try await Self.withClaude(.pdf(data), key: key); readBy = "Read by Claude" }
+            catch { note = "Claude could not read it (\(error.localizedDescription)), so this iPhone read it instead. Check each one." }
+        }
+        if events.isEmpty, let pdf = PDFDocument(data: data) {
+            let text = (0..<min(pdf.pageCount, 10)).compactMap { pdf.page(at: $0)?.string }.joined(separator: "\n")
+            let lines = text.components(separatedBy: .newlines).enumerated().map { PhotoTextLine(text: $0.element, x: 0, y: Double($0.offset) / 1_000) }
+            events = await Self.interpret(lines)
+            if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
+            if readBy == nil { readBy = "Read on this iPhone" }
+        }
+        await finish(events)
+    }
+
     private func read(_ image: UIImage) async {
         phase = .reading; note = nil
         guard let cg = Self.upright(image).cgImage else { note = "That picture could not be opened."; phase = .start; return }
@@ -172,7 +205,7 @@ struct PhotoEventsView: View {
         // Claude reads calendar grids far better than on-device text recognition; used whenever there is a Claude key.
         if let key = EngineSettings.key(.claude), let jpeg = Self.jpeg(for: image) {
             do {
-                events = try await Self.withClaude(jpeg: jpeg, key: key)
+                events = try await Self.withClaude(.jpeg(jpeg), key: key)
                 readBy = "Read by Claude"
             } catch {
                 note = "Claude could not read it (\(error.localizedDescription)), so this iPhone read it instead. Check each one."
@@ -184,6 +217,10 @@ struct PhotoEventsView: View {
             if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
             if readBy == nil { readBy = "Read on this iPhone" }
         }
+        await finish(events)
+    }
+
+    private func finish(_ events: [PhotoEvent]) async {
         await loadCalendars()
         let existing = existingEvents(around: events)
         rows = events.map { e in
@@ -204,9 +241,9 @@ struct PhotoEventsView: View {
             .jpegData(compressionQuality: 0.8)
     }
 
-    static func withClaude(jpeg: Data, key: String) async throws -> [PhotoEvent] {
+    static func withClaude(_ source: CalendarPhotoReader.Source, key: String) async throws -> [PhotoEvent] {
         let today = Date().formatted(.iso8601.year().month().day())
-        let found = try await CalendarPhotoReader.read(jpeg: jpeg, today: today, timeZone: TimeZone.current.identifier,
+        let found = try await CalendarPhotoReader.read(source, today: today, timeZone: TimeZone.current.identifier,
                                                        model: EngineSettings().claudeModel, key: key)
         return found.compactMap { e in
             let allDay = e.allDay || e.start.isEmpty
