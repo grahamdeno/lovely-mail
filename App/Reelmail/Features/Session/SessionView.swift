@@ -19,7 +19,17 @@ struct SessionView: View {
         .background(CalmStyle.background)
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .toolbar(.hidden, for: .navigationBar)
-        .task { if model == nil { model = SessionModel(plan: store.makeSessionPlan()) } }
+        .task {
+            guard model == nil else { return }
+            let plan = store.makeSessionPlan()
+            let fresh = SessionModel(plan: plan)
+            model = fresh
+            // Routine mail the rules could not place gets an on-device drawer suggestion, so its screen has one main button.
+            let unplaced = plan.items.filter { $0.drawer == nil && !$0.message.isPerson && $0.group != .reading }.map(\.message)
+            guard !unplaced.isEmpty else { return }
+            let guesses = await AppleDrawerGuesser.guesses(for: unplaced)
+            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses)) }
+        }
     }
 
     @ViewBuilder private func content(_ m: SessionModel) -> some View {

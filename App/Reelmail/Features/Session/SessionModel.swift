@@ -43,6 +43,13 @@ final class SessionModel {
 
     func start() { advance() }
 
+    /// A better plan arrived before the owner started (Apple Intelligence drawer suggestions). Ignored once started.
+    func replacePlanBeforeStart(_ newPlan: SessionPlan) {
+        guard phase == .start, Set(newPlan.items.map(\.id)) == Set(plan.items.map(\.id)) else { return }
+        plan = newPlan
+        progress = SessionProgress(plan: newPlan)
+    }
+
     private func isOpen(_ item: SessionItem) -> Bool {
         !progress.handled.contains(item.id) && !progress.leftUnread.contains(item.id)
     }
