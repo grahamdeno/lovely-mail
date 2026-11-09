@@ -987,6 +987,7 @@ extension SessionItemScreen {
                     switch result {
                     case .success(let answer):
                         EngineUsage().recordCall(answer)
+                        EngineRoute.record(kind, reason: kind == .apple ? EngineRoute.appleReason(for: item, settings: settings) : nil)
                         results.append(SessionProposal(engine: kind, action: SessionCommandValidator.validate(answer.command, item: item, kids: kids),
                                                        say: answer.command.say ?? ""))
                     case .failure(let error):

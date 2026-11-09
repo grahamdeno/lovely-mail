@@ -97,6 +97,26 @@ struct EngineSettings {
     static func hasKey(_ kind: EngineKind) -> Bool { kind == .apple || key(kind) != nil }
 }
 
+/// Which engine answered the last ask in a session, and why Apple did when a cloud engine is chosen. Shown in
+/// Settings > AI so a wrong label can be traced. On this phone only; no mail text.
+enum EngineRoute {
+    static let key = "lovely.engine.lastRoute"
+    static func record(_ kind: EngineKind, reason: String?, at date: Date = Date(), defaults: UserDefaults = .standard) {
+        let time = date.formatted(date: .abbreviated, time: .shortened)
+        defaults.set("\(kind.name) answered, \(time)" + (reason.map { ". \($0)" } ?? ""), forKey: key)
+    }
+    static func last(defaults: UserDefaults = .standard) -> String? { defaults.string(forKey: key) }
+
+    /// Why the plan is Apple even though the owner may have chosen a cloud engine. Nil when the chosen engine is used.
+    static func appleReason(for item: SessionItem, settings: EngineSettings = EngineSettings()) -> String? {
+        let chosen = settings.engine
+        guard chosen.isCloud else { return "Apple only is selected" }
+        if !EngineRouter.allowsCloud(item) { return "Health mail stays on this iPhone" }
+        if !EngineSettings.hasKey(chosen) { return "No \(chosen.name) key could be read from the Keychain" }
+        return nil
+    }
+}
+
 /// Calls and picks per engine, per week, on this phone. Counts only; no mail text.
 struct EngineUsage {
     struct Week: Codable, Equatable {

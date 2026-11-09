@@ -13,6 +13,11 @@ struct EngineSettingsView: View {
     @State private var hasGrok = EngineSettings.hasKey(.grok)
     @State private var examplesCleared = false
     @State private var details = OwnerDetails.load()
+    /// Per engine: the key is shown in full while he taps Show.
+    @State private var showing: Set<EngineKind> = []
+    /// Per engine: the result of the last Save and test.
+    @State private var testResult: [EngineKind: (ok: Bool, text: String)] = [:]
+    @State private var testing: Set<EngineKind> = []
 
     var body: some View {
         ScrollView {
@@ -28,6 +33,10 @@ struct EngineSettingsView: View {
                 .accessibilityIdentifier("engine.picker")
 
                 Text(explanation).font(.callout)
+                if let last = EngineRoute.last() {
+                    Label("Last answer: " + last, systemImage: "clock.arrow.circlepath").font(.caption).foregroundStyle(CalmStyle.secondary)
+                        .accessibilityIdentifier("engine.lastRoute")
+                }
 
                 keyCard(.claude, key: $claudeKey, model: $claudeModel, has: $hasClaude)
                 keyCard(.grok, key: $grokKey, model: $grokModel, has: $hasGrok)
@@ -98,24 +107,46 @@ struct EngineSettingsView: View {
                 Text(has.wrappedValue ? "Key saved" : "No key").font(.caption.weight(.semibold))
                     .foregroundStyle(has.wrappedValue ? CalmStyle.green : CalmStyle.secondary)
             }
-            SecureField(kind == .claude ? "Anthropic API key" : "xAI API key", text: key)
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                .padding(10).background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 10))
-                .accessibilityIdentifier("engine.key.\(kind.rawValue)")
-            HStack {
-                Button("Save key") {
-                    EngineSettings.setKey(key.wrappedValue, for: kind)
-                    key.wrappedValue = ""
-                    has.wrappedValue = EngineSettings.hasKey(kind)
+            // A saved key shows as dots with its last four characters, so it is clear one is there; Show reveals it.
+            Group {
+                if showing.contains(kind), let saved = EngineSettings.key(kind), key.wrappedValue.isEmpty {
+                    Text(saved).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
+                } else {
+                    SecureField(has.wrappedValue ? Self.masked(EngineSettings.key(kind)) : (kind == .claude ? "Anthropic API key" : "xAI API key"), text: key)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
-                .buttonStyle(CalmActionStyle(prominent: true)).disabled(key.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 10))
+            .accessibilityIdentifier("engine.key.\(kind.rawValue)")
+            HStack {
+                Button(testing.contains(kind) ? "Testing…" : (key.wrappedValue.isEmpty ? "Test key" : "Save and test")) {
+                    if !key.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                        EngineSettings.setKey(key.wrappedValue, for: kind)
+                        key.wrappedValue = ""
+                        has.wrappedValue = EngineSettings.hasKey(kind)
+                    }
+                    test(kind)
+                }
+                .buttonStyle(CalmActionStyle(prominent: true))
+                .disabled(testing.contains(kind) || (key.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty && !has.wrappedValue))
+                .accessibilityIdentifier("engine.test.\(kind.rawValue)")
                 if has.wrappedValue {
+                    Button(showing.contains(kind) ? "Hide" : "Show") {
+                        if showing.contains(kind) { showing.remove(kind) } else { showing.insert(kind) }
+                    }
+                    .buttonStyle(CalmActionStyle())
                     Button("Remove", role: .destructive) {
-                        EngineSettings.setKey("", for: kind); has.wrappedValue = false
+                        EngineSettings.setKey("", for: kind); has.wrappedValue = false; testResult[kind] = nil; showing.remove(kind)
                         if kind == engine { engine = .apple }
                     }
                     .buttonStyle(CalmActionStyle())
                 }
+            }
+            if let r = testResult[kind] {
+                Label(r.text, systemImage: r.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(r.ok ? CalmStyle.green : CalmStyle.roseInk)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             TextField("Model", text: model)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().font(.caption)
@@ -126,6 +157,29 @@ struct EngineSettingsView: View {
             Text("Model id. Leave it as is unless \(kind.name) renames its models.").font(.caption2).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    static func masked(_ key: String?) -> String {
+        guard let key, key.count > 4 else { return "••••••••" }
+        return "•••••••• " + key.suffix(4)
+    }
+
+    /// Sends one fictional email ("put it away") to the engine with the saved key and model, so a bad key or model id
+    /// shows here instead of in the middle of a session. No real mail is sent.
+    private func test(_ kind: EngineKind) {
+        if kind == .claude { EngineSettings().claudeModel = claudeModel } else { EngineSettings().grokModel = grokModel }
+        testing.insert(kind)
+        Task {
+            let started = Date()
+            do {
+                let request = EngineRouter.request(for: EngineScorecard.statement, said: "put it away", ownerName: "", kids: [], examples: [])
+                _ = try await EngineRouter.engine(kind).interpret(request)
+                testResult[kind] = (true, "Key works. \(kind.name) answered in " + String(format: "%.1f", Date().timeIntervalSince(started)) + " s.")
+            } catch {
+                testResult[kind] = (false, "Saved, but the test failed: \(error.localizedDescription)")
+            }
+            testing.remove(kind)
+        }
     }
 
     private var usageCard: some View {
