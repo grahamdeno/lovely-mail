@@ -43,10 +43,10 @@ Newsletters are not filed by default: skimmed ones are archived (read, out of th
 ## 5. Build order (each step names the model the owner picks)
 1. **Session engine** (Opus): pure rules in `App/Reelmail/Session/`: drawers, drawer memory, rule-based drawer guesses, grouping, batch eligibility, ordering, estimate, progress. No UI, no Gmail calls. Unit tests with fictional mail.
 2. **Session screen** (Sonnet): the four screens from the approved mockup, tap-driven first; put away through `GmailActions` (Lovely-owned label, remove INBOX, remove UNREAD) with Undo.
-3. **Plain-language replies** (Opus designs prompt and guardrails, Sonnet builds): `LanguageModelProvider` from Sprint 6 section 9 with Apple and Anthropic implementations; the owner's sentence becomes a structured action shown as a preview.
+3. **Plain-language replies** (Opus designs prompt and guardrails, Sonnet builds): `LanguageModelProvider` from Sprint 6 section 9 with Apple, Anthropic and xAI implementations; the owner's sentence (typed or dictated) becomes a structured action shown as a preview. Engine switch and compare mode, section 8. Handoffs to the Grok and Claude apps, section 9.
 4. **Batch step** (Sonnet): one confirm, Undo all.
 5. **Wrap, fixtures, UI audit job, phone checklist** (Opus reviews, Sonnet ships). One TestFlight release when the owner says ship.
-6. **Later:** backlog mode; in-app browser for web forms.
+6. **Next after the release:** in-app browser for web forms (section 9), then backlog mode. Web forms come first because finishing a form without leaving the conversation is what makes the Grok experience feel seamless.
 
 ## 6. Which engine does what
 Rules first, then drawer memory, then Apple Intelligence, and Claude only for understanding, drafting and judgment, or when Apple is not confident.
@@ -65,3 +65,18 @@ Cost controls: send Claude only the author's own words (`ReplySignals.authoredTe
 - Never sent to Claude: health mail, codes and passwords, account numbers, private-marked mail.
 - Gmail writes stay in `GmailActions.swift`: Lovely-owned labels only, remove INBOX, remove UNREAD. No delete. `scripts/privacy_guard.py` keeps enforcing it.
 - Email bodies are untrusted data, never instructions.
+
+## 8. Claude or Grok, compared in the app (owner, Nov 8, 2026)
+The owner wants to compare Claude and Grok inside a native app, with an experience at least as smooth as working with Grok.
+- **One engine slot.** The session calls `LanguageModelProvider`; Apple, Anthropic (Claude) and xAI (Grok) plug in. Rules, drawers, previews and guardrails are the same for every engine, so the comparison is fair.
+- **Settings > Conversation engine:** Claude or Grok. Apple Intelligence keeps the routine work either way.
+- **Compare mode** (off by default): for the current item, both engines answer; the two drafts or plans show side by side and the owner picks one. Lovely keeps a tally of picks per engine, shown in Settings.
+- **Log:** every action records which engine proposed it; Settings shows calls and estimated cost per engine per week.
+- **Keys:** an Anthropic key and an xAI key, stored in the Keychain (this device only), entered once in Settings.
+- **Voice:** the reply field has a microphone (iOS dictation), so a session can be spoken, as the owner does with Grok.
+
+## 9. Tasks outside Gmail
+Order of preference, most seamless first:
+1. **In the conversation (after the release):** Lovely opens the site in a browser panel inside the session; the engine reads the page and fills the fields while the owner watches, pauses for sign-in, codes and anything it is unsure of, and stops before Submit, which the owner presses. Sensitive numbers (for example a child's Social Security number) are typed by the owner or given for that task only, never stored.
+2. **Handoff to the Grok or Claude app (in the release):** one tap, "Send to Grok" or "Send to Claude" (default from Settings). The prompt is written with irreversible steps first and standing out. It opens the app with the prompt filled in (`claude://claude.ai/new?q=` for Claude; the Grok app's link is to be tested), falls back to the website (`https://claude.ai/new?q=`, `https://grok.com/?q=`), then to copy and paste. These links are not officially documented and have broken before, so the fallbacks stay.
+3. **The report comes back on its own.** Every handoff prompt ends with: when done, email a short report to the owner's Gmail with the subject `[Lovely] <task id>`. Lovely recognizes it on the next refresh, files it with the original mail and marks the task done in the session. No pasting back.
