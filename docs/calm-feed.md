@@ -77,6 +77,12 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Notes to self is a text thread (Route.notes): notes as blue bubbles, his messages blue, Lovely gray. Tap a note to focus it; action strip: Done (Lovely/Notes, out of inbox, read; preview button), Bring back tomorrow (Later), Trash (test notes offered first), Open. Lovely answers with the chosen engine (health notes stay on Apple), suggestions appear as buttons. Thread kept on the phone (NoteThreadStore, per account, 200 messages).
 - UI audit job 6 now opens New senders from Settings.
 
+## Glance cards (Nov 9, 2026)
+- Under To do and Notes, Home shows glance cards in a 2-column grid (HomeGlance, pure): Coming up (next date, "Thu 6 PM"), Bills ("2 due", next payee and day; a payment problem is an amber warning card first), Kids (newest kid and subject), Energy ("$4.29/day", change vs last month), Older mail (Earlier count), Organizations. Sorted by urgency; a card with nothing to say is left out.
+- One color per kind (GlanceStyle): Coming up airmail blue, Money green, Kids amber, Energy teal, the rest muted; soft 12% wash with the big fact in full color. Rose stays for Waiting on you.
+- Replaced: the inline Coming up list, the Kids/Energy/Money tiles, the Organizations chips and the Earlier row.
+- Next: use the same category colors on session drawer chips.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

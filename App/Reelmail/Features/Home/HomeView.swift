@@ -270,32 +270,6 @@ struct HomeView: View {
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
             }
         }
-        // 3. Coming up this week, inline.
-        if !soon.isEmpty {
-            title("Coming up", soon.count, opens: nil)
-            ForEach(soon.prefix(3)) { entry in
-                Button { router.open(.email(entry.post.id)) } label: {
-                    HStack(spacing: 12) {
-                        Text(ComingUp.fullLabel(entry.date)).font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
-                            .frame(width: 92, alignment: .leading)
-                        Text(entry.post.email.subject.isEmpty ? entry.post.email.from.name : entry.post.email.subject)
-                            .font(.subheadline).foregroundStyle(CalmStyle.ink).lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .frame(minHeight: 40).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-            }
-            if soon.count > 3 {
-                Button { router.open(.comingUp) } label: {
-                    Text("See all \(soon.count) this week").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
-                        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-            }
-        }
         youSaidYouWould()
         // 4. To do.
         todo(d.todo)
@@ -326,39 +300,25 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        // 6. Kids, Energy, Money on one line.
+        // 6. Glance cards: coming up, money, kids, energy, older mail, organizations, by urgency.
         let kidProfiles = InsightSettings().load().kids
-        let kidCount = kidProfiles.reduce(0) { $0 + store.kidMail(for: $1).count }
+        let kidMail = kidProfiles.flatMap { kid in store.kidMail(for: kid).map { (kid.name, $0.post) } }
+        let latestKid = kidMail.max { $0.1.email.date < $1.1.email.date }
         let energy = EnergyInsights.summary(store.insights.store, household: nil)
         let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
-        let showMoney = !store.insights.store.bills.isEmpty || !money.accounts.isEmpty
-        if !kidProfiles.isEmpty || energy.latest != nil || showMoney {
-            InsightTiles(kids: kidProfiles.isEmpty ? nil : (kidCount == 0 ? "Nothing new" : "\(kidCount) in mail"),
-                         energy: energy.latest == nil ? nil : energy.headline,
-                         money: showMoney ? MoneyRow(summary: money).line : nil)
-                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+        let cards = HomeGlance.cards(
+            next: soon.first.map { HomeGlance.Next(date: $0.date.start, hasTime: $0.date.hasTime,
+                                                   title: $0.post.email.subject.isEmpty ? $0.post.email.from.name : $0.post.email.subject) },
+            thisWeek: soon.count,
+            openBills: money.households.filter { !$0.ended }.flatMap(\.open).map { HomeGlance.DueBill(payee: $0.payee, amount: $0.amount, dueOn: $0.dueOn) },
+            paymentProblem: money.alarms.first?.payee,
+            kidsCount: kidMail.count, latestKid: latestKid.map { ($0.0, $0.1.email.subject) },
+            energyPerDay: energy.latest?.dollarsPerDay, energyChange: energy.latest?.changePerDay,
+            earlier: d.earlier.count, organizations: d.organizations.map { ($0.name, $0.posts.count) }, now: Date())
+        if !cards.isEmpty {
+            GlanceGrid(cards: cards)
+                .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
-        if !d.organizations.isEmpty {
-            title("Organizations", d.organizations.reduce(0) { $0 + $1.posts.count }, opens: "organizations")
-            OrganizationChips(groups: d.organizations)
-                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
-        if !d.earlier.isEmpty {
-            Button { router.open(.mailList("earlier")) } label: {
-                HStack(spacing: 10) {
-                    Text("Earlier · \(d.earlier.count)").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
-                    Spacer()
-                    Text("Older than 2 weeks").font(.caption).foregroundStyle(CalmStyle.secondary)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
-                }
-                .padding(.horizontal, 14).frame(minHeight: 48)
-                .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
-            }
-            .buttonStyle(.plain)
-            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 0, trailing: 20))
-            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
             BriefOfferCard()
