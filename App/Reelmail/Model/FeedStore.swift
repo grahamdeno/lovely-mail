@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Observation
 
 @MainActor
@@ -30,6 +31,8 @@ final class FeedStore {
     /// How one-click unsubscribe requests are sent. Tests and the UI audit replace it so nothing leaves the phone.
     /// Replies sent and then undone (or refused), kept so Reply reopens them as they were. This session only.
     @ObservationIgnored var savedDrafts: [String: String] = [:]
+    /// A save failed while Lovely was in the background; it is retried when Lovely is back on screen.
+    @ObservationIgnored private var saveWaiting = false
     /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
     var declinedSenders: Set<String> = []
     /// Short-term mail past two weeks, from the last check (Home shows a note when above zero).
@@ -221,8 +224,16 @@ final class FeedStore {
         let snapshot = MailboxSnapshot(account: account, inbox: posts.map(\.email), sent: sentByMe,
                                        fetchedAt: lastFetched ?? Date(), inboxTruncated: inboxTruncated)
         let cache = MailCache(snapshot: snapshot, summaries: summaries, hidden: hidden, seen: seen, verdicts: verdicts)
-        do { try cacheStore.save(cache) } catch { errorMessage = "Loaded mail could not be saved on this phone. It will reload next time." }
+        do { try cacheStore.save(cache); saveWaiting = false }
+        catch {
+            // In the background (screen locked) the save can fail; try again when Lovely is back on screen, without a warning.
+            if UIApplication.shared.applicationState != .active { saveWaiting = true; return }
+            errorMessage = "Loaded mail could not be saved on this phone. It will reload next time."
+        }
     }
+
+    /// Lovely is back on screen: finish a save that failed in the background.
+    func saveIfWaiting() { if saveWaiting { persist() } }
 
     func connectGmail() async {
         do { try await gmail.signIn(); needsReconnect = false; needsTrashPermission = false; needsMailAccess = false; await load() }

@@ -102,6 +102,7 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Bug found from Graham's Gmail: put-aways and trashes held for the 10-second Undo ran after he had switched apps (screenshots, messages); iOS cut the network and they failed with "The network connection was lost", so mail came back to the to-do. Only Lovely/Orders and Lovely/Health existed in Gmail after a day of sessions; archives done while staying in the app landed.
 - Fix: UndoQueue.flushAll() runs every held change at once when the app goes to the background, and every Gmail change (held or immediate Trash) runs inside a background task (keepAlive) so iOS lets it finish.
 - Also restored Features/Home/TodaySteps.swift, which a failed command never wrote (TestFlight runs 41 and 42 failed to compile; nothing broken shipped), and fixed a shadowed name in FeedStore+Today.
+- Saved mail and insights use iOS protection "complete unless open" (still locked when the phone is locked, but a save started in the background succeeds); a save that fails in the background is retried when Lovely is back on screen instead of showing "Loaded mail could not be saved".
 - Next: an outbox that keeps a failed change and retries it on the next open instead of returning the mail.
 
 ## Known limits

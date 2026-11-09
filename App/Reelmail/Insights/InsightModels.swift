@@ -172,7 +172,7 @@ struct InsightStorage {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(store)
-            try data.write(to: file, options: [.atomic, .completeFileProtection])
+            try data.write(to: file, options: [.atomic, .completeFileProtectionUnlessOpen])
             var values = URLResourceValues(); values.isExcludedFromBackup = true
             var mutable = file; try? mutable.setResourceValues(values)
         } catch {

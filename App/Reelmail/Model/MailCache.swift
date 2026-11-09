@@ -51,7 +51,7 @@ struct MailCacheStore {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let data = try JSONEncoder().encode(cache)
         let target = url(for: cache.snapshot.account)
-        try data.write(to: target, options: [.atomic, .completeFileProtection])
+        try data.write(to: target, options: [.atomic, .completeFileProtectionUnlessOpen])
         var values = URLResourceValues(); values.isExcludedFromBackup = true
         var mutable = target; try? mutable.setResourceValues(values)
     }

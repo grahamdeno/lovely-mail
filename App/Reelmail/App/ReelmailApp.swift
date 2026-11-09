@@ -60,6 +60,7 @@ struct ReelmailApp: App {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     InteractionLog().recordOpen()
+                    store.saveIfWaiting()
                     if let route = NotificationOpener.pending { NotificationOpener.pending = nil; router.open(route) }
                 }
                 if phase == .background {
