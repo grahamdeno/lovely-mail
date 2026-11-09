@@ -45,12 +45,21 @@ struct UndoBanner: View {
         let hiddenCount = all.count - shown.count
         VStack(spacing: 6) {
             ForEach(shown) { item in
-                HStack {
-                    Text(item.title + (hiddenCount > 0 && item.id == shown.last?.id ? " (+\(hiddenCount) more)" : "")).font(.subheadline).lineLimit(2)
-                    Spacer()
-                    Button("Undo") { store.undo.cancel(item.id) }.font(.subheadline.weight(.semibold)).accessibilityIdentifier("undo.banner")
+                // Solid blue with a shadow so it stands out from cards behind it (it floats over the session screen).
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.uturn.backward.circle.fill").font(.title3).accessibilityHidden(true)
+                    Text(item.title + (hiddenCount > 0 && item.id == shown.last?.id ? " (+\(hiddenCount) more)" : "")).font(.subheadline.weight(.medium)).lineLimit(2)
+                    Spacer(minLength: 8)
+                    Button { store.undo.cancel(item.id) } label: {
+                        Text("Undo").font(.subheadline.weight(.bold)).padding(.horizontal, 14).frame(minHeight: 36)
+                            .foregroundStyle(CalmStyle.blue).background(CalmStyle.onBlue, in: Capsule())
+                    }
+                    .buttonStyle(.plain).frame(minHeight: 44).accessibilityIdentifier("undo.banner")
                 }
-                .padding(12).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(CalmStyle.onBlue)
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 14))
+                .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
             }
         }
         .padding(.horizontal, 16)
