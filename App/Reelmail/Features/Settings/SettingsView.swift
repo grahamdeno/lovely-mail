@@ -69,7 +69,7 @@ struct SettingsView: View {
                 SettingsHeader(text: "Inbox session")
                 SettingsRow(title: "Conversation engine") { router.open(.engineSettings) }
                 if store.mode == .gmail { SettingsRow(title: "Clean up old login emails") { router.open(.cleanup) } }
-                if store.mode == .gmail { SettingsRow(title: "Expired short-term mail") { router.open(.shortTermCleanup) } }
+                if store.mode == .gmail { SettingsRow(title: "Short-term mail") { router.open(.shortTermCleanup) } }
 
                 SettingsHeader(text: "Households and kids")
                 SettingsRow(title: "Households and kids") { router.open(.insightSettings) }
