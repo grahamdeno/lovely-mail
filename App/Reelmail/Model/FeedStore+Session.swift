@@ -93,6 +93,16 @@ extension FeedStore {
         }
         persist()
 
+        let batch = UUID().uuidString
+        var opFor: [String: String] = [:]
+        let ops = moves.map { m -> OutboxOp in
+            let op = m.drawer.map { d in OutboxOp(kind: .file, messageID: m.messageID, labels: [d.labelName] + m.tags.map(\.labelName), batch: batch) }
+                ?? OutboxOp(kind: .archive, messageID: m.messageID, batch: batch)
+            opFor[m.messageID] = op.id
+            return op
+        }
+        outboxAdd(ops)
+        let opIDs = opFor
         let title = moves.count == 1 ? Self.putAwayTitle(moves[0], post: posts.first) : "Put away \(moves.count) emails"
         let actions = self.actions
         let gmail = self.gmail
@@ -121,8 +131,12 @@ extension FeedStore {
                         try await actions.archive(messageID: move.messageID, confirmed: confirmed)
                     }
                     try await gmail.markRead(messageID: move.messageID)
+                    if let id = opIDs[move.messageID] { outboxDone(id) }
+                } catch let error where NetworkRetry.isTransient(error) {
+                    // No signal: it stays put away here; Home offers to finish it next time.
                 } catch {
                     failed.insert(move.messageID); lastError = error
+                    if let id = opIDs[move.messageID] { outboxDone(id) }
                 }
             }
             // Only the ones Gmail refused come back; the rest stay put away.
@@ -135,7 +149,7 @@ extension FeedStore {
                     : "\(failed.count) of \(moves.count) are back on your to-do; Gmail refused them. \(lastError.localizedDescription)"
             }
             finished(moves.count - failed.count, lastError)
-        }, undone: { restore(Set(posts.map(\.id))); onReturn(posts.map(\.id)) })
+        }, undone: { [self] in outboxCancel(batch: batch); restore(Set(posts.map(\.id))); onReturn(posts.map(\.id)) })
     }
 
     // MARK: Trash in a session
@@ -163,16 +177,23 @@ extension FeedStore {
         persist()
         let gmail = self.gmail
         let live = mode == .gmail
-        undo.enqueue(title: "Moved \(list.count) to Trash", work: {
+        let batch = UUID().uuidString
+        let ops = list.map { OutboxOp(kind: .trash, messageID: $0.id, batch: batch) }
+        outboxAdd(ops)
+        undo.enqueue(title: "Moved \(list.count) to Trash", work: { [self] in
             guard live else { return }
-            for post in list { try await gmail.trash(messageID: post.id) }
+            for op in ops {
+                do { try await gmail.trash(messageID: op.messageID); outboxDone(op.id) }
+                catch let error where NetworkRetry.isTransient(error) { continue }   // finishes next time Lovely opens
+            }
         }, finished: { [self] error in
             if let error {
+                outboxCancel(batch: batch)
                 for post in list { unhide(post) }
                 persist()
                 errorMessage = "Some were not moved to Trash, so they are back. \(error.localizedDescription)"
             }
-        }, undone: { [self] in for post in list { unhide(post) }; persist() })
+        }, undone: { [self] in outboxCancel(batch: batch); for post in list { unhide(post) }; persist() })
     }
 
     static func putAwayTitle(_ move: SessionMove, post: Post?) -> String {

@@ -54,15 +54,18 @@ struct ReelmailApp: App {
             .environment(router)
             .id(appearance)
             .preferredColorScheme(appearance.colorScheme)
-            .task { await store.load() }
+            .task { await store.load(); await store.replayAutomaticChanges() }
             // The brief is rebuilt from the mail loaded right now after each refresh and when the app leaves the screen.
             .onChange(of: store.lastFetched) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     InteractionLog().recordOpen()
                     store.saveIfWaiting()
+                    Task { await store.replayAutomaticChanges() }
                     if let route = NotificationOpener.pending { NotificationOpener.pending = nil; router.open(route) }
                 }
+                // The app switcher or Control Center: send held changes now too, in case Lovely is closed from there.
+                if phase == .inactive { store.undo.flushAll() }
                 if phase == .background {
                     // Send held Gmail changes now; iOS cuts the network soon after Lovely leaves the screen.
                     store.undo.flushAll()

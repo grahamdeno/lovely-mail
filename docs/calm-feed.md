@@ -103,7 +103,11 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Fix: UndoQueue.flushAll() runs every held change at once when the app goes to the background, and every Gmail change (held or immediate Trash) runs inside a background task (keepAlive) so iOS lets it finish.
 - Also restored Features/Home/TodaySteps.swift, which a failed command never wrote (TestFlight runs 41 and 42 failed to compile; nothing broken shipped), and fixed a shadowed name in FeedStore+Today.
 - Saved mail and insights use iOS protection "complete unless open" (still locked when the phone is locked, but a save started in the background succeeds); a save that fails in the background is retried when Lovely is back on screen instead of showing "Loaded mail could not be saved".
-- Next: an outbox that keeps a failed change and retries it on the next open instead of returning the mail.
+
+## Outbox (Nov 9, 2026)
+- Every Gmail change is written to the phone when tapped (Outbox, per account) and removed when Gmail confirms it. Trash and mark-read left over from an earlier run finish by themselves on open; filing and archiving need a fresh tap (approvals last 15 minutes), so Home shows "N changes from earlier did not reach Gmail" with Finish them (preview button) or Put them back.
+- A change that fails for lack of signal stays done in Lovely and waits in the outbox instead of coming back to the to-do.
+- Held changes are also sent when the app goes inactive (app switcher, Control Center), so closing Lovely from the switcher does not drop them.
 
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
