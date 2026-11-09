@@ -628,8 +628,10 @@ final class FeedStore {
         let offer = undo.enqueue(title: "Moved to Trash: " + (post.email.subject.isEmpty ? post.email.from.name : post.email.subject),
                                  work: {}, undone: { [self] in Task { await restoreFromTrash(post) } })
         guard mode == .gmail else { return }
-        do { try await gmail.trash(messageID: post.id) }
-        catch { undo.cancelQuietly(offer); trashFailed(post, error) }
+        await undo.keepAlive { [self] in
+            do { try await gmail.trash(messageID: post.id) }
+            catch { undo.cancelQuietly(offer); trashFailed(post, error) }
+        }
     }
 
     /// Undo for `moveToTrash`.

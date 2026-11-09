@@ -98,6 +98,12 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 ## Subtitle and positioning (Nov 9, 2026)
 - Subtitle: "Get through your email, calmly." (splash, opening animation, App Store). Positioning sentence and notes in Design/Brand/README.md; keep it for marketing, website and videos.
 
+## Held changes now reach Gmail when you leave the app (Nov 9, 2026)
+- Bug found from Graham's Gmail: put-aways and trashes held for the 10-second Undo ran after he had switched apps (screenshots, messages); iOS cut the network and they failed with "The network connection was lost", so mail came back to the to-do. Only Lovely/Orders and Lovely/Health existed in Gmail after a day of sessions; archives done while staying in the app landed.
+- Fix: UndoQueue.flushAll() runs every held change at once when the app goes to the background, and every Gmail change (held or immediate Trash) runs inside a background task (keepAlive) so iOS lets it finish.
+- Also restored Features/Home/TodaySteps.swift, which a failed command never wrote (TestFlight runs 41 and 42 failed to compile; nothing broken shipped), and fixed a shadowed name in FeedStore+Today.
+- Next: an outbox that keeps a failed change and retries it on the next open instead of returning the mail.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

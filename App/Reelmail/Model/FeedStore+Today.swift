@@ -7,8 +7,8 @@ extension FeedStore {
         let d = digest
         let soon = ComingUp.thisWeek(comingUp, now: Date())
         let kidProfiles = InsightSettings().load().kids
-        let kidMail = kidProfiles.flatMap { kid in kidMail(for: kid).map { (kid.name, $0.post) } }
-        let latestKid = kidMail.max { $0.1.email.date < $1.1.email.date }
+        let kidPosts = kidProfiles.flatMap { kid in self.kidMail(for: kid).map { (kid.name, $0.post) } }
+        let latestKid = kidPosts.max { $0.1.email.date < $1.1.email.date }
         let energy = EnergyInsights.summary(insights.store, household: nil)
         let money = MoneyInsights.summary(insights.store, households: InsightSettings().load().households)
         return HomeGlance.cards(
@@ -17,7 +17,7 @@ extension FeedStore {
             thisWeek: soon.count,
             openBills: money.households.filter { !$0.ended }.flatMap(\.open).map { HomeGlance.DueBill(payee: $0.payee, amount: $0.amount, dueOn: $0.dueOn) },
             paymentProblem: money.alarms.first?.payee,
-            kidsCount: kidMail.count, latestKid: latestKid.map { ($0.0, $0.1.email.subject) },
+            kidsCount: kidPosts.count, latestKid: latestKid.map { ($0.0, $0.1.email.subject) },
             energyPerDay: energy.latest?.dollarsPerDay, energyChange: energy.latest?.changePerDay,
             earlier: d.earlier.count, organizations: d.organizations.map { ($0.name, $0.posts.count) }, now: Date())
     }
