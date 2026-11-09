@@ -145,7 +145,7 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertTrue(system.contains("\u{201C}toss it\u{201D} -> archive"))
         XCTAssertFalse(system.contains("\u{2014}"), "The playbook itself has no em-dashes")
         XCTAssertEqual((SessionPlaybook.schema["properties"] as? [String: Any])?.keys.sorted(),
-                       ["action", "drawer", "later", "reply", "say", "task"])
+                       ["action", "drawer", "later", "query", "reply", "say", "task"], "query: the read-only Gmail search action (playbook v3)")
     }
 
     func testEmailTextIsRedactedAndMarkedAsData() {
