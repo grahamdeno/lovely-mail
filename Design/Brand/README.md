@@ -3,7 +3,12 @@
 **Name:** Lovely (home screen). **App Store name:** Lovely Mail. **Bundle ID stays** `com.grahamdeno.reelmail`
 (the Google OAuth client and App Store Connect record are tied to it; users never see it).
 
-**Line:** Mail from your people.
+**Subtitle (App Store and under the logo):** Get through your email, calmly. (30 characters; chosen Nov 9, 2026. Replaces "Mail from your people.")
+
+**Positioning (keep for all marketing, the website and videos; small tweaks are fine):**
+> Lovely turns your Gmail into a short list of next steps, walks you through each decision one at a time, and files everything neatly behind you.
+
+**What it is:** not an inbox but a workflow. Gmail is the filing cabinet; Lovely is the desk where you deal with mail. Competitors sell "AI handles your inbox for you"; Lovely helps you get through it yourself, one decision at a time, and finish. Keep "Gmail" out of the subtitle (trademark); use it descriptively in the description and keywords ("works with Gmail").
 
 **Intent:** "lovely to hear from you," as you would say about a letter from a friend. The airmail palette keeps it about correspondence, not romance: no pink or red as a main color.
 
