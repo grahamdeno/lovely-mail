@@ -354,3 +354,5 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   made SwiftUI redraw Home, which saved again, so the app never finished launching and iOS closed it (no crash report,
   which matches a launch watchdog kill). Fix: save only when the steps changed. Regression test in TodayPlanTests.
 - Rule: never write settings or files from a view body.
+- Nov 9: "Text someone about this" is now in the email screen's … menu on every email (named for the last person texted,
+  e.g. "Text Sam about this"). Before, it showed only on read organization mail.

@@ -64,6 +64,12 @@ struct OpenEmailView: View {
         }
     }
 
+    /// "Text Julia about this" once he has texted someone; "Text someone about this" before that.
+    nonisolated static func textAboutTitle(_ recent: TextRecipient?) -> String {
+        guard let recent, !recent.firstName.isEmpty else { return "Text someone about this" }
+        return "Text \(recent.firstName) about this"
+    }
+
     /// Reply, Done and Trash where your thumb is. Everything else in "…".
     private func actionBar(_ post: Post, assessment: TriageAssessment, organization: Bool) -> some View {
         HStack(spacing: 8) {
@@ -94,6 +100,9 @@ struct OpenEmailView: View {
             }
             .accessibilityLabel("Move to Gmail Trash").accessibilityIdentifier("email.trash")
             Menu {
+                // On every email, read or not: the bar only has room for it on read organization mail.
+                Button { textAboutPost = post } label: { Label(Self.textAboutTitle(TextRecipients().all.first), systemImage: "message") }
+                    .accessibilityIdentifier("email.more.textAbout")
                 Button { openInGmail(post.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                 if let shoebox = ShoeboxRule.address(),
                    ShoeboxRule.offersSend(shoebox: shoebox, allowlist: ForwardAllowlist(), connected: store.actions != nil && store.mode == .gmail,
