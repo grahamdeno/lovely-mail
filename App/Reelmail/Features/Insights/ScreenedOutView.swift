@@ -29,6 +29,7 @@ struct ScreenedOutView: View {
 
     var body: some View {
         List {
+            Group {
             if candidates.isEmpty { Text("No new senders.").foregroundStyle(CalmStyle.secondary) }
             ForEach(candidates) { c in
                 VStack(alignment: .leading, spacing: 6) {
@@ -55,6 +56,9 @@ struct ScreenedOutView: View {
                 }
             }
         }
+            .listRowBackground(CalmStyle.card)
+        }
+        .calmForm()
         .listStyle(.insetGrouped)
         .navigationTitle("New senders").navigationBarTitleDisplayMode(.inline)
         .task { await store.verifyNewSenders() }

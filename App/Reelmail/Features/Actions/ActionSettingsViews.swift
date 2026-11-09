@@ -12,6 +12,7 @@ struct ForwardingAddressesView: View {
 
     var body: some View {
         Form {
+            Group {
             Section {
                 ForEach(addresses, id: \.self) { a in
                     VStack(alignment: .leading, spacing: 4) {
@@ -38,6 +39,9 @@ struct ForwardingAddressesView: View {
             }
             if let status { Section { Text(status).font(.caption) } }
         }
+            .listRowBackground(CalmStyle.card)
+        }
+        .calmForm()
         .navigationTitle("Forwarding addresses").navigationBarTitleDisplayMode(.inline)
         .task { await check() }
     }
@@ -60,6 +64,7 @@ struct GmailFiltersView: View {
 
     var body: some View {
         List {
+            Group {
             if filters.isEmpty { Text("Lovely has not made any filters.").foregroundStyle(CalmStyle.secondary) }
             ForEach(filters) { f in
                 VStack(alignment: .leading, spacing: 4) {
@@ -74,6 +79,9 @@ struct GmailFiltersView: View {
             }
             if let status { Text(status).font(.caption) }
         }
+            .listRowBackground(CalmStyle.card)
+        }
+        .calmForm()
         .navigationTitle("Gmail filters").navigationBarTitleDisplayMode(.inline)
         .sheet(item: $preview) { p in
             ActionPreviewSheet(preview: p, confirmTitle: "Delete filter", destructive: true) { confirmed in
@@ -93,6 +101,7 @@ struct GmailActivityView: View {
 
     var body: some View {
         List {
+            Group {
             if entries.isEmpty { Text("Lovely has not changed anything in Gmail beyond Trash and Done.").foregroundStyle(CalmStyle.secondary) }
             ForEach(entries.reversed()) { e in
                 VStack(alignment: .leading, spacing: 2) {
@@ -101,6 +110,9 @@ struct GmailActivityView: View {
                 }
             }
         }
+            .listRowBackground(CalmStyle.card)
+        }
+        .calmForm()
         .navigationTitle("Gmail activity").navigationBarTitleDisplayMode(.inline)
         .toolbar { Button("Clear", role: .destructive) { ActivityLog().clear(); entries = [] }.disabled(entries.isEmpty) }
     }

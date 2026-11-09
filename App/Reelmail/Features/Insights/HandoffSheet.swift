@@ -19,6 +19,7 @@ struct HandoffSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+            Group {
                 Section("Goal") { TextField("What should the agent do?", text: $goal, axis: .vertical) }
                 Section("Irreversible steps (the agent stops before these)") { TextField("One per line", text: $irreversible, axis: .vertical) }
                 Section("What it needs to know") { TextField("One per line", text: $facts, axis: .vertical) }
@@ -32,6 +33,9 @@ struct HandoffSheet: View {
                     }
                 } footer: { Text("Codes, passwords, account numbers and other people's email addresses are removed. Check the text before you send it.") }
             }
+            .listRowBackground(CalmStyle.card)
+        }
+        .calmForm()
             .navigationTitle("Hand off").navigationBarTitleDisplayMode(.inline)
             .toolbar { Button("Done") { dismiss() } }
             .task {

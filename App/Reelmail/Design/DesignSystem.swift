@@ -97,3 +97,14 @@ extension View {
 enum ThemeState {
     nonisolated(unsafe) static var neon = false
 }
+
+extension View {
+    /// Forms and lists in the app's palette (Neon included): its background instead of the system's grey, its tint for
+    /// toggles and buttons. Rows take `CalmStyle.card` with `.listRowBackground`.
+    func calmForm() -> some View {
+        scrollContentBackground(.hidden)
+            .background(CalmStyle.background)
+            .foregroundStyle(CalmStyle.ink)
+            .tint(CalmStyle.blue)
+    }
+}
