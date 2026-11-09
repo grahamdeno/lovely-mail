@@ -331,3 +331,49 @@ enum CalendarPhotoReader {
         }
     }
 }
+
+
+// MARK: Ask Lovely (Nov 9)
+
+/// Turns a question about his mail ("What did Gunner's school send this week?") into a Gmail search. Only the question,
+/// today's date and his own addresses go to Claude; the search runs read-only on the phone and its results stay there.
+enum MailQuestionReader {
+    static let toolName = "gmail_search"
+
+    static func prompt(today: String) -> String {
+        """
+        The owner asks a question about his Gmail. Turn it into one Gmail search query using Gmail operators (from:, to:, \
+        subject:, newer_than:, older_than:, after:, before:, is:unread, has:attachment, in:inbox, OR, quotes). Today is \
+        \(today). Prefer recent mail (newer_than:30d) unless he names a time. Put a one-sentence note for him in "say" \
+        about what you are looking for. Answer by calling the \(toolName) tool once.
+        """
+    }
+
+    static func query(_ question: String, today: String, model: String, key: String,
+                      transport: EngineTransport = { try await URLSession.shared.data(for: $0) }) async throws -> (query: String, say: String) {
+        var r = URLRequest(url: AnthropicEngine.endpoint)
+        r.httpMethod = "POST"
+        r.timeoutInterval = 30
+        r.setValue("application/json", forHTTPHeaderField: "content-type")
+        r.setValue(key, forHTTPHeaderField: "x-api-key")
+        r.setValue(AnthropicEngine.apiVersion, forHTTPHeaderField: "anthropic-version")
+        let schema: [String: Any] = ["type": "object", "properties": [
+            "query": ["type": "string", "description": "The Gmail search query."],
+            "say": ["type": "string", "description": "One short sentence for the owner."],
+        ], "required": ["query", "say"]]
+        let body: [String: Any] = [
+            "model": model, "max_tokens": 300,
+            "system": prompt(today: today),
+            "messages": [["role": "user", "content": String(question.prefix(500))]],
+            "tools": [["name": toolName, "description": "One Gmail search for his question.", "input_schema": schema]],
+            "tool_choice": ["type": "auto"],
+        ]
+        r.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await transport(r)
+        try CloudHTTP.check(data, response)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let content = json["content"] as? [[String: Any]], let input = AnthropicEngine.toolInput(content),
+              let q = input["query"] as? String, !q.trimmingCharacters(in: .whitespaces).isEmpty else { throw EngineError.badAnswer }
+        return (String(q.prefix(200)), input["say"] as? String ?? "")
+    }
+}

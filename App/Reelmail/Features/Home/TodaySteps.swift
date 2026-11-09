@@ -34,10 +34,52 @@ struct TodayStepsCard: View {
                 Text(steps.isEmpty ? "Nothing needs you right now." : "All done for today.")
                     .font(.headline).foregroundStyle(CalmStyle.secondary).padding(.vertical, 6)
             }
+            // The lit step as a full card, the other open steps as compact rows that still say what they are and when,
+            // then finished steps as single crossed-out lines (owner, Nov 9: he wants to see each step to decide).
             ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
-                row(step, number: index + 1, isActive: index == active)
+                if index == active { row(step, number: index + 1, isActive: true) }
             }
+            ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                if !step.done, index != active { openRow(step, number: index + 1) }
+            }
+            ForEach(steps.filter(\.done)) { step in doneRow(step) }
         }
+    }
+
+    private func openRow(_ step: TodayStep, number: Int) -> some View {
+        Button { open(step) } label: {
+            HStack(alignment: .center, spacing: 12) {
+                Text("\(number)").font(.subheadline.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                    .frame(width: 30, height: 30)
+                    .overlay(Circle().strokeBorder(CalmStyle.secondary.opacity(0.6), lineWidth: 2))
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(step.title).font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink).lineLimit(1)
+                        Text(step.detail).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 6)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.step.open")
+    }
+
+    private func doneRow(_ step: TodayStep) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark").font(.caption2.weight(.bold)).foregroundStyle(CalmStyle.blue)
+                .frame(width: 24, height: 24).background(CalmStyle.blue.opacity(0.2), in: Circle())
+                .frame(width: 30)
+            Text(step.title).font(.footnote).strikethrough().foregroundStyle(CalmStyle.secondary).lineLimit(1)
+            Spacer(minLength: 6)
+            Text(step.kind == .bill ? "Paid" : "Done").font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Done: " + step.title)
     }
 
     private func row(_ step: TodayStep, number: Int, isActive: Bool) -> some View {

@@ -171,6 +171,11 @@ struct HomeView: View {
             .environment(\.defaultMinListRowHeight, 0)
             .scrollContentBackground(.hidden)
             .refreshable { await store.load(); await store.refreshShortTermExpired(force: true) }
+            .safeAreaInset(edge: .bottom) {
+                if store.filter == .all, store.mode == .gmail {
+                    AskLovelyBar(showSuggestions: store.todaySteps().filter { !$0.done }.count <= 2)
+                }
+            }
             .task(id: store.mode == .gmail) { await store.refreshShortTermExpired() }
         }
         .background(CalmStyle.background)
@@ -240,7 +245,9 @@ struct HomeView: View {
         }
         // Today: up to three steps, only the first lit (owner chose design D, Nov 9).
         let older = store.sessionCandidates.isEmpty && store.mode == .gmail ? store.backlogCandidates.count : 0
-        TodayStepsCard(steps: store.todaySteps())
+        let steps = store.todaySteps()
+        let openSteps = steps.filter { !$0.done }.count
+        TodayStepsCard(steps: steps)
             .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         if store.shortTermExpired > 0 {
@@ -258,7 +265,10 @@ struct HomeView: View {
             .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         // Everything else, as quiet chips.
-        let chips = minuteChips(d, older: older)
+        // With three or more open steps, the chips trim to three plus More so Home still fits on one screen.
+        let allChips = minuteChips(d, older: older)
+        let chips = openSteps >= 3 && allChips.count > 4
+            ? Array(allChips.prefix(3)) + [MinuteChips.Chip(title: "More", route: .glance)] : allChips
         MinuteChips(chips: chips)
             .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
