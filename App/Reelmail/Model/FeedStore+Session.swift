@@ -11,17 +11,22 @@ extension FeedStore {
 
     /// Everything waiting on you, then the unread to-do (oldest first). The session plan sorts it again.
     var sessionCandidates: [Post] {
-        let d = digest
-        var seen = Set<String>()
-        return (d.waiting + d.todo).filter { !hidden.contains($0.id) && seen.insert($0.id).inserted }
+        cached("sessionCandidates", [hidden, laterUntil]) {
+            let d = digest
+            var seen = Set<String>()
+            return (d.waiting + d.todo).filter { !hidden.contains($0.id) && seen.insert($0.id).inserted }
+        }
     }
 
     /// Older mail: read, still in the inbox, not waiting on you. Oldest first, one page at a time.
     static let backlogPage = 50
+    /// Home reads this on every redraw, so it is rebuilt only when the mail changes (it filters and sorts everything loaded).
     var backlogCandidates: [Post] {
-        let current = Set(sessionCandidates.map(\.id))
-        return posts.filter { !$0.email.isUnread && !$0.email.isFromMe && !hidden.contains($0.id) && !current.contains($0.id) }
-            .sorted { $0.email.date < $1.email.date }
+        cached("backlogCandidates", [hidden, laterUntil]) {
+            let current = Set(sessionCandidates.map(\.id))
+            return posts.filter { !$0.email.isUnread && !$0.email.isFromMe && !hidden.contains($0.id) && !current.contains($0.id) }
+                .sorted { $0.email.date < $1.email.date }
+        }
     }
 
     /// A fresh plan from what is loaded now.

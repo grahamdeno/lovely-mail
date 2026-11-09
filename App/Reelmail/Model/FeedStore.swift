@@ -236,19 +236,36 @@ final class FeedStore {
         defer { if current == revision { isSummarizing = false } }
         AppleIntelligenceSummarizer.prewarm()
         let ai = AppleIntelligenceSummarizer()
-        var changed = false
+        // Results are applied in batches. Applying each one re-sorted all mail and redrew every screen about once a second
+        // for minutes after launch, which made typing and scrolling lag. Batches also save as they go.
+        var pending: [String: EmailSummary] = [:]
+        var lastFlush = Date()
         for post in todo {
             guard current == revision else { return }
             let summary = try? await ai.summarize(SummaryInput(email: post.email))
             guard current == revision else { return }
-            if let summary, let index = posts.firstIndex(where: { $0.id == post.id }) {
-                posts[index].summary = summary
-                summaries[post.id] = summary
-                changed = true
-                bump()
+            if let summary { pending[post.id] = summary }
+            if pending.count >= Self.summaryBatch || (!pending.isEmpty && Date().timeIntervalSince(lastFlush) > 20) {
+                applySummaries(pending); pending = [:]; lastFlush = Date()
             }
         }
-        if changed { persist() }
+        if !pending.isEmpty { applySummaries(pending) }
+    }
+
+    static let summaryBatch = 25
+
+    /// One change to `posts` for many summaries, so views redraw once.
+    private func applySummaries(_ batch: [String: EmailSummary]) {
+        var updated = posts
+        var changed = false
+        for i in updated.indices {
+            if let summary = batch[updated[i].id] { updated[i].summary = summary; changed = true }
+        }
+        guard changed else { return }
+        posts = updated
+        summaries.merge(batch) { _, new in new }
+        bump()
+        persist()
     }
 
     // MARK: Reading the feed
