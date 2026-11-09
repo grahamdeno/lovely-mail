@@ -55,7 +55,7 @@ final class MailTagTests: XCTestCase {
 
     func testTagsCarriedThroughThePlanAndKidChoiceAddsPerson() {
         let m = SessionMessage(id: "m", threadId: "t", fromName: "Pine Ridge", fromAddress: "office@pineridge.example",
-                               subject: "Band concert Thursday", text: "The band concert is Thursday at 6:30.", date: now,
+                               subject: "Band concert Thursday", date: now, text: "The band concert is Thursday at 6:30.",
                                section: .updates, category: .school, isPerson: false, ask: nil, isHealth: false,
                                isFirstTimeSender: false, asksForAction: false, hasDates: true)
         let plan = SessionPlanner.plan([m], memory: DrawerMemory(), kids: context.kids, households: context.households)
