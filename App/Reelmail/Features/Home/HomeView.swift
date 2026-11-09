@@ -2,34 +2,33 @@ import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
-/// Neon (an 80s gel palette: midnight violet, hot pink and electric cyan) replaces both when chosen in Settings.
-/// Playful (deep night teal, bright lime green, chunky rounded buttons) is the other theme you can choose.
+/// Neon (Outrun sunset: deep purple, hot magenta, sunset orange and yellow) replaces both when chosen in Settings.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x0E0820, playful: 0x111D23)
+    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x1A0B2E)
     /// Cards, pills and fields that sit on the background.
-    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x1B1236, playful: 0x1D2C33)
-    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF7F0FF, playful: 0xF2F7FA)
-    static let secondary = Color(light: 0x5E5962, dark: 0xA9A3AC, neon: 0xD2C6F2, playful: 0xA3B5BE)
-    /// Airmail blue: everything you can tap. In Neon, electric cyan; in Playful, bright lime.
-    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x1FE5FF, playful: 0x5BD31F)
-    /// Text and icons on `blue` (white, except dark ink on Neon's bright cyan).
-    static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0x120A24, playful: 0x0E1A10)
-    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, hot pink.
-    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF2BB4, playful: 0xFF5A5F)
+    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x2B1250)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xFFF0FA)
+    static let secondary = Color(light: 0x5E5962, dark: 0xA9A3AC, neon: 0xD9B8F0)
+    /// Airmail blue: everything you can tap. In Neon, hot magenta.
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0xFF2E97)
+    /// Text and icons on `blue` (white in every palette).
+    static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0xFFFFFF)
+    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, sunset orange.
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF8A3D)
     /// Postmark rose for text; passes 4.5:1 on its background in every palette.
-    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFF7AD0, playful: 0xFF8A8E)
+    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFFB070)
     /// Done. Swipe tint only, with white text.
-    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x1E8A55, playful: 0x5BD31F)
-    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x3A2A63, playful: 0x34444C)
+    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x1FB86B)
+    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x3D1E66)
     static let field = card
-    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x2C1A57, playful: 0x23363E)
-    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x3D1F45, playful: 0x3A3216)
-    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFD36E, playful: 0xFFD54A)
+    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x341763)
+    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x3D2410)
+    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFD319)
     /// The Undo bar: dark in every palette, with white text.
-    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x3A1F72, playful: 0x2A3B43)
-    /// Neon's signature gel stripe: hot pink into cyan. Used for the line under the top bar.
-    static let gel = LinearGradient(colors: [Color(hex: 0xFF2BB4), Color(hex: 0x9B4DFF), Color(hex: 0x1FE5FF)],
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x3A1666)
+    /// Neon's signature sunset stripe: yellow, orange, magenta, purple. Used for the line under the top bar.
+    static let gel = LinearGradient(colors: [Color(hex: 0xFFD319), Color(hex: 0xFF8A3D), Color(hex: 0xFF2E97), Color(hex: 0x8C1EFF)],
                                     startPoint: .leading, endPoint: .trailing)
 }
 
@@ -94,37 +93,12 @@ struct CalmActionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         // Delete, remove, decline and clear buttons (role: .destructive) are rose-red, never blue.
         let tint = configuration.role == .destructive ? CalmStyle.roseInk : CalmStyle.blue
-        if ThemeState.playful {
-            return AnyView(configuration.label
-                .font(.subheadline.weight(.bold))
-                .padding(.horizontal, 14).frame(minHeight: 42)
-                .foregroundStyle(prominent ? CalmStyle.onBlue : tint)
-                .modifier(PlayfulLedge(fill: prominent ? tint : CalmStyle.background, pressed: configuration.isPressed,
-                                       outline: !prominent, cornerRadius: 14)))
-        }
-        return AnyView(configuration.label
+        return configuration.label
             .font(.subheadline.weight(.medium))
             .padding(.horizontal, 12).frame(minHeight: 40)
             .foregroundStyle(prominent ? CalmStyle.onBlue : tint)
             .background(prominent ? tint : tint.opacity(0.08), in: Capsule())
-            .opacity(configuration.isPressed ? 0.7 : 1))
-    }
-}
-
-/// Playful theme: a chunky button with a darker ledge under it that it presses down into.
-struct PlayfulLedge: ViewModifier {
-    let fill: Color
-    let pressed: Bool
-    var outline = false
-    var cornerRadius: CGFloat = 16
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        content
-            .background(shape.fill(fill))
-            .overlay(shape.strokeBorder(outline ? CalmStyle.divider : .clear, lineWidth: 2))
-            .offset(y: pressed ? 4 : 0)
-            .background(shape.fill(outline ? CalmStyle.divider : fill.opacity(1)).brightness(outline ? 0 : -0.18).offset(y: 4))
-            .animation(.spring(response: 0.18, dampingFraction: 0.6), value: pressed)
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 

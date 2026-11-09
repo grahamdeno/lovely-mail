@@ -44,7 +44,6 @@ struct ReelmailApp: App {
     /// and the whole tree is rebuilt (by id) when the choice changes.
     private func themedRoot() -> some View {
         ThemeState.neon = appearance == .neon
-        ThemeState.playful = appearance == .playful
         return RootView()
             .overlay {
                 if !store.hasStarted { LaunchSplash().transition(.opacity) }
@@ -55,7 +54,6 @@ struct ReelmailApp: App {
             .environment(router)
             .id(appearance)
             .preferredColorScheme(appearance.colorScheme)
-            .fontDesign(appearance == .playful ? .rounded : nil)
             .task { await store.load(); await store.replayAutomaticChanges() }
             // The brief is rebuilt from the mail loaded right now after each refresh and when the app leaves the screen.
             .onChange(of: store.lastFetched) { _, _ in Task { await MorningBriefScheduler.reschedule(store: store) } }
@@ -79,7 +77,7 @@ struct ReelmailApp: App {
 
 /// Light, dark, or follow the iPhone. Chosen in Settings; saved on this phone.
 enum Appearance: String, CaseIterable, Identifiable {
-    case system, light, dark, neon, playful
+    case system, light, dark, neon
     static let storageKey = "lovely.appearance"
     var id: String { rawValue }
     var title: String {
@@ -88,14 +86,13 @@ enum Appearance: String, CaseIterable, Identifiable {
         case .light: return "Light"
         case .dark: return "Dark"
         case .neon: return "Neon"
-        case .playful: return "Playful"
         }
     }
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
         case .light: return .light
-        case .dark, .neon, .playful: return .dark
+        case .dark, .neon: return .dark
         }
     }
 }
