@@ -52,6 +52,53 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertEqual(SessionQuickCommands.parse("Put it in the house drawer.", kids: kids)?.drawer, "Home", "Common words map to the categories")
     }
 
+    func testDeleteMeansTrashNeverAPermanentDelete() {
+        let item = EngineScorecard.statement
+        for word in ["delete", "Delete.", "delete it", "trash it", "move to trash", "junk", "get rid of it"] {
+            XCTAssertEqual(SessionQuickCommands.parse(word, kids: kids)?.action, "trash", word)
+        }
+        XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "trash"), item: item, kids: kids), .trash)
+        XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "delete"), item: item, kids: kids), .trash,
+                       "An engine saying delete still only reaches Trash")
+        XCTAssertEqual(SessionAction.trash.title, "Move to Trash")
+        XCTAssertTrue(SessionCommand.actions.contains("trash"))
+        XCTAssertTrue(SessionPlaybook.actionsText.contains("- trash:"))
+        XCTAssertNil(SessionQuickCommands.parse("delete the old ones but keep the receipt from March", kids: kids), "Sentences go to the engine")
+    }
+
+    func testTrashMemoryIsPerAddressAndForgets() {
+        var memory = TrashMemory()
+        memory.remember(" No_Reply@Email.Apple.example ")
+        XCTAssertTrue(memory.suggestsTrash(for: "no_reply@email.apple.example"))
+        XCTAssertFalse(memory.suggestsTrash(for: "billing@email.apple.example"), "Exact address only, never the whole domain")
+        memory.remember("not an address")
+        XCTAssertEqual(memory.addresses.count, 1)
+        memory.forget("no_reply@email.apple.example")
+        XCTAssertFalse(memory.suggestsTrash(for: "no_reply@email.apple.example"), "Putting one away stops the Trash offer")
+
+        let defaults = UserDefaults(suiteName: "TrashMemoryTests")!
+        defaults.removePersistentDomain(forName: "TrashMemoryTests")
+        memory.remember("a@b.example"); memory.save(account: "Owner@Example.com", defaults: defaults)
+        XCTAssertTrue(TrashMemory.load(account: "owner@example.com", defaults: defaults).suggestsTrash(for: "a@b.example"))
+        XCTAssertFalse(TrashMemory.load(account: "other@example.com", defaults: defaults).suggestsTrash(for: "a@b.example"), "Per account")
+    }
+
+    func testSenderRulePreviewsSayExactlyWhatGmailWillDo() {
+        let always = FeedStore.senderRulePreview(sender: "builds@testflight.example", label: "Lovely/Projects", inboxCount: 3, screenOut: false)
+        XCTAssertEqual(always.kind, .filter)
+        XCTAssertEqual(always.title, "Always put away in Projects")
+        XCTAssertTrue(always.lines.joined().contains("skips your inbox and goes to Projects"))
+        XCTAssertTrue(always.lines.joined().contains("3 emails"))
+        XCTAssertTrue(always.lines.joined().contains("Nothing is deleted."))
+        XCTAssertTrue(always.recipients.isEmpty, "A filter that only labels sends nothing")
+
+        let screen = FeedStore.senderRulePreview(sender: "promo@shop.example", label: ScreenedOut.label, inboxCount: 1, screenOut: true)
+        XCTAssertEqual(screen.title, "Screen out promo@shop.example")
+        XCTAssertTrue(screen.lines.joined().contains("goes to Screened Out"))
+        XCTAssertTrue(screen.lines.joined().contains("1 email from them"))
+        XCTAssertFalse(screen.lines.joined().contains("marks them read"), "Screened-out mail is not marked read")
+    }
+
     // MARK: Playbook
 
     func testPlaybookCarriesStandingCallsDrawersAndExamples() {

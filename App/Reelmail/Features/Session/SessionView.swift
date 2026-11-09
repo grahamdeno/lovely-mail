@@ -167,32 +167,44 @@ struct SessionItemScreen: View {
     @State private var calendar: SessionCalendarBox?
     @State private var pendingDateMove: SessionMove?
     @State private var pendingDateApproval: ConfirmedAction?
-    @State private var askText = ""
+    /// What he said last, for learning from the proposal he picks.
+    @State private var lastSaid = ""
+    /// Bumped to clear the ask field after a proposal is used.
+    @State private var askResetCount = 0
+    /// The keyboard is up for the ask field: the bar shrinks to just the field, like Messages.
+    @State private var typing = false
+    @State private var showMore = false
     @State private var thinking = false
     @State private var proposals: [SessionProposal] = []
     @State private var askNote: String?
     @State private var handoff: SessionHandoffOffer?
     @State private var removedTags: Set<MailTag> = []
-    @FocusState private var askFocused: Bool
 
     var body: some View {
         if let item = model.item(itemID), let post = store.sessionPost(itemID) {
             VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        SessionMailCard(item: item, post: post) { router.open(.email(post.id)) }
-                        if mode != .reply { tagChips(item) }
-                        switch mode {
-                        case .decide: askSection(item, post)
-                        case .drawers: drawerGrid(item)
-                        case .reply: replyEditor
+                ScrollViewReader { reader in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            SessionMailCard(item: item, post: post) { router.open(.email(post.id)) }
+                            if mode != .reply { tagChips(item) }
+                            switch mode {
+                            case .decide: askResults(item, post)
+                            case .drawers: drawerGrid(item)
+                            case .reply: replyEditor
+                            }
                         }
+                        .padding(.horizontal, 20).padding(.bottom, 20)
                     }
-                    .padding(.horizontal, 20).padding(.bottom, 20)
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: proposals) { _, new in
+                        if !new.isEmpty { withAnimation { reader.scrollTo("session.askResults", anchor: .bottom) } }
+                    }
                 }
+                // The ask field lives here, outside the scroll view, so the keyboard pushes it up and it stays in view as it grows.
                 VStack(spacing: 10) {
                     switch mode {
-                    case .decide: decideActions(item, post)
+                    case .decide: decideBar(item, post)
                     case .drawers: secondaryRow(item, post, showOtherDrawer: false)
                     case .reply: replyActions(item, post)
                     }
@@ -203,6 +215,7 @@ struct SessionItemScreen: View {
             .onAppear { if case .decide = item.suggestion, item.drawer == nil { mode = .drawers } }
             .sheet(item: $calendar, onDismiss: finishDate) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
             .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
+            .sheet(isPresented: $showMore) { moreSheet(item, post) }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -210,7 +223,37 @@ struct SessionItemScreen: View {
 
     // MARK: Decide
 
-    @ViewBuilder private func decideActions(_ item: SessionItem, _ post: Post) -> some View {
+    /// Field, then one main button, then the small row. While typing, only the field, so it sits right above the keyboard.
+    /// When an engine has proposed something, its card is the main button and the usual one steps aside (no duplicates).
+    @ViewBuilder private func decideBar(_ item: SessionItem, _ post: Post) -> some View {
+        SessionAskField(hint: hint(item), thinking: thinking, onFocus: { typing = $0 }, onAsk: { ask($0, item, post) })
+            .id("\(item.id)-\(askResetCount)")
+        if !typing {
+            if proposals.isEmpty { primaryAction(item, post) }
+            secondaryRow(item, post, showOtherDrawer: true)
+        }
+    }
+
+    @ViewBuilder private func primaryAction(_ item: SessionItem, _ post: Post) -> some View {
+        if store.sessionTrashMemory.suggestsTrash(for: post.email.from.email) {
+            trashButton(item, post, prominent: true)
+            Text("You moved mail from this sender to Trash before.").font(.caption).foregroundStyle(CalmStyle.secondary)
+        } else {
+            suggestedAction(item, post)
+        }
+    }
+
+    func trashButton(_ item: SessionItem, _ post: Post, prominent: Bool) -> some View {
+        Button("Move to Trash") {
+            showMore = false
+            clearAsk()
+            store.sessionTrash(post)
+            model.record(item.id, .trashed); model.advance()
+        }
+        .buttonStyle(SessionButtonStyle(prominent: prominent)).accessibilityIdentifier("session.trash")
+    }
+
+    @ViewBuilder private func suggestedAction(_ item: SessionItem, _ post: Post) -> some View {
         switch item.suggestion {
         case .reply:
             Button("Reply") { openReply(post) }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("session.reply")
@@ -224,7 +267,6 @@ struct SessionItemScreen: View {
             if let d = item.drawer?.choice { putAwayButton(item, d) }
             else { Button("Choose a drawer") { mode = .drawers }.buttonStyle(SessionButtonStyle()) }
         }
-        secondaryRow(item, post, showOtherDrawer: true)
     }
 
     private func secondaryRow(_ item: SessionItem, _ post: Post, showOtherDrawer: Bool) -> some View {
@@ -235,7 +277,75 @@ struct SessionItemScreen: View {
             if showOtherDrawer { small("Other drawer", id: "session.otherDrawer") { mode = .drawers } }
             small("Leave unread", id: "session.leaveUnread") { model.record(item.id, .leftUnread); model.advance() }
             small("Skip", id: "session.skip") { model.skip(item.id) }
+            Button { showMore = true } label: { Image(systemName: "ellipsis.circle").font(.title3) }
+                .frame(width: 44, height: 44).foregroundStyle(CalmStyle.blue)
+                .accessibilityLabel("More for this sender").accessibilityIdentifier("session.more")
         }
+    }
+
+    // MARK: More: rules for the whole sender
+
+    /// Everything about the sender, not just this email: always put away (a Gmail filter), screen out, or Trash.
+    /// Each button is its own preview: the lines above it say exactly what Gmail will do.
+    private func moreSheet(_ item: SessionItem, _ post: Post) -> some View {
+        let sender = post.email.from.email
+        let moving = store.inboxPosts(from: sender)
+        let drawer = item.drawer?.choice
+        return NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Mail from \(post.email.from.name)").font(.title3.weight(.bold))
+                        Text(sender).font(.callout).foregroundStyle(CalmStyle.secondary)
+                    }
+                    if let drawer {
+                        let label = DrawerChoice(drawer.drawer).labelName
+                        let preview = FeedStore.senderRulePreview(sender: sender, label: label, inboxCount: moving.count, screenOut: false)
+                        ruleBlock(preview) {
+                            SessionConfirmButton(title: "Always put away in \(drawer.drawer.title)", previews: [preview], identifier: "session.always") { a in
+                                store.applySenderRule(sender: sender, label: label, posts: moving, markRead: true, screenOut: false, confirmed: a[0])
+                                finishSender(item, moving, .filed(DrawerChoice(drawer.drawer)))
+                            }
+                        }
+                    }
+                    let screen = FeedStore.senderRulePreview(sender: sender, label: ScreenedOut.label, inboxCount: moving.count, screenOut: true)
+                    ruleBlock(screen) {
+                        SessionConfirmButton(title: "Screen out this sender", previews: [screen], prominent: drawer == nil, identifier: "session.screenOut") { a in
+                            store.applySenderRule(sender: sender, label: ScreenedOut.label, posts: moving, markRead: false, screenOut: true, confirmed: a[0])
+                            finishSender(item, moving, .archived)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Just this email. Gmail keeps Trash for 30 days.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                        trashButton(item, post, prominent: false)
+                    }
+                }
+                .padding(20)
+            }
+            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+            .toolbar { Button("Cancel") { showMore = false } }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func ruleBlock(_ preview: ActionPreview, @ViewBuilder button: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(preview.lines.enumerated()), id: \.offset) { _, line in
+                Text(line).font(.callout).foregroundStyle(CalmStyle.secondary)
+            }
+            button()
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// The sender's other emails in this session are handled too; move on.
+    private func finishSender(_ item: SessionItem, _ moving: [Post], _ outcome: SessionOutcome) {
+        showMore = false
+        clearAsk()
+        for p in moving where model.item(p.id) != nil { model.record(p.id, outcome) }
+        model.record(item.id, outcome)
+        model.advance()
     }
 
     private func small(_ title: String, id: String, action: @escaping () -> Void) -> some View {
@@ -594,6 +704,7 @@ struct SessionWrapScreen: View {
                         stat(model.replies, "Replies")
                         stat(model.filed, "Filed")
                         stat(model.archived, "Archived")
+                        if model.trashed > 0 { stat(model.trashed, "Trashed") }
                     }
                     if !model.drawerSummary.isEmpty {
                         Text(model.drawerSummary).font(.callout).foregroundStyle(CalmStyle.secondary)
@@ -671,42 +782,28 @@ struct SessionHandoffOffer: Identifiable {
 extension SessionItemScreen {
     private var ownerName: String { let n = store.me.firstName; return n == "You" ? "" : n }
 
-    @ViewBuilder func askSection(_ item: SessionItem, _ post: Post) -> some View {
+    /// What came back from the engine, in the scroll area above the bar.
+    @ViewBuilder func askResults(_ item: SessionItem, _ post: Post) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .bottom, spacing: 8) {
-                TextField("Or say what to do", text: $askText, axis: .vertical)
-                    .lineLimit(1...4).submitLabel(.go).focused($askFocused)
-                    .padding(.horizontal, 14).padding(.vertical, 12)
-                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-                    .onSubmit { ask(item, post) }
-                    .accessibilityIdentifier("session.ask")
-                Button { ask(item, post) } label: {
-                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
-                        .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
-                        .background(CalmStyle.blue, in: Circle())
-                }
-                .disabled(thinking || askText.trimmingCharacters(in: .whitespaces).isEmpty)
-                .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
-            }
-            if askText.isEmpty, proposals.isEmpty, askNote == nil {
-                Text(hint(item)).font(.caption).foregroundStyle(CalmStyle.secondary)
-            }
             if thinking { ProgressView().frame(maxWidth: .infinity) }
             if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
         }
+        .id("session.askResults")
     }
+
+    func clearAsk() { proposals = []; askNote = nil; askResetCount += 1 }
 
     private func hint(_ item: SessionItem) -> String {
         let engine = EngineSettings().engine
-        let base = item.message.isPerson ? "Try \u{201C}tell \(item.message.fromName.split(separator: " ").first.map(String.init) ?? "them") Thursday works\u{201D} or \u{201C}file it in People\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D} or \u{201C}archive\u{201D}."
+        let base = item.message.isPerson ? "Try \u{201C}tell \(item.message.fromName.split(separator: " ").first.map(String.init) ?? "them") Thursday works\u{201D} or \u{201C}file it in People\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D}, \u{201C}archive\u{201D} or \u{201C}delete\u{201D}."
         return base + " Tap the mic on the keyboard to talk." + (engine == .apple ? "" : " Using \(engine.name).")
     }
 
-    private func ask(_ item: SessionItem, _ post: Post) {
-        let said = askText.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func ask(_ text: String, _ item: SessionItem, _ post: Post) {
+        let said = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !said.isEmpty, !thinking else { return }
-        askFocused = false
+        lastSaid = said
         askNote = nil
         proposals = []
         let kids = store.sessionKids
@@ -763,11 +860,11 @@ extension SessionItemScreen {
     }
 
     @ViewBuilder private func proposalButton(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
-        let said = askText
+        let said = lastSaid
         let pick: () -> Void = {
             if comparing { EngineUsage().recordPick(p.engine) }
             SessionExampleStore().record(said: said, action: Self.actionName(p.action), drawer: Self.drawerName(p.action))
-            proposals = []; askText = ""
+            clearAsk()
         }
         switch p.action {
         case .reply(let text, let drawer):
@@ -805,6 +902,11 @@ extension SessionItemScreen {
             }.buttonStyle(SessionButtonStyle())
         case .leaveUnread:
             Button(p.action.title) { pick(); model.record(item.id, .leftUnread); model.advance() }.buttonStyle(SessionButtonStyle())
+        case .trash:
+            Button(p.action.title) {
+                pick(); store.sessionTrash(post)
+                model.record(item.id, .trashed); model.advance()
+            }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("session.proposal.trash")
         case .skip:
             Button(p.action.title) { pick(); model.skip(item.id) }.buttonStyle(SessionButtonStyle())
         case .handoff(let task):
@@ -826,6 +928,7 @@ extension SessionItemScreen {
         case .later: return "later"
         case .leaveUnread: return "leave_unread"
         case .archive: return "archive"
+        case .trash: return "trash"
         case .skip: return "skip"
         case .handoff: return "handoff"
         case .unclear: return "unclear"
@@ -905,5 +1008,51 @@ struct SessionHandoffSheet: View {
         } else if let web { openURL(web) }
         sent()
         dismiss()
+    }
+}
+
+/// The ask field, in its own view with its own text, so typing redraws only this field and not the email above it.
+struct SessionAskField: View {
+    let hint: String
+    let thinking: Bool
+    let onFocus: (Bool) -> Void
+    let onAsk: (String) -> Void
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var canSend: Bool { !thinking && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("Or say what to do", text: $text, axis: .vertical)
+                    .lineLimit(1...5).submitLabel(.go).focused($focused)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                    .onSubmit(send)
+                    .accessibilityIdentifier("session.ask")
+                Button(action: send) {
+                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
+                        .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
+                        .background(CalmStyle.blue, in: Circle())
+                }
+                .disabled(!canSend).opacity(canSend ? 1 : 0.5)
+                .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
+            }
+            if focused, text.isEmpty {
+                Text(hint).font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+        }
+        .onChange(of: focused) { _, now in onFocus(now) }
+        // A multi-line field takes Return as a new line; treat it as Go instead.
+        .onChange(of: text) { _, new in
+            if new.contains("\n") { text = new.replacingOccurrences(of: "\n", with: " "); send() }
+        }
+    }
+
+    private func send() {
+        guard canSend else { return }
+        focused = false
+        onAsk(text)
     }
 }

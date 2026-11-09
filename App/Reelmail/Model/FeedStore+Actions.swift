@@ -51,7 +51,8 @@ extension FeedStore {
         })
     }
 
-    /// Screened Out: files a first-time sender's messages under Lovely/Screened Out and out of the inbox. Nothing is deleted.
+    /// Screened Out: files a first-time sender's messages under Lovely/Screened Out and out of the inbox, and makes a Gmail
+    /// filter so their future mail skips the inbox in Gmail too. Nothing is deleted.
     /// It leaves the list at once and Gmail is changed after the 10-second Undo, like a send.
     func decline(_ candidate: ScreenedOut.Candidate, confirmed: ConfirmedAction) {
         guard let actions else { errorMessage = "Connect Gmail first."; return }
@@ -59,6 +60,10 @@ extension FeedStore {
         declinedSenders.insert(key)
         undo.enqueue(title: "Declined \(candidate.name)", work: { [self] in
             let label = try await actions.ensureLabel(ScreenedOut.label, confirmed: confirmed)
+            // Future mail too: a Gmail filter keeps this sender out of the inbox in Gmail itself (filters approved Nov 4, 2026).
+            if ForwardAllowlist.isAddress(key), !FilterRegistry().filters.contains(where: { $0.sender == key && $0.label == label }) {
+                _ = try await actions.createFilter(sender: key, forwardTo: nil, labelID: label, skipInbox: true, confirmed: confirmed)
+            }
             for id in candidate.messageIDs { try await actions.file(messageID: id, labelID: label, removeFromInbox: true, confirmed: confirmed) }
         }, finished: { [self] error in
             if let error {

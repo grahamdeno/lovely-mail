@@ -50,6 +50,7 @@ enum EngineScorecard {
         Case(id: "q1", said: "file it in money", item: statement, action: "put_away", drawer: "Money", quick: true),
         Case(id: "q2", said: "kids avery", item: school, action: "put_away", drawer: "Kids/Avery", quick: true),
         Case(id: "q3", said: "archive", item: newsletter, action: "archive", drawer: nil, quick: true),
+        Case(id: "q3t", said: "Delete.", item: newsletter, action: "trash", drawer: nil, quick: true),
         Case(id: "q4", said: "later this weekend", item: shipped, action: "later", drawer: nil, quick: true),
         Case(id: "q5", said: "leave it", item: lease, action: "leave_unread", drawer: nil, quick: true),
         Case(id: "q6", said: "money drawer", item: statement, action: "put_away", drawer: "Money", quick: true),

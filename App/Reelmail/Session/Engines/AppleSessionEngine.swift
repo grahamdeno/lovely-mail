@@ -4,7 +4,7 @@ import FoundationModels
 /// The on-device answer shape. Empty strings mean "none"; the validator decides what is allowed.
 @Generable
 struct AppleSessionCommand {
-    @Guide(description: "Exactly one of: reply, put_away, add_date, later, leave_unread, archive, skip, handoff, unclear.")
+    @Guide(description: "Exactly one of: reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, unclear.")
     var action: String
     @Guide(description: "For put_away, add_date or reply: a drawer name from the list, else empty.")
     var drawer: String

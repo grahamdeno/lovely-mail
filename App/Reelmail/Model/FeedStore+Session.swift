@@ -77,6 +77,9 @@ extension FeedStore {
             if let drawer = move.drawer, let post = sessionPost(move.messageID) { memory.remember(drawer, for: post.email.from.email) }
         }
         memory.save(account: account ?? "demo")
+        var trashMemory = sessionTrashMemory
+        for move in moves { if let post = sessionPost(move.messageID) { trashMemory.forget(post.email.from.email) } }
+        trashMemory.save(account: account ?? "demo")
 
         let posts = moves.compactMap { sessionPost($0.messageID) }
         for post in posts {
@@ -128,6 +131,20 @@ extension FeedStore {
             }
             finished(moves.count - failed.count, lastError)
         }, undone: { restore(Set(posts.map(\.id))); onReturn(posts.map(\.id)) })
+    }
+
+    // MARK: Trash in a session
+
+    /// Senders he trashed before in a session; Lovely offers Trash first for them.
+    var sessionTrashMemory: TrashMemory { TrashMemory.load(account: account ?? "demo") }
+
+    /// Moves one message to Gmail's Trash with the app-wide 10-second Undo (the Trash approved 2026-11-01; never a permanent
+    /// delete) and remembers the sender so the next one from them offers Trash first.
+    func sessionTrash(_ post: Post) {
+        var memory = sessionTrashMemory
+        memory.remember(post.email.from.email)
+        memory.save(account: account ?? "demo")
+        Task { await moveToTrash(post) }
     }
 
     static func putAwayTitle(_ move: SessionMove, post: Post?) -> String {

@@ -6,6 +6,7 @@ enum SessionOutcome: Equatable, Sendable {
     case replied
     case filed(DrawerChoice)
     case archived
+    case trashed
     case leftUnread
 }
 
@@ -143,6 +144,7 @@ final class SessionModel {
     var replies: Int { outcomes.values.filter { $0 == .replied }.count }
     var filed: Int { outcomes.values.filter { if case .filed = $0 { return true } else { return false } }.count }
     var archived: Int { outcomes.values.filter { $0 == .archived }.count }
+    var trashed: Int { outcomes.values.filter { $0 == .trashed }.count }
     var leftUnread: [SessionItem] { plan.items.filter { outcomes[$0.id] == .leftUnread } }
 
     /// "Money 3 · Kids 2": where things went.
