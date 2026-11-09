@@ -390,3 +390,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   cloud engine. New permission: full calendar access (NSCalendarsFullAccessUsageDescription). No Google scope change.
   Graham has no Work calendar yet: he creates it in Google Calendar and enables it at calendar.google.com/calendar/syncselect.
   Not yet: a share-sheet entry from Photos (needs an app extension).
+- Nov 9: Playful theme removed at Graham's request (all code: palette values, ThemeState.playful, PlayfulLedge, rounded font, Appearance case). Anyone set to Playful falls back to Auto.
