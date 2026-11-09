@@ -170,6 +170,8 @@ struct SessionItemScreen: View {
     @State private var pendingDateApproval: ConfirmedAction?
     /// What he said last, for learning from the proposal he picks.
     @State private var lastSaid = ""
+    /// What he typed about this email so far, shown as his bubbles and sent with each new ask so Lovely keeps the context.
+    @State private var askHistory: [String] = []
     /// Bumped to clear the ask field after a proposal is used.
     @State private var askResetCount = 0
     /// The keyboard is up for the ask field: the bar shrinks to just the field, like Messages.
@@ -868,6 +870,14 @@ extension SessionItemScreen {
     /// What came back from the engine, in the scroll area above the bar.
     @ViewBuilder func askResults(_ item: SessionItem, _ post: Post) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            // His words, like a sent message, so it is clear they went somewhere.
+            ForEach(Array(askHistory.enumerated()), id: \.offset) { _, said in
+                Text(said).font(.body).foregroundStyle(CalmStyle.onBlue)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18))
+                    .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 48)
+                    .accessibilityLabel("You said: " + said)
+            }
             if thinking { ProgressView().frame(maxWidth: .infinity) }
             if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
@@ -879,7 +889,7 @@ extension SessionItemScreen {
         .id("session.askResults")
     }
 
-    func clearAsk() { proposals = []; askNote = nil; askResetCount += 1 }
+    func clearAsk() { proposals = []; askNote = nil; askHistory = []; askResetCount += 1 }
 
     private func hint(_ item: SessionItem) -> String {
         let engine = EngineSettings().engine
@@ -893,8 +903,12 @@ extension SessionItemScreen {
         lastSaid = said
         askNote = nil
         proposals = []
+        // Sent: show it as his bubble and empty the field (it used to stay there, so the send looked lost).
+        let earlier = askHistory
+        askHistory.append(said)
+        askResetCount += 1
         // "text Julia", "text my wife about this": open Messages with a short summary (he taps Send there).
-        if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askResetCount += 1; return }
+        if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askHistory.removeLast(); return }
         let kids = store.sessionKids
         if let quick = SessionQuickCommands.parse(said, kids: kids, fromPerson: item.message.isPerson) {
             proposals = [SessionProposal(engine: .apple, action: SessionCommandValidator.validate(quick, item: item, kids: kids),
@@ -905,7 +919,9 @@ extension SessionItemScreen {
         let kinds = EngineRouter.plan(for: item, settings: settings)
         if settings.engine.isCloud, !EngineRouter.allowsCloud(item) { askNote = EngineError.notForCloud.localizedDescription }
         else if settings.engine.isCloud, !EngineSettings.hasKey(settings.engine) { askNote = EngineError.noKey(settings.engine).localizedDescription }
-        let request = EngineRouter.request(for: item, said: said, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
+        // Earlier lines about this email go with the new one, so a follow-up keeps its context.
+        let context = earlier.isEmpty ? said : (earlier + [said]).joined(separator: "\n")
+        let request = EngineRouter.request(for: item, said: context, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
         thinking = true
         Task {
             var results: [SessionProposal] = []
