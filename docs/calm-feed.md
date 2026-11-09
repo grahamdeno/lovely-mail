@@ -109,6 +109,9 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - A change that fails for lack of signal stays done in Lovely and waits in the outbox instead of coming back to the to-do.
 - Held changes are also sent when the app goes inactive (app switcher, Control Center), so closing Lovely from the switcher does not drop them.
 
+## Launch crash on build 1046 (Nov 9, 2026)
+- Graham: 1046 crashes on open. Investigating with a simulator UI audit (fixture account, signed in) and the TestFlight crash report.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
