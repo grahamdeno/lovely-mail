@@ -69,6 +69,18 @@ final class SessionModel {
 
     func start() { advance() }
 
+    /// Start with one group (tapped on the start screen); the rest follow in the usual order afterwards.
+    func start(with group: SessionGroup) {
+        let open = plan.items.filter(isOpen)
+        switch group {
+        case .oneAtATime:
+            if let first = open.first(where: { $0.group == .oneAtATime }) { phase = .item(first.id) } else { advance() }
+        case .quick: phase = open.contains { $0.group == .quick } ? .batch : .start
+        case .reading: phase = open.contains { $0.group == .reading } ? .reading : .start
+        }
+        if phase == .start { advance() }
+    }
+
     /// A better plan arrived before the owner started (Apple Intelligence drawer suggestions). Ignored once started.
     func replacePlanBeforeStart(_ newPlan: SessionPlan) {
         guard phase == .start, Set(newPlan.items.map(\.id)) == Set(plan.items.map(\.id)) else { return }

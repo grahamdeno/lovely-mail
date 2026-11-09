@@ -110,19 +110,28 @@ struct SessionStartScreen: View {
                             .foregroundStyle(CalmStyle.secondary)
                     } else {
                         Text(model.backlog ? "\(model.plan.count) older emails" : "\(model.plan.count) to go through").font(.largeTitle.weight(.bold))
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(SessionGroup.allCases, id: \.self) { group in
+                        // Each group is a way in: tap one to start there. Start (below) still goes in the usual order.
+                        VStack(spacing: 0) {
+                            let groups = SessionGroup.allCases.filter { g in model.plan.items.contains { $0.group == g } }
+                            ForEach(groups, id: \.self) { group in
                                 let n = model.plan.items.filter { $0.group == group }.count
-                                if n > 0 {
-                                    HStack {
-                                        Text(group.title)
+                                Button { model.start(with: group) } label: {
+                                    HStack(spacing: 10) {
+                                        Text(group.title).foregroundStyle(CalmStyle.ink)
                                         Spacer()
-                                        Text("\(n)").font(.body.weight(.semibold))
+                                        Text("\(n)").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.ink)
+                                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
                                     }
+                                    .padding(.horizontal, 16).frame(minHeight: 52).contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Start with these")
+                                .accessibilityIdentifier("session.start.\(group.rawValue)")
+                                if group != groups.last { Divider().overlay(CalmStyle.divider).padding(.leading, 16) }
                             }
                         }
-                        .padding(16).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                        Text("Tap a group to start there.").font(.caption).foregroundStyle(CalmStyle.secondary)
                         Text("About \(model.plan.estimatedMinutes) min. Each one ends up answered, dated or filed, and out of your inbox.")
                             .font(.callout).foregroundStyle(CalmStyle.secondary)
                     }
