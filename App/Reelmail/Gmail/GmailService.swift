@@ -277,7 +277,7 @@ final class GmailService: NSObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         request.setValue("Bearer " + (try await accessToken()), forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await NetworkRetry.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
             let detail = GmailAPIError.parse(data)
@@ -321,7 +321,7 @@ final class GmailService: NSObject {
     private func getOnce<T: Decodable>(_ url: URL) async throws -> T {
         var request = URLRequest(url: url)
         request.setValue("Bearer " + (try await accessToken()), forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await NetworkRetry.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
             let detail = GmailAPIError.parse(data)
@@ -369,7 +369,7 @@ final class GmailService: NSObject {
         request.httpBody = body.percentEncodedQuery?
             .replacingOccurrences(of: "+", with: "%2B")
             .data(using: .utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await NetworkRetry.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
             log.error("Token exchange failed with HTTP \(code, privacy: .public)")

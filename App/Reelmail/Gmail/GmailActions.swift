@@ -10,7 +10,7 @@ struct GmailActions {
     static let api = "https://gmail.googleapis.com/gmail/v1/users/me"
 
     var token: () async throws -> String
-    var transport: Transport = { try await URLSession.shared.data(for: $0) }
+    var transport: Transport = { try await NetworkRetry.data(for: $0) }
     var allowlist = ForwardAllowlist()
     var filters = FilterRegistry()
     var labels = LovelyLabels()
@@ -20,7 +20,7 @@ struct GmailActions {
     init(token: @escaping () async throws -> String, transport: Transport? = nil, allowlist: ForwardAllowlist = ForwardAllowlist(),
          filters: FilterRegistry = FilterRegistry(), labels: LovelyLabels = LovelyLabels(), activity: ActivityLog = ActivityLog()) {
         self.token = token
-        self.transport = transport ?? { try await URLSession.shared.data(for: $0) }
+        self.transport = transport ?? { try await NetworkRetry.data(for: $0) }
         self.allowlist = allowlist; self.filters = filters; self.labels = labels; self.activity = activity
     }
 

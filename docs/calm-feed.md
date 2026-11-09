@@ -66,6 +66,11 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Email ⋯ > "Text someone about this": pick a person (Apple's contact picker, no Contacts permission; then the last 5 people texted, most recent first), an editable draft (sender, subject, on-device summary, first date, "Want to talk about it?"; sensitive mail gets sender and subject only), "Text <name>" opens Apple's Messages sheet. Lovely never sends; the owner taps Send. Recipients stay on this phone.
 - Next: offer it from the session (⋯) and as a quick command ("text Sarah about this").
 
+## Undo and network (Nov 9, 2026)
+- One Undo bar everywhere (newest, "+N more"); outside the session it used to stack every pending action full screen.
+- A batch page's Trash rows share one Undo and move after the 10 seconds, like put away.
+- Gmail requests retry twice on a dropped connection (NetworkRetry), after "The network connection was lost" when many changes reached Gmail at once.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

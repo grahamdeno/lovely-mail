@@ -614,7 +614,7 @@ struct SessionBatchScreen: View {
                     store.rememberFates(model.fatesToRemember(page))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
-                    for id in trash { if let post = store.sessionPost(id) { store.sessionTrash(post) } }
+                    store.sessionTrash(trash.compactMap { store.sessionPost($0) })
                     model.finishBatchPage(moves, keptTwoWeeks: twoWeeks, trashed: trash)
                 }
                 Button(acting == 0 ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
@@ -699,7 +699,7 @@ struct SessionReadingScreen: View {
                     store.rememberFates(model.fatesToRemember(items, reading: true))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
-                    for id in trash { if let post = store.sessionPost(id) { store.sessionTrash(post) } }
+                    store.sessionTrash(trash.compactMap { store.sessionPost($0) })
                     model.finishReading(moves, keptTwoWeeks: twoWeeks, trashed: trash)
                 }
                 Button(acting == 0 ? "Continue" : "Leave them unread") { model.finishReading([]) }
