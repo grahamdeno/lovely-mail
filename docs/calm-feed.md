@@ -51,6 +51,12 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - `sessionCandidates` and `backlogCandidates` (read by Home on every redraw) are cached until mail, hidden or Later changes.
 - Pending: device check. If lag remains, profile with Instruments on a Mac (SwiftUI and Time Profiler) during typing.
 
+## Keep 2 weeks and per-row choices (Nov 9, 2026)
+- New: Keep 2 weeks, then Trash. Lovely/Short-term label, out of the inbox, read. After 14 days Home shows "N short-term emails past 14 days · Review" (checked every 6 hours, IDs only) and the list moves them to Trash with one tap. Never trashed without his tap. Also in Settings, the drawer grid, the ⋯ sheet ("Always keep 2 weeks" makes a Gmail filter).
+- Quick ones and Newsletters: each row has a swipeable strip (category ▾, 2 weeks, Archive, Trash, Unread); the bottom button does the whole page in one tap ("Put away all", "Archive all" or "Do all").
+- Lovely remembers each sender's choice (SenderFateMemory, exact address, per account) and starts that sender's rows there next time.
+- Open question for the owner: auto-trash short-term mail after 14 days without a tap (needs explicit approval; today every trash waits for a tap).
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

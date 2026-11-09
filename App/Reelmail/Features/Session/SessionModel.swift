@@ -32,6 +32,10 @@ final class SessionModel {
     /// Batch screen edits: a different drawer for a row, or a row left out (stays unread).
     var batchDrawers: [String: DrawerChoice] = [:]
     var batchLeftOut: Set<String> = []
+    /// Per-row choices other than its category: keep 2 weeks, archive, trash. A row with none is filed.
+    var batchFates: [String: BatchFate] = [:]
+    /// What he chose for each sender before (address, lowercased): a row starts there, so Lovely learns his habits.
+    var rememberedFates: [String: BatchFate] = [:]
     /// Reading screen: rows kept unread.
     var readingKept: Set<String> = []
 
@@ -90,16 +94,51 @@ final class SessionModel {
         return tags.sorted()
     }
 
-    /// Moves for the batch page: rows not left out, each with its category and tags.
-    var batchMoves: [SessionMove] {
-        batchPage.filter { !batchLeftOut.contains($0.id) }.compactMap { item in
-            batchDrawer(item).map { SessionMove(messageID: item.id, drawer: $0, tags: batchTags(item)) }
+    /// What happens to one row when he taps the button: his choice on this screen, else what he chose for this
+    /// sender before, else the suggestion (file in its category; newsletters archive).
+    func batchFate(_ item: SessionItem, reading: Bool = false) -> BatchFate {
+        if batchLeftOut.contains(item.id) { return .unread }
+        if let fate = batchFates[item.id] { return fate }
+        if let fate = rememberedFates[item.message.fromAddress.lowercased()], fate != .unread {
+            return fate == .file && batchDrawer(item) == nil ? .archive : fate
+        }
+        return reading || batchDrawer(item) == nil ? .archive : .file
+    }
+
+    func setBatchFate(_ fate: BatchFate, for item: SessionItem) {
+        batchLeftOut.remove(item.id)
+        switch fate {
+        case .unread: batchLeftOut.insert(item.id); batchFates[item.id] = nil
+        case .file: batchFates[item.id] = nil
+        default: batchFates[item.id] = fate
         }
     }
 
-    var readingMoves: [SessionMove] {
-        readingItems.filter { !readingKept.contains($0.id) }.map { SessionMove(messageID: $0.id, drawer: nil) }
+    /// Moves for a page: filed rows with their category and tags, and archived rows (no category).
+    func moves(_ items: [SessionItem], reading: Bool = false) -> [SessionMove] {
+        items.compactMap { item in
+            switch batchFate(item, reading: reading) {
+            case .file: return batchDrawer(item).map { SessionMove(messageID: item.id, drawer: $0, tags: batchTags(item)) }
+            case .archive: return SessionMove(messageID: item.id, drawer: nil)
+            default: return nil
+            }
+        }
     }
+    func ids(_ items: [SessionItem], _ fate: BatchFate, reading: Bool = false) -> [String] {
+        items.filter { batchFate($0, reading: reading) == fate }.map(\.id)
+    }
+    /// Each sender's choice on this page, to remember for next time (leaving one unread is not a habit).
+    func fatesToRemember(_ items: [SessionItem], reading: Bool = false) -> [String: BatchFate] {
+        var out: [String: BatchFate] = [:]
+        for item in items { let f = batchFate(item, reading: reading); if f != .unread { out[item.message.fromAddress.lowercased()] = f } }
+        return out
+    }
+
+    var batchMoves: [SessionMove] { moves(batchPage) }
+    var batchKeepTwoWeeksIDs: [String] { ids(batchPage, .keepTwoWeeks) }
+    var batchTrashIDs: [String] { ids(batchPage, .trash) }
+
+    var readingMoves: [SessionMove] { moves(readingItems, reading: true) }
 
     // MARK: Recording what happened
 
@@ -113,19 +152,23 @@ final class SessionModel {
     }
 
     /// After the batch page is confirmed: rows left out stay unread on purpose.
-    func finishBatchPage(_ moves: [SessionMove]) {
+    func finishBatchPage(_ moves: [SessionMove], keptTwoWeeks: [String] = [], trashed: [String] = []) {
         recordMoves(moves)
-        let moved = Set(moves.map(\.messageID))
-        for item in batchPage where !moved.contains(item.id) { record(item.id, .leftUnread) }
-        batchLeftOut.removeAll(); batchDrawers.removeAll()
+        for id in keptTwoWeeks { record(id, .archived) }
+        for id in trashed { record(id, .trashed) }
+        let handled = Set(moves.map(\.messageID) + keptTwoWeeks + trashed)
+        for item in batchPage where !handled.contains(item.id) { record(item.id, .leftUnread) }
+        batchLeftOut.removeAll(); batchDrawers.removeAll(); batchFates.removeAll()
         advance()
     }
 
-    func finishReading(_ moves: [SessionMove]) {
+    func finishReading(_ moves: [SessionMove], keptTwoWeeks: [String] = [], trashed: [String] = []) {
         recordMoves(moves)
-        let moved = Set(moves.map(\.messageID))
-        for item in readingItems where !moved.contains(item.id) { record(item.id, .leftUnread) }
-        readingKept.removeAll()
+        for id in keptTwoWeeks { record(id, .archived) }
+        for id in trashed { record(id, .trashed) }
+        let handled = Set(moves.map(\.messageID) + keptTwoWeeks + trashed)
+        for item in readingItems where !handled.contains(item.id) { record(item.id, .leftUnread) }
+        readingKept.removeAll(); batchLeftOut.removeAll(); batchDrawers.removeAll(); batchFates.removeAll()
         advance()
     }
 
@@ -159,4 +202,19 @@ final class SessionModel {
 extension SessionModel {
     /// The mail is gone (deleted elsewhere, or already handled): count it and move on.
     func drop(_ id: String) { progress.markHandled(id); advance() }
+}
+
+/// One batch row's choice.
+enum BatchFate: String, Hashable, CaseIterable, Codable, Sendable {
+    case file, keepTwoWeeks, archive, trash, unread
+
+    var title: String {
+        switch self {
+        case .file: return "File"
+        case .keepTwoWeeks: return "2 weeks"
+        case .archive: return "Archive"
+        case .trash: return "Trash"
+        case .unread: return "Unread"
+        }
+    }
 }

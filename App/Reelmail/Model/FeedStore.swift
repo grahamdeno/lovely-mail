@@ -30,6 +30,8 @@ final class FeedStore {
     @ObservationIgnored var savedDrafts: [String: String] = [:]
     /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
     var declinedSenders: Set<String> = []
+    /// Short-term mail past two weeks, from the last check (Home shows a note when above zero).
+    var shortTermExpired = 0
     /// Set after a sender is filtered in Lovely; RootView shows it as a preview sheet.
     var gmailFilterOffer: GmailFilterOffer?
     @ObservationIgnored var httpTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
@@ -45,7 +47,7 @@ final class FeedStore {
     let demoReview: SortingReview
     private(set) var accountReview: SortingReview?
     private let summarizeOnDevice: Bool
-    private let triageDefaults: UserDefaults
+    let triageDefaults: UserDefaults
     private let cacheStore: MailCacheStore?
     private var summaries: [String: EmailSummary] = [:]
     private var revision = 0
@@ -694,30 +696,39 @@ final class FeedStore {
     private var doneDay = ""
     private var doneCount = 0
     private var doneKey: String { "lovely.doneToday." + (mode == .gmail ? MailCache.accountKey(account ?? "") : "demo") }
-    /// Which messages were done today, newest first, so "done today" can show them. Same day rule as the count.
-    private var doneIDs: [String] = []
-    var doneTodayIDs: [String] { doneDay == Self.dayKey(Date()) ? doneIDs : [] }
-    /// Today's done mail that Lovely still has loaded, newest done first.
+    /// What was done today, newest first: a small saved record of each (sender, subject, date), because mail that was
+    /// put away or trashed leaves the inbox and drops out of `posts` on the next refresh. Same day rule as the count.
+    private var doneRecords: [DoneRecord] = []
+    var doneTodayRecords: [DoneRecord] { doneDay == Self.dayKey(Date()) ? doneRecords : [] }
+    /// Today's done mail that Lovely still has loaded (for tests and for opening a row).
     var doneTodayPosts: [Post] {
         let byID = Dictionary(posts.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        return doneTodayIDs.compactMap { byID[$0] }
+        return doneTodayRecords.compactMap { byID[$0.id] }
     }
     private func loadDoneCount() {
         let saved = triageDefaults.dictionary(forKey: doneKey)
         doneDay = saved?["day"] as? String ?? ""
         doneCount = saved?["count"] as? Int ?? 0
-        doneIDs = saved?["ids"] as? [String] ?? []
+        if let data = saved?["records"] as? Data, let records = try? JSONDecoder().decode([DoneRecord].self, from: data) {
+            doneRecords = records
+        } else {
+            doneRecords = []
+        }
     }
     func countDone(_ delta: Int, id: String? = nil) {
         let sameDay = doneDay == Self.dayKey(Date())
-        if !sameDay { doneIDs = [] }
+        if !sameDay { doneRecords = [] }
         doneCount = max(0, doneToday + delta)
         if let id {
-            doneIDs.removeAll { $0 == id }
-            if delta > 0 { doneIDs.insert(id, at: 0) }
+            doneRecords.removeAll { $0.id == id }
+            if delta > 0, let post = posts.first(where: { $0.id == id }) {
+                doneRecords.insert(DoneRecord(id: id, from: post.email.from.name.isEmpty ? post.email.from.email : post.email.from.name,
+                                              subject: post.email.subject, date: post.email.date, doneAt: Date()), at: 0)
+            }
         }
         doneDay = Self.dayKey(Date())
-        triageDefaults.set(["day": doneDay, "count": doneCount, "ids": Array(doneIDs.prefix(500))], forKey: doneKey)
+        let data = (try? JSONEncoder().encode(Array(doneRecords.prefix(300)))) ?? Data()
+        triageDefaults.set(["day": doneDay, "count": doneCount, "records": data], forKey: doneKey)
     }
     // MARK: You said you would / Waiting on them (local; reads only)
 
@@ -925,4 +936,13 @@ final class FeedStore {
         for rule in made { for address in rule.matches { rules.setSender(address, destination: nil) } }
         store.remove(Set(made.map(\.id)))
     }
+}
+
+/// One email finished today, kept so "Done today" can list it after it leaves the inbox.
+struct DoneRecord: Codable, Equatable, Identifiable, Sendable {
+    var id: String
+    var from: String
+    var subject: String
+    var date: Date
+    var doneAt: Date
 }

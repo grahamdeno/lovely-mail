@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// Clean up old login codes: Lovely shows every message first, then one tap moves them to Gmail's Trash.
+/// Clean up old login codes, or short-term mail past two weeks: Lovely shows every message first, then one tap moves
+/// them to Gmail's Trash.
 struct CleanupView: View {
+    enum Kind { case logins, shortTerm }
+    var kind: Kind = .logins
     @Environment(FeedStore.self) private var store
     @State private var age = AccountsCleanup.defaultAgeDays
     @State private var found: [MessageStub]?
@@ -12,14 +15,18 @@ struct CleanupView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Login codes, new-device checks and password resets you no longer need. Nothing moves until you tap the button, and Gmail keeps Trash for 30 days.")
+                    Text(kind == .logins
+                         ? "Login codes, new-device checks and password resets you no longer need. Nothing moves until you tap the button, and Gmail keeps Trash for 30 days."
+                         : "Mail you chose to keep for \(ShortTerm.keepDays) days, now past that. Nothing moves until you tap the button, and Gmail keeps Trash for 30 days.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
-                    Picker("Older than", selection: $age) {
-                        Text("90 days").tag(90)
-                        Text("1 year").tag(365)
+                    if kind == .logins {
+                        Picker("Older than", selection: $age) {
+                            Text("90 days").tag(90)
+                            Text("1 year").tag(365)
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: age) { _, _ in Task { await search() } }
                     }
-                    .pickerStyle(.segmented)
-                    .onChange(of: age) { _, _ in Task { await search() } }
                     if searching { ProgressView().frame(maxWidth: .infinity) }
                     if let moved {
                         Label("\(moved) moved to Trash.", systemImage: "checkmark.circle").font(.callout)
@@ -54,21 +61,22 @@ struct CleanupView: View {
                 Button("Move \(found.count) to Trash") {
                     let list = found
                     self.found = []
-                    store.trashOldAccountNotices(list) { n in moved = n }
+                    if kind == .logins { store.trashOldAccountNotices(list) { n in moved = n } }
+                    else { store.trashExpiredShortTerm(list) { n in moved = n } }
                 }
                 .buttonStyle(SessionButtonStyle()).padding(20)
                 .accessibilityIdentifier("cleanup.trash")
             }
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
-        .navigationTitle("Old login emails").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(kind == .logins ? "Old login emails" : "Expired short-term mail").navigationBarTitleDisplayMode(.inline)
         .task { if found == nil { await search() } }
     }
 
     private func search() async {
         searching = true
         defer { searching = false }
-        do { found = try await store.findOldAccountNotices(ageDays: age) }
+        do { found = kind == .logins ? try await store.findOldAccountNotices(ageDays: age) : try await store.findExpiredShortTerm() }
         catch { found = []; store.errorMessage = "Could not search Gmail. \(error.localizedDescription)" }
     }
 }
