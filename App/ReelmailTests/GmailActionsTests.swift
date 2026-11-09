@@ -186,4 +186,29 @@ final class GmailActionsTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(ran, 1, "Never sent twice")
     }
+
+    /// Moving on to a new action sends the earlier one now; only the newest can be undone.
+    func testANewActionSendsTheEarlierOneNow() async {
+        let q = UndoQueue(); q.delay = 60
+        q.keepAlive = { work in await work() }
+        var first = 0, second = 0
+        let a = q.enqueue(title: "Moved to Trash: A") { first += 1 }
+        try? await Task.sleep(for: .milliseconds(1_700))
+        let b = q.enqueue(title: "Moved to Trash: B") { second += 1 }
+        try? await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(first, 1)
+        XCTAssertEqual(second, 0)
+        XCTAssertEqual(q.pending.map(\.id), [b])
+        XCTAssertFalse(q.cancel(a))
+        XCTAssertTrue(q.cancel(b))
+    }
+
+    /// One tap that queues several changes (a batch) keeps one shared Undo.
+    func testChangesFromOneTapStayUndoableTogether() {
+        let q = UndoQueue(); q.delay = 60
+        q.keepAlive = { work in await work() }
+        _ = q.enqueue(title: "Put away 5") {}
+        _ = q.enqueue(title: "Moved 2 to Trash") {}
+        XCTAssertEqual(q.pending.count, 2)
+    }
 }

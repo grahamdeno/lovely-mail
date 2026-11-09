@@ -207,6 +207,10 @@ final class UndoQueue {
     @discardableResult
     func enqueue(title: String, work: @escaping @MainActor () async throws -> Void, finished: @escaping @MainActor (Error?) -> Void = { _ in },
                  undone: (@MainActor () -> Void)? = nil) -> String {
+        // Moving on to a new action sends the earlier ones now (only the newest can be undone, as in Mail and Gmail).
+        // Changes queued within the same second are one tap (a batch does put away, 2 weeks and Trash together), so they
+        // keep their shared Undo.
+        flush(queuedBefore: Date().addingTimeInterval(-1.5))
         let id = UUID().uuidString
         pending.append(Pending(id: id, title: title, sendsAt: Date().addingTimeInterval(delay)))
         if let undone { undoers[id] = undone }
@@ -229,8 +233,11 @@ final class UndoQueue {
 
     /// Lovely is leaving the screen: send every held change now, while iOS still lets it reach Gmail. (Changes that
     /// waited out the 10 seconds in the background failed with "The network connection was lost" and came back.)
-    func flushAll() {
-        let ready = pending.compactMap { p in runners[p.id].map { (p.id, $0) } }
+    func flushAll() { flush(queuedBefore: .distantFuture) }
+
+    /// Sends held changes queued before `date` now.
+    func flush(queuedBefore date: Date) {
+        let ready = pending.filter { $0.sendsAt.addingTimeInterval(-delay) < date }.compactMap { p in runners[p.id].map { (p.id, $0) } }
         for (id, run) in ready {
             tasks[id]?.cancel()
             Task { await run() }
