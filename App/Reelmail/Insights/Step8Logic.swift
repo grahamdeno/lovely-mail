@@ -99,8 +99,9 @@ enum ScreenedOut {
     }
 
     static func declinePreview(_ c: Candidate) -> ActionPreview {
-        ActionPreview(kind: .label, title: "Decline \(c.name)",
+        ActionPreview(kind: .filter, title: "Decline \(c.name)",
                       lines: ["Moves \(c.messageIDs.count) message\(c.messageIDs.count == 1 ? "" : "s") from \(c.address) out of your inbox into the Gmail label \(label).",
+                              "Creates a Gmail filter so their future mail skips your inbox in Gmail too. Remove it any time in Settings > Gmail filters.",
                               "Nothing is deleted. After \(trashAfterDays) days Lovely offers to move them to Trash."])
     }
 

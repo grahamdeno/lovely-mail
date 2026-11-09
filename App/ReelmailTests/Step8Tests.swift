@@ -31,7 +31,7 @@ final class Step8Tests: XCTestCase {
     func testDeclinePreviewSaysNothingIsDeleted() {
         let c = ScreenedOut.Candidate(address: "new@example.com", name: "New", messageIDs: ["1", "2"], subject: "Hi")
         XCTAssertTrue(ScreenedOut.declinePreview(c).lines.joined().contains("Nothing is deleted"))
-        XCTAssertEqual(ScreenedOut.declinePreview(c).kind, .label)
+        XCTAssertEqual(ScreenedOut.declinePreview(c).kind, .filter, "Decline makes a Gmail filter too")
     }
 
     func testOneClickUnsubscribeRules() {

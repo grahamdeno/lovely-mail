@@ -173,6 +173,7 @@ struct SessionItemScreen: View {
     @State private var askResetCount = 0
     /// The keyboard is up for the ask field: the bar shrinks to just the field, like Messages.
     @State private var typing = false
+    @State private var showMore = false
     @State private var thinking = false
     @State private var proposals: [SessionProposal] = []
     @State private var askNote: String?
@@ -214,6 +215,7 @@ struct SessionItemScreen: View {
             .onAppear { if case .decide = item.suggestion, item.drawer == nil { mode = .drawers } }
             .sheet(item: $calendar, onDismiss: finishDate) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
             .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
+            .sheet(isPresented: $showMore) { moreSheet(item, post) }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -243,6 +245,7 @@ struct SessionItemScreen: View {
 
     func trashButton(_ item: SessionItem, _ post: Post, prominent: Bool) -> some View {
         Button("Move to Trash") {
+            showMore = false
             clearAsk()
             store.sessionTrash(post)
             model.record(item.id, .trashed); model.advance()
@@ -274,7 +277,75 @@ struct SessionItemScreen: View {
             if showOtherDrawer { small("Other drawer", id: "session.otherDrawer") { mode = .drawers } }
             small("Leave unread", id: "session.leaveUnread") { model.record(item.id, .leftUnread); model.advance() }
             small("Skip", id: "session.skip") { model.skip(item.id) }
+            Button { showMore = true } label: { Image(systemName: "ellipsis.circle").font(.title3) }
+                .frame(width: 44, height: 44).foregroundStyle(CalmStyle.blue)
+                .accessibilityLabel("More for this sender").accessibilityIdentifier("session.more")
         }
+    }
+
+    // MARK: More: rules for the whole sender
+
+    /// Everything about the sender, not just this email: always put away (a Gmail filter), screen out, or Trash.
+    /// Each button is its own preview: the lines above it say exactly what Gmail will do.
+    private func moreSheet(_ item: SessionItem, _ post: Post) -> some View {
+        let sender = post.email.from.email
+        let moving = store.inboxPosts(from: sender)
+        let drawer = item.drawer?.choice
+        return NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Mail from \(post.email.from.name)").font(.title3.weight(.bold))
+                        Text(sender).font(.callout).foregroundStyle(CalmStyle.secondary)
+                    }
+                    if let drawer {
+                        let label = DrawerChoice(drawer.drawer).labelName
+                        let preview = FeedStore.senderRulePreview(sender: sender, label: label, inboxCount: moving.count, screenOut: false)
+                        ruleBlock(preview) {
+                            SessionConfirmButton(title: "Always put away in \(drawer.drawer.title)", previews: [preview], identifier: "session.always") { a in
+                                store.applySenderRule(sender: sender, label: label, posts: moving, markRead: true, screenOut: false, confirmed: a[0])
+                                finishSender(item, moving, .filed(DrawerChoice(drawer.drawer)))
+                            }
+                        }
+                    }
+                    let screen = FeedStore.senderRulePreview(sender: sender, label: ScreenedOut.label, inboxCount: moving.count, screenOut: true)
+                    ruleBlock(screen) {
+                        SessionConfirmButton(title: "Screen out this sender", previews: [screen], prominent: drawer == nil, identifier: "session.screenOut") { a in
+                            store.applySenderRule(sender: sender, label: ScreenedOut.label, posts: moving, markRead: false, screenOut: true, confirmed: a[0])
+                            finishSender(item, moving, .archived)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Just this email. Gmail keeps Trash for 30 days.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                        trashButton(item, post, prominent: false)
+                    }
+                }
+                .padding(20)
+            }
+            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+            .toolbar { Button("Cancel") { showMore = false } }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func ruleBlock(_ preview: ActionPreview, @ViewBuilder button: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(preview.lines.enumerated()), id: \.offset) { _, line in
+                Text(line).font(.callout).foregroundStyle(CalmStyle.secondary)
+            }
+            button()
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// The sender's other emails in this session are handled too; move on.
+    private func finishSender(_ item: SessionItem, _ moving: [Post], _ outcome: SessionOutcome) {
+        showMore = false
+        clearAsk()
+        for p in moving where model.item(p.id) != nil { model.record(p.id, outcome) }
+        model.record(item.id, outcome)
+        model.advance()
     }
 
     private func small(_ title: String, id: String, action: @escaping () -> Void) -> some View {

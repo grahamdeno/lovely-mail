@@ -38,6 +38,8 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - New session action `trash`: "delete", "trash", "junk" and similar work instantly with no model, and every engine can answer `trash`. It uses the Trash approved 2026-11-01 (app-wide 10-second Undo, Gmail keeps it 30 days). An engine saying "delete" still only reaches Trash.
 - Lovely remembers senders he trashed in a session (exact address, per account) and offers Move to Trash first next time; putting one away forgets it.
 - An engine's proposal replaces the main button instead of appearing twice.
+- Session "More" (the ... button): Always put away in <category> (Gmail filter: exact address, skips the inbox, files new mail; also moves and marks read the sender's inbox mail now), Screen out this sender (Gmail filter to Lovely/Screened Out plus Lovely's own filter), and Move to Trash. Each is a preview button; filters are removable in Settings > Gmail filters.
+- Screened Out > Decline now also makes the Gmail filter, so a declined sender's future mail skips the inbox in Gmail too.
 - Not done: a rule for "trash these only when nothing is unusual" (it remembers the sender; it does not judge each email yet). Pending: device check on the next TestFlight build.
 
 ## Known limits

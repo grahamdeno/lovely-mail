@@ -83,6 +83,22 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertFalse(TrashMemory.load(account: "other@example.com", defaults: defaults).suggestsTrash(for: "a@b.example"), "Per account")
     }
 
+    func testSenderRulePreviewsSayExactlyWhatGmailWillDo() {
+        let always = FeedStore.senderRulePreview(sender: "builds@testflight.example", label: "Lovely/Projects", inboxCount: 3, screenOut: false)
+        XCTAssertEqual(always.kind, .filter)
+        XCTAssertEqual(always.title, "Always put away in Projects")
+        XCTAssertTrue(always.lines.joined().contains("skips your inbox and goes to Projects"))
+        XCTAssertTrue(always.lines.joined().contains("3 emails"))
+        XCTAssertTrue(always.lines.joined().contains("Nothing is deleted."))
+        XCTAssertTrue(always.recipients.isEmpty, "A filter that only labels sends nothing")
+
+        let screen = FeedStore.senderRulePreview(sender: "promo@shop.example", label: ScreenedOut.label, inboxCount: 1, screenOut: true)
+        XCTAssertEqual(screen.title, "Screen out promo@shop.example")
+        XCTAssertTrue(screen.lines.joined().contains("goes to Screened Out"))
+        XCTAssertTrue(screen.lines.joined().contains("1 email from them"))
+        XCTAssertFalse(screen.lines.joined().contains("marks them read"), "Screened-out mail is not marked read")
+    }
+
     // MARK: Playbook
 
     func testPlaybookCarriesStandingCallsDrawersAndExamples() {
