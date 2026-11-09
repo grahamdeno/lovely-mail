@@ -133,6 +133,7 @@ enum Route: Hashable {
     /// Old login codes and device checks, listed, then moved to Trash with one tap.
     case cleanup
     case shortTermCleanup
+    case notes
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

@@ -55,6 +55,7 @@ struct RootView: View {
                     case .engineScorecard: EngineScorecardView()
                     case .cleanup: CleanupView()
                     case .shortTermCleanup: CleanupView(kind: .shortTerm)
+                    case .notes: NotesThreadView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

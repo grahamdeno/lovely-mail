@@ -20,7 +20,7 @@ struct MoneyRow: View {
         }.buttonStyle(.plain).accessibilityIdentifier("home.row.money")
     }
 
-    private var line: String {
+    var line: String {
         if let a = summary.alarms.first { return "Payment problem: \(a.payee)" }
         let open = summary.households.reduce(0) { $0 + $1.open.count }
         return open == 0 ? "No bills waiting" : "\(open) bill\(open == 1 ? "" : "s") waiting"

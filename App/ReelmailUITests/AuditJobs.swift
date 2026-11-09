@@ -219,10 +219,12 @@ final class AuditJobs: AuditCase {
     func testJob06_DeclineNewSender() {
         begin(6, "decline-sender", "Decline a new sender", .light)
         guard waitForHome() else { return }
-        let row = app.buttons["home.row.screenedout"]
+        // New senders moved off Home (Nov 9): Settings > New senders; first-time senders also come up in the inbox session.
+        guard tap(app.buttons["home.settings"], "Settings") else { return }
+        let row = app.buttons["settings.row.New senders"]
         _ = locate(row)
-        check(row.waitForExistence(timeout: 20), "Home shows a 'New senders' row for the first-time sender")
-        shot("home-row", screen: "Home")
+        check(row.waitForExistence(timeout: 20), "Settings has a 'New senders' row")
+        shot("settings-row", screen: "Settings")
         if tap(row, "New senders row") {
             check(app.buttons["screened.decline"].waitForExistence(timeout: 10), "The list offers Accept and Decline")
             check(text(containing: "Jordan Pike").exists, "The first-time sender is Jordan Pike")

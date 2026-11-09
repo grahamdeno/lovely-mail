@@ -71,6 +71,12 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - A batch page's Trash rows share one Undo and move after the 10 seconds, like put away.
 - Gmail requests retry twice on a dropped connection (NetworkRetry), after "The network connection was lost" when many changes reached Gmail at once.
 
+## Home order and Notes thread (Nov 9, 2026)
+- Home, in order: Today card (brief + session in one: "8 to go through · 1 waiting on you · 2 dates this week", one button; heading opens the brief), Waiting on you, Coming up this week inline (3, then See all), You said you would, To do, Notes to self (one row), Waiting on them, Kids · Energy · Money tiles on one line, Organizations, Earlier.
+- Off Home: People (People tab), New senders (Settings > New senders; first-time senders already come up in the session).
+- Notes to self is a text thread (Route.notes): notes as blue bubbles, his messages blue, Lovely gray. Tap a note to focus it; action strip: Done (Lovely/Notes, out of inbox, read; preview button), Bring back tomorrow (Later), Trash (test notes offered first), Open. Lovely answers with the chosen engine (health notes stay on Apple), suggestions appear as buttons. Thread kept on the phone (NoteThreadStore, per account, 200 messages).
+- UI audit job 6 now opens New senders from Settings.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
