@@ -987,6 +987,7 @@ extension SessionItemScreen {
                     switch result {
                     case .success(let answer):
                         EngineUsage().recordCall(answer)
+                        EngineRoute.record(kind, reason: kind == .apple ? EngineRoute.appleReason(for: item, settings: settings) : nil)
                         results.append(SessionProposal(engine: kind, action: SessionCommandValidator.validate(answer.command, item: item, kids: kids),
                                                        say: answer.command.say ?? ""))
                     case .failure(let error):
@@ -1072,6 +1073,9 @@ extension SessionItemScreen {
                 handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account,
                                               links: FormScripts.links(in: post.email.body, senderAddress: post.email.from.email))
             }.buttonStyle(SessionButtonStyle()).lineLimit(3)
+        case .search(let query):
+            // Reading, not changing: it runs at once, on the phone, and the results stay here.
+            GmailSearchResults(query: query)
         case .unclear:
             EmptyView()
         }
@@ -1088,6 +1092,7 @@ extension SessionItemScreen {
         case .trash: return "trash"
         case .skip: return "skip"
         case .handoff: return "handoff"
+        case .search: return "search"
         case .unclear: return "unclear"
         }
     }

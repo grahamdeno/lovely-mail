@@ -254,4 +254,14 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertEqual(week.picks["grok"], 1)
         XCTAssertEqual(EngineUsage.estimatedCost(week, .claude), 3, accuracy: 0.001)
     }
+
+    /// "Can you check my Gmail …": engines answer with a read-only search, never "I can't search your mail".
+    func testSearchActionValidates() {
+        let item = EngineScorecard.statement
+        XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "search", query: "to:support@example.com newer_than:30d"), item: item, kids: []),
+                       .search(query: "to:support@example.com newer_than:30d"))
+        if case .unclear = SessionCommandValidator.validate(SessionCommand(action: "search"), item: item, kids: []) {} else { XCTFail("empty search must ask") }
+        XCTAssertTrue(SessionCommand.actions.contains("search"))
+        XCTAssertEqual(GmailSearchResults.headline(total: 0, more: false, newest: nil), "Nothing in your Gmail matches.")
+    }
 }

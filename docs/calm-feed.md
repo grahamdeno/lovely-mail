@@ -378,3 +378,5 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   (each filter has its own preview; the button says "+ N Gmail filters"). "Always?" is suggested when he repeats last time's choice.
   Row choices wrap onto two lines instead of scrolling sideways. Not on the newsletter page yet.
 - Nov 9: "Move sender to Reading" renamed "Treat as a newsletter (hides its dates)".
+- Nov 9: session engines can search Gmail: new "search" action (query, Gmail search syntax). Lovely runs it read-only on the phone (listMessageIDs + getMetadata), shows the newest 5 with a count; health mail is counted, not shown; results never go to an engine. Apple's prompt now says it is Lovely's on-device assistant (it had claimed to be Claude). Playbook v3.
+- Nov 9: Settings > AI: "Save and test" sends one fictional email to the engine and reports "Key works, answered in 1.2 s" or the error; a saved key shows as dots plus its last 4 with Show/Hide; "Last answer: Claude answered, 3:02 PM" (or Apple with the reason) to trace wrong labels (EngineRoute). Graham reported Claude selected all day yet cards said Apple only; cause not found in code, this records it.
