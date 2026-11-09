@@ -83,6 +83,11 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Replaced: the inline Coming up list, the Kids/Energy/Money tiles, the Organizations chips and the Earlier row.
 - Next: use the same category colors on session drawer chips.
 
+## Opening animation (Nov 9, 2026)
+- Cold start only, about 1.8 s, tap to skip: the icon's l writes itself in one stroke (path from Design/Brand/icon-layer-l.svg), the dot hops off the end, lands with a squash and a rubbery spring, then "lovely" and "Mail from your people." fade in. Continues from the still launch screen (same crop as LaunchMark). Mail loads underneath.
+- Off with Reduce Motion, and in Settings > Appearance > Opening animation. All in `Features/Home/LaunchAnimation.swift`; to remove, delete the file and its one overlay line in ReelmailApp.swift. UI audits pass `-lovely.launchAnimation NO`.
+- Contact photos are zoomed 14% inside the avatar so photos with baked-in white corners (initials images) fill the shape.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

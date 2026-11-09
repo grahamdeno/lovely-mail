@@ -87,7 +87,7 @@ class AuditCase: XCTestCase {
         audited = []
         job = JobRecorder(number: number, slug: slug, title: title, condition: condition.name)
         app = XCUIApplication()
-        app.launchArguments = ["-uiTestFixtures", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + condition.arguments
+        app.launchArguments = ["-uiTestFixtures", "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-lovely.launchAnimation", "NO"] + condition.arguments
         app.launch()
     }
 

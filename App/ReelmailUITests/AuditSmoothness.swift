@@ -3,7 +3,7 @@ import XCTest
 /// Scrolling, tab switching and launch, measured with Apple's own metrics. The numbers land in the result bundle;
 /// scripts/export_audit.py reads them into audit-summary.json. Simulator numbers show relative problems, not a phone's frame rate.
 final class AuditSmoothness: XCTestCase {
-    private let arguments = ["-uiTestFixtures", "-uiTestAppearance", "light", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+    private let arguments = ["-uiTestFixtures", "-uiTestAppearance", "light", "-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-lovely.launchAnimation", "NO"]
 
     private func options() -> XCTMeasureOptions {
         let o = XCTMeasureOptions()
