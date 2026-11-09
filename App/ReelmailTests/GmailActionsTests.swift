@@ -171,4 +171,19 @@ final class GmailActionsTests: XCTestCase {
         XCTAssertEqual(restored, 1, "no Undo after the window closes")
         XCTAssertTrue(q.pending.isEmpty)
     }
+
+    func testLeavingTheAppSendsHeldChangesNow() async {
+        let q = UndoQueue(); q.delay = 60
+        q.keepAlive = { work in await work() }
+        var ran = 0
+        let id = q.enqueue(title: "Put away 10 emails") { ran += 1 }
+        q.flushAll()
+        try? await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(ran, 1, "Held changes go to Gmail as soon as Lovely leaves the screen")
+        XCTAssertTrue(q.pending.isEmpty)
+        XCTAssertFalse(q.cancel(id), "Undo is over once it was sent")
+        q.flushAll()
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(ran, 1, "Never sent twice")
+    }
 }

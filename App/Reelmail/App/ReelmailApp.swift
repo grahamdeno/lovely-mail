@@ -60,9 +60,14 @@ struct ReelmailApp: App {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     InteractionLog().recordOpen()
+                    store.saveIfWaiting()
                     if let route = NotificationOpener.pending { NotificationOpener.pending = nil; router.open(route) }
                 }
-                if phase == .background { Task { await MorningBriefScheduler.reschedule(store: store) } }
+                if phase == .background {
+                    // Send held Gmail changes now; iOS cuts the network soon after Lovely leaves the screen.
+                    store.undo.flushAll()
+                    Task { await MorningBriefScheduler.reschedule(store: store) }
+                }
             }
     }
 }

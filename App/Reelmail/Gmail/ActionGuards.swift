@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Observation
 
 // Everything that guards Gmail changes beyond reading, Trash and Done (approved 2026-11-04, Sprint 6).
@@ -194,6 +195,13 @@ final class UndoQueue {
     var sleeper: @Sendable (TimeInterval) async -> Void = { delay in _ = try? await Task.sleep(for: .seconds(delay)) }
     private var tasks: [String: Task<Void, Never>] = [:]
     private var undoers: [String: @MainActor () -> Void] = [:]
+    private var runners: [String: @MainActor () async -> Void] = [:]
+    /// Asks iOS for time to finish Gmail changes if Lovely leaves the screen mid-way. Replaced in tests.
+    var keepAlive: @MainActor (_ work: @escaping @MainActor () async -> Void) async -> Void = { work in
+        let id = UIApplication.shared.beginBackgroundTask(withName: "Lovely Gmail changes")
+        await work()
+        if id != .invalid { UIApplication.shared.endBackgroundTask(id) }
+    }
 
     /// Starts the countdown. `work` runs after the delay unless cancelled; `finished` gets the outcome.
     @discardableResult
@@ -202,21 +210,36 @@ final class UndoQueue {
         let id = UUID().uuidString
         pending.append(Pending(id: id, title: title, sendsAt: Date().addingTimeInterval(delay)))
         if let undone { undoers[id] = undone }
-        tasks[id] = Task { [weak self] in
-            guard let self else { return }
-            await self.sleeper(self.delay)
-            guard !Task.isCancelled, self.pending.contains(where: { $0.id == id }) else { return }
+        runners[id] = { [weak self] in
+            guard let self, self.pending.contains(where: { $0.id == id }) else { return }
             self.pending.removeAll { $0.id == id }
             self.tasks[id] = nil
             self.undoers[id] = nil
-            do { try await work(); finished(nil) } catch { finished(error) }
+            self.runners[id] = nil
+            await self.keepAlive { do { try await work(); finished(nil) } catch { finished(error) } }
+        }
+        tasks[id] = Task { [weak self] in
+            guard let self else { return }
+            await self.sleeper(self.delay)
+            guard !Task.isCancelled, let run = self.runners[id] else { return }
+            await run()
         }
         return id
     }
 
+    /// Lovely is leaving the screen: send every held change now, while iOS still lets it reach Gmail. (Changes that
+    /// waited out the 10 seconds in the background failed with "The network connection was lost" and came back.)
+    func flushAll() {
+        let ready = pending.compactMap { p in runners[p.id].map { (p.id, $0) } }
+        for (id, run) in ready {
+            tasks[id]?.cancel()
+            Task { await run() }
+        }
+    }
+
     /// Removes an offer without running its Undo (the action failed on its own).
     func cancelQuietly(_ id: String) {
-        tasks[id]?.cancel(); tasks[id] = nil; undoers[id] = nil
+        tasks[id]?.cancel(); tasks[id] = nil; undoers[id] = nil; runners[id] = nil
         pending.removeAll { $0.id == id }
     }
 
@@ -224,7 +247,7 @@ final class UndoQueue {
     @discardableResult
     func cancel(_ id: String) -> Bool {
         guard pending.contains(where: { $0.id == id }) else { return false }
-        tasks[id]?.cancel(); tasks[id] = nil
+        tasks[id]?.cancel(); tasks[id] = nil; runners[id] = nil
         pending.removeAll { $0.id == id }
         undoers.removeValue(forKey: id)?()
         return true
