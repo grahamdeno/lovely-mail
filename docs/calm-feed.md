@@ -362,3 +362,7 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   loaded. Mail not loaded is now read from Gmail (read-only, FetchedEmailView). Today's Pay step skips bills due more than
   3 days ago (a month-old bill showed as "Due Sun"), opens the bill's email, and past dates read as dates or "Yesterday".
 - Build 1047 opened fine: the launch freeze fix worked.
+- Nov 9: Settings redesign. Top level is one screen: account card (opens Account: addresses, iCloud backup, Disconnect),
+  then Your rules (Lovely filters + Gmail filters, New senders, Short-term), Morning brief, Clean up, Households and kids,
+  Look and feel, AI, Privacy and activity; each row shows its value. Sign-in warnings and Connect stay on top. Testing tools
+  hidden: tap the version line 5 times. Later moved to a Home chip ("Later · N") and its own page. UI audit steps updated.

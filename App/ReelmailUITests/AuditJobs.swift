@@ -221,6 +221,8 @@ final class AuditJobs: AuditCase {
         guard waitForHome() else { return }
         // New senders moved off Home (Nov 9): Settings > New senders; first-time senders also come up in the inbox session.
         guard tap(app.buttons["home.settings"], "Settings") else { return }
+        // Settings redesign (Nov 9): New senders lives under Your rules.
+        guard tap(app.buttons["settings.row.Your rules"], "Your rules") else { return }
         let row = app.buttons["settings.row.New senders"]
         _ = locate(row)
         check(row.waitForExistence(timeout: 20), "Settings has a 'New senders' row")
@@ -355,10 +357,10 @@ final class AuditJobs: AuditCase {
             }
             mark("settings changed")
 
-            // Disconnect.
-            let disconnect = app.buttons["settings.disconnect"]
-            // Start from the top so the button is not under the navigation bar.
+            // Disconnect: on the Account page since the Settings redesign (Nov 9).
             for _ in 0..<3 { app.swipeDown(); settle(0.2) }
+            tap(app.buttons["settings.account"], "Account")
+            let disconnect = app.buttons["settings.disconnect"]
             scrollIntoView(disconnect)
             if tap(disconnect, "Disconnect Gmail") {
                 let confirm = app.buttons.matching(NSPredicate(format: "label == %@", "Disconnect")).firstMatch
@@ -369,6 +371,7 @@ final class AuditJobs: AuditCase {
                 settle(1.5)
                 shot("after-disconnect", screen: "Settings after Disconnect")
                 check(app.buttons["settings.connect"].waitForExistence(timeout: 8), "After Disconnect, Settings offers Connect again")
+                if app.navigationBars.buttons.firstMatch.exists, !app.buttons["settings.row.Households and kids"].exists { app.navigationBars.buttons.firstMatch.tap(); settle(0.5) }
                 // Households and kids must survive.
                 let again = app.buttons["settings.row.Households and kids"]
                 scrollIntoView(again)
@@ -422,7 +425,7 @@ final class AuditJobs: AuditCase {
                 check(connect.waitForExistence(timeout: 8), "Settings offers 'Reconnect Gmail'")
                 if tap(connect, "Reconnect Gmail") { settle(1); shot("after-reconnect") }
             default:
-                check(app.buttons["settings.disconnect"].waitForExistence(timeout: 8) || connect.exists, "Settings offers Disconnect or Connect")
+                check(app.buttons["settings.account"].waitForExistence(timeout: 8) || connect.exists, "Settings shows the account or Connect")
             }
             if number == 10 {
                 let rowButton = app.buttons["settings.row.Households and kids"]

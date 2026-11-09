@@ -288,6 +288,8 @@ struct HomeView: View {
         if !store.waitingOnThem.isEmpty { chips.append(.init(title: "Waiting on them · \(store.waitingOnThem.count)", route: .waitingOnThem)) }
         if !d.earlier.isEmpty { chips.append(.init(title: "\(d.earlier.count) older", route: .mailList("earlier"))) }
         if older > 0 { chips.append(.init(title: "Clear older mail", route: .backlog)) }
+        let later = store.laterPosts.count
+        if later > 0 { chips.append(.init(title: "Later · \(later)", route: .later)) }
         chips.append(.init(title: "All cards", route: .glance))
         return chips
     }
