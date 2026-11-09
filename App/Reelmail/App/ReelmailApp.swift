@@ -94,8 +94,8 @@ enum Appearance: String, CaseIterable, Identifiable {
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
-        case .light, .playful: return .light
-        case .dark, .neon: return .dark
+        case .light: return .light
+        case .dark, .neon, .playful: return .dark
         }
     }
 }

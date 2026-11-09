@@ -73,7 +73,7 @@ extension Color {
         }
         self.init(uiColor: UIColor { traits in
             if ThemeState.neon { return ui(neon ?? dark) }
-            if ThemeState.playful { return ui(playful ?? light) }
+            if ThemeState.playful { return ui(playful ?? dark) }
             return traits.userInterfaceStyle == .dark ? ui(dark) : ui(light)
         })
     }
@@ -97,6 +97,6 @@ extension View {
 /// Which palette is live. Set by the app from the Appearance setting; the root view is rebuilt when it changes.
 enum ThemeState {
     nonisolated(unsafe) static var neon = false
-    /// Bright, rounded and bouncy: chunky buttons with a ledge under them, a rounded font, a fresh green.
+    /// Bright, rounded and bouncy on a dark background: chunky lime buttons with a ledge under them, a rounded font.
     nonisolated(unsafe) static var playful = false
 }
