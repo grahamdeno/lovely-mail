@@ -65,6 +65,7 @@ struct RootView: View {
                     case .settingsPrivacy: SettingsPrivacyView()
                     case .later: LaterListView()
                     case .photoEvents: PhotoEventsView()
+                    case .askLovely(let q): AskLovelyView(firstQuestion: q)
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

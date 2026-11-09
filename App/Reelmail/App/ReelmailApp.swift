@@ -151,6 +151,8 @@ enum Route: Hashable {
     case later
     /// Events read from a photo of a calendar, added to the Work calendar.
     case photoEvents
+    /// Ask Lovely about your mail, from Home.
+    case askLovely(String)
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {
