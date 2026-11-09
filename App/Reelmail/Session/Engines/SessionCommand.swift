@@ -60,7 +60,7 @@ enum SessionCommandValidator {
 
     /// Everyday words for the categories, and the drawer names from Sprint 7's first build.
     static let aliases: [String: Drawer] = [
-        "house": .home, "utilities": .home, "bills": .money, "finance": .money, "taxes": .money, "school": .kids,
+        "house": .home, "utilities": .home, "bills": .money, "finance": .money, "school": .kids,
         "family": .personal, "people": .personal, "reference": .personal, "medical": .health, "doctor": .health,
         "job": .work, "career": .work, "business": .projects, "apps": .projects, "shopping": .orders, "order": .orders,
         "trips": .travel, "trip": .travel, "security": .accounts, "logins": .accounts, "login": .accounts,
