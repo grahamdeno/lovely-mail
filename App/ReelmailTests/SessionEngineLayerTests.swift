@@ -52,6 +52,37 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertEqual(SessionQuickCommands.parse("Put it in the house drawer.", kids: kids)?.drawer, "Home", "Common words map to the categories")
     }
 
+    func testDeleteMeansTrashNeverAPermanentDelete() {
+        let item = EngineScorecard.statement
+        for word in ["delete", "Delete.", "delete it", "trash it", "move to trash", "junk", "get rid of it"] {
+            XCTAssertEqual(SessionQuickCommands.parse(word, kids: kids)?.action, "trash", word)
+        }
+        XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "trash"), item: item, kids: kids), .trash)
+        XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "delete"), item: item, kids: kids), .trash,
+                       "An engine saying delete still only reaches Trash")
+        XCTAssertEqual(SessionAction.trash.title, "Move to Trash")
+        XCTAssertTrue(SessionCommand.actions.contains("trash"))
+        XCTAssertTrue(SessionPlaybook.actionsText.contains("- trash:"))
+        XCTAssertNil(SessionQuickCommands.parse("delete the old ones but keep the receipt from March", kids: kids), "Sentences go to the engine")
+    }
+
+    func testTrashMemoryIsPerAddressAndForgets() {
+        var memory = TrashMemory()
+        memory.remember(" No_Reply@Email.Apple.example ")
+        XCTAssertTrue(memory.suggestsTrash(for: "no_reply@email.apple.example"))
+        XCTAssertFalse(memory.suggestsTrash(for: "billing@email.apple.example"), "Exact address only, never the whole domain")
+        memory.remember("not an address")
+        XCTAssertEqual(memory.addresses.count, 1)
+        memory.forget("no_reply@email.apple.example")
+        XCTAssertFalse(memory.suggestsTrash(for: "no_reply@email.apple.example"), "Putting one away stops the Trash offer")
+
+        let defaults = UserDefaults(suiteName: "TrashMemoryTests")!
+        defaults.removePersistentDomain(forName: "TrashMemoryTests")
+        memory.remember("a@b.example"); memory.save(account: "Owner@Example.com", defaults: defaults)
+        XCTAssertTrue(TrashMemory.load(account: "owner@example.com", defaults: defaults).suggestsTrash(for: "a@b.example"))
+        XCTAssertFalse(TrashMemory.load(account: "other@example.com", defaults: defaults).suggestsTrash(for: "a@b.example"), "Per account")
+    }
+
     // MARK: Playbook
 
     func testPlaybookCarriesStandingCallsDrawersAndExamples() {

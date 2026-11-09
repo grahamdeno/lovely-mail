@@ -4,7 +4,7 @@ import Foundation
 /// a system prompt plus a tool schema for Claude and Grok, a compact prompt plus @Generable types for Apple.
 /// Version it when it changes; the engine scorecard catches regressions. Pure, so it is tested.
 enum SessionPlaybook {
-    static let version = 1
+    static let version = 2
 
     /// Plain examples learned from the owner's corrections. Engine-neutral, so they carry over when he switches engines.
     struct Example: Codable, Equatable, Sendable {
@@ -27,6 +27,7 @@ enum SessionPlaybook {
     - later: bring it back later; "later" is one of: this evening, tomorrow, this weekend, next week.
     - leave_unread: leave it as it is.
     - archive: take it out of the inbox with no drawer (skimmed newsletters).
+    - trash: move it to Gmail's Trash (kept 30 days). Use when he says delete, trash, junk or get rid of it.
     - skip: come back to it at the end of the session.
     - handoff: a task outside email (a website form, a sign-up, a purchase). Put the task in "task"; an outside agent does it.
     - unclear: you are not sure what he wants. Put a short question in "say".

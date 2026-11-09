@@ -33,6 +33,13 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
   - Session expiry (401, or refresh rejected) shows a Reconnect prompt; loaded mail stays.
   - UI: Home rows are full width; Draft reply on rows, source and conversation; Hide (local) replaces Archive/Snooze; Source, Search, Profile, Draft reply, New and Summary Lab use the calm palette. Old dark screens removed.
 
+## Session fixes from first phone test (Nov 9, 2026, build 1028)
+- Ask field moved out of the scroll area into the bottom bar, in its own view: the keyboard pushes it up as it grows, and typing redraws only the field (the lag and lost letters came from redrawing the whole email on every keystroke). While typing, the bar shows only the field; Return means Go.
+- New session action `trash`: "delete", "trash", "junk" and similar work instantly with no model, and every engine can answer `trash`. It uses the Trash approved 2026-11-01 (app-wide 10-second Undo, Gmail keeps it 30 days). An engine saying "delete" still only reaches Trash.
+- Lovely remembers senders he trashed in a session (exact address, per account) and offers Move to Trash first next time; putting one away forgets it.
+- An engine's proposal replaces the main button instead of appearing twice.
+- Not done: a rule for "trash these only when nothing is unusual" (it remembers the sender; it does not judge each email yet). Pending: device check on the next TestFlight build.
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

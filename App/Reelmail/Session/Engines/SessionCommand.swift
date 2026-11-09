@@ -6,7 +6,7 @@ import Foundation
 
 /// What an engine sends back, exactly as the playbook's schema describes it.
 struct SessionCommand: Codable, Equatable, Sendable {
-    /// reply, put_away, add_date, later, leave_unread, archive, skip, handoff, unclear
+    /// reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, unclear
     var action: String
     /// For put_away, add_date and reply: one of the drawer names in the playbook ("Money", "Kids/Avery").
     var drawer: String?
@@ -23,7 +23,7 @@ struct SessionCommand: Codable, Equatable, Sendable {
         self.action = action; self.drawer = drawer; self.reply = reply; self.later = later; self.task = task; self.say = say
     }
 
-    static let actions = ["reply", "put_away", "add_date", "later", "leave_unread", "archive", "skip", "handoff", "unclear"]
+    static let actions = ["reply", "put_away", "add_date", "later", "leave_unread", "archive", "trash", "skip", "handoff", "unclear"]
     static let laterChoices = ["this evening", "tomorrow", "this weekend", "next week"]
 }
 
@@ -35,6 +35,8 @@ enum SessionAction: Equatable, Sendable {
     case later(String)
     case leaveUnread
     case archive
+    /// Gmail's Trash, which keeps it 30 days. Never a permanent delete.
+    case trash
     case skip
     case handoff(task: String)
     case unclear(String)
@@ -48,6 +50,7 @@ enum SessionAction: Equatable, Sendable {
         case .later(let when): return "Later: \(when)"
         case .leaveUnread: return "Leave it unread"
         case .archive: return "Archive, no drawer"
+        case .trash: return "Move to Trash"
         case .skip: return "Skip for now"
         case .handoff: return "Hand this to an agent"
         case .unclear(let why): return why
@@ -106,6 +109,7 @@ enum SessionCommandValidator {
             return .later(SessionCommand.laterChoices.contains(when) ? when : "tomorrow")
         case "leave_unread": return .leaveUnread
         case "archive": return .archive
+        case "trash", "delete": return .trash
         case "skip": return .skip
         case "handoff":
             let task = (c.task ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -134,6 +138,9 @@ enum SessionQuickCommands {
             "file it": SessionCommand(action: "put_away"), "put it away": SessionCommand(action: "put_away"),
             "done": SessionCommand(action: "put_away"), "yes": SessionCommand(action: "put_away"), "ok": SessionCommand(action: "put_away"),
             "later": SessionCommand(action: "later", later: "tomorrow"),
+            "delete": SessionCommand(action: "trash"), "delete it": SessionCommand(action: "trash"), "delete this": SessionCommand(action: "trash"),
+            "trash": SessionCommand(action: "trash"), "trash it": SessionCommand(action: "trash"), "move to trash": SessionCommand(action: "trash"),
+            "junk": SessionCommand(action: "trash"), "get rid of it": SessionCommand(action: "trash"), "toss it": SessionCommand(action: "trash"),
         ]
         if fromPerson, ["yes", "ok", "done"].contains(s) { return nil }
         if let c = exact[s] { return c }
