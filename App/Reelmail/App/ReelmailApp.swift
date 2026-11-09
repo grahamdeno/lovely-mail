@@ -43,6 +43,10 @@ struct ReelmailApp: App {
     private func themedRoot() -> some View {
         ThemeState.neon = appearance == .neon
         return RootView()
+            .overlay {
+                if !store.hasStarted { LaunchSplash().transition(.opacity) }
+            }
+            .animation(.easeOut(duration: 0.3), value: store.hasStarted)
             .environment(store)
             .environment(router)
             .id(appearance)
