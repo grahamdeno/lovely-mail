@@ -13,6 +13,16 @@
 	<array>
 		<string>com.grahamdeno.reelmail.morning</string>
 	</array>
+	<!-- The iPhone's own launch screen: the app's background and the icon's l and dot (light and dark), so opening never flashes black. -->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>LaunchMark</string>
+		<key>UIImageRespectsSafeAreaInsets</key>
+		<true/>
+	</dict>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>googlegmail</string>

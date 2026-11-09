@@ -60,7 +60,7 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 ## Launch (Nov 9, 2026)
 - Signed in with saved mail: FeedStore applies the cache in init, so the first frame is your mail (the sample "Connect Gmail" page no longer flashes for ~2 seconds).
 - Otherwise a splash (icon's l and dot, "lovely" wordmark, "Mail from your people.") shows until Lovely knows what to show (`hasStarted`), then fades.
-- Not done: the system launch screen is still the generated blank one (a fraction of a second before the splash).
+- The iPhone launch screen (Config/Info.plist UILaunchScreen) uses LaunchBackground (app background, light/dark) and LaunchMark (the icon's l and dot, light/dark), so opening never shows black.
 
 ## Text someone about an email (Nov 9, 2026)
 - Email ⋯ > "Text someone about this": pick a person (Apple's contact picker, no Contacts permission; then the last 5 people texted, most recent first), an editable draft (sender, subject, on-device summary, first date, "Want to talk about it?"; sensitive mail gets sender and subject only), "Text <name>" opens Apple's Messages sheet. Lovely never sends; the owner taps Send. Recipients stay on this phone.
