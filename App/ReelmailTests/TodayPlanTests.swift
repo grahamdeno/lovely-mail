@@ -66,6 +66,8 @@ final class TodayPlanTests: XCTestCase {
         _ = store.todaySteps()
         _ = store.todaySteps()
         XCTAssertEqual(writes, 0)
+    }
+
     /// A bill from a month ago showed as "Pay NC Farm Bureau, Due Sun" and opened nothing.
     func testOldBillsAreNotStepsAndBillsOpenTheirEmail() {
         var i = TodayPlan.Inputs()
