@@ -152,6 +152,8 @@ enum Route: Hashable {
     // Settings pages (Nov 9 redesign) and the Later list (moved from Settings to a Home chip).
     case settingsAccount, settingsRules, settingsBrief, settingsLook, settingsAI, settingsPrivacy
     case later
+    /// Events read from a photo of a calendar, added to the Work calendar.
+    case photoEvents
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

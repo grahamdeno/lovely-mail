@@ -64,6 +64,7 @@ struct RootView: View {
                     case .settingsAI: SettingsAIView()
                     case .settingsPrivacy: SettingsPrivacyView()
                     case .later: LaterListView()
+                    case .photoEvents: PhotoEventsView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

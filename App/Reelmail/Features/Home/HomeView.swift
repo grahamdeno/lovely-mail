@@ -316,6 +316,7 @@ struct HomeView: View {
         if older > 0 { chips.append(.init(title: "Clear older mail", route: .backlog)) }
         let later = store.laterPosts.count
         if later > 0 { chips.append(.init(title: "Later · \(later)", route: .later)) }
+        chips.append(.init(title: "Add events from a photo", route: .photoEvents))
         chips.append(.init(title: "All cards", route: .glance))
         return chips
     }

@@ -383,3 +383,10 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - Nov 9: Playful is now dark like Neon: deep night teal background, lime buttons with dark text, coral for Trash, yellow warnings; still the rounded font and press-down buttons.
 - Nov 9: Undo: full bar for 3 seconds, then a small pill with a countdown ring (the 10-second window is unchanged). A new action sends earlier held changes now; changes from the same tap (within 1.5 s, a batch) keep one shared Undo.
 - Nov 9: build 1050 showed "Last answer: Apple only answered" with no reason while Claude was selected with a key: by the code that cannot happen. Added EngineRoute.recordPlan: the raw setting, key and health flags at the moment of choosing, shown under Last answer.
+- Nov 9: "Add events from a photo" (Home chip, PhotoEventsView): pick a photo/screenshot of a calendar; Vision reads text on
+  the phone, Apple Intelligence turns it into events (rule-based fallback: PhotoEvents.parse); review list grouped by day,
+  editable titles and times; events already on any calendar with a matching title and overlapping time start unchecked;
+  adds to the iPhone calendar named Work (Google, synced) through EventKit after the 10-second Undo. Never sent to a
+  cloud engine. New permission: full calendar access (NSCalendarsFullAccessUsageDescription). No Google scope change.
+  Graham has no Work calendar yet: he creates it in Google Calendar and enables it at calendar.google.com/calendar/syncselect.
+  Not yet: a share-sheet entry from Photos (needs an app extension).
