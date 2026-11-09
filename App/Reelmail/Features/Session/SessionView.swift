@@ -661,7 +661,7 @@ extension SessionItemScreen {
 
     private func hint(_ item: SessionItem) -> String {
         let engine = EngineSettings().engine
-        let base = item.message.isPerson ? "Try \u{201C}tell her yes, Thursday works\u{201D} or \u{201C}file it in Money\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D} or \u{201C}archive\u{201D}."
+        let base = item.message.isPerson ? "Try \u{201C}tell \(item.message.fromName.split(separator: " ").first.map(String.init) ?? "them") Thursday works\u{201D} or \u{201C}file it in People\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D} or \u{201C}archive\u{201D}."
         return base + " Tap the mic on the keyboard to talk." + (engine == .apple ? "" : " Using \(engine.name).")
     }
 

@@ -31,7 +31,7 @@ struct SessionButtonStyle: ButtonStyle {
         configuration.label
             .font(.body.weight(.semibold))
             .lineLimit(2).multilineTextAlignment(.center)
-            .padding(.horizontal, 16).frame(minHeight: 54)
+            .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 54)
             .foregroundStyle(prominent ? CalmStyle.onBlue : CalmStyle.blue)
             .background(prominent ? CalmStyle.blue : CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
             .opacity(configuration.isPressed ? 0.75 : 1)

@@ -4,6 +4,7 @@ struct RootView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @Environment(\.dynamicTypeSize) private var typeSize
+    private var inSession: Bool { router.path.last == .session || router.path.last == .backlog }
     var body: some View {
         @Bindable var router = router
         NavigationStack(path: $router.path) {
@@ -59,7 +60,14 @@ struct RootView: View {
             }
         }
         .tint(CalmStyle.blue)
-        .overlay(alignment: .bottom) { UndoBanner().padding(.bottom, typeSize.isAccessibilitySize ? 112 : 76) }  // clears the taller tab bar at the largest text sizes
+        .overlay(alignment: inSession ? .top : .bottom) {
+            if inSession {
+                // The session has its main button at the bottom, so its Undo sits under the header instead.
+                UndoBanner(limit: 1).padding(.top, typeSize.isAccessibilitySize ? 140 : 92)
+            } else {
+                UndoBanner().padding(.bottom, typeSize.isAccessibilitySize ? 112 : 76)  // clears the taller tab bar at the largest text sizes
+            }
+        }
         #if DEBUG
         .overlay(alignment: .topLeading) { if FixtureMode.isRequested { FixtureRequestsOverlay() } }
         #endif
