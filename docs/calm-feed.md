@@ -42,6 +42,9 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Screened Out > Decline now also makes the Gmail filter, so a declined sender's future mail skips the inbox in Gmail too.
 - Not done: a rule for "trash these only when nothing is unusual" (it remembers the sender; it does not judge each email yet). Pending: device check on the next TestFlight build.
 
+## Claude engine fix (Nov 9, 2026, build 1029 test)
+- Opus 5.5 returned 400 for forced tool_choice. Claude requests (session and forms) now use tool_choice auto plus a system line asking for the tool; parsing also accepts the JSON written as text. Works on Sonnet, Haiku and Opus. Quick commands gained "file it away".
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.

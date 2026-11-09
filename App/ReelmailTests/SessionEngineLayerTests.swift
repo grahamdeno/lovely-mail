@@ -135,15 +135,18 @@ final class SessionEngineLayerTests: XCTestCase {
 
     private let request = EngineRequest(system: "SYSTEM", compact: "C", user: "USER")
 
-    func testAnthropicRequestForcesTheOneTool() throws {
+    func testAnthropicRequestAsksForTheToolWithoutForcingIt() throws {
         let r = try AnthropicEngine.urlRequest(request, model: "claude-test", key: "k-test")
         XCTAssertEqual(r.url, AnthropicEngine.endpoint)
         XCTAssertEqual(r.value(forHTTPHeaderField: "x-api-key"), "k-test")
         XCTAssertEqual(r.value(forHTTPHeaderField: "anthropic-version"), AnthropicEngine.apiVersion)
         let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(r.httpBody)) as? [String: Any])
         XCTAssertEqual(body["model"] as? String, "claude-test")
-        XCTAssertEqual(body["system"] as? String, "SYSTEM")
-        XCTAssertEqual((body["tool_choice"] as? [String: Any])?["name"] as? String, SessionPlaybook.toolName)
+        XCTAssertTrue((body["system"] as? String ?? "").hasPrefix("SYSTEM"))
+        XCTAssertTrue((body["system"] as? String ?? "").contains("calling the \(SessionPlaybook.toolName) tool"))
+        XCTAssertEqual((body["tool_choice"] as? [String: Any])?["type"] as? String, "auto",
+                       "Forced tool_choice returns 400 on Opus 5.5 and later")
+        XCTAssertEqual(((body["tools"] as? [[String: Any]])?.first)?["name"] as? String, SessionPlaybook.toolName)
     }
 
     func testAnthropicAnswer() throws {
@@ -152,6 +155,9 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertEqual(a.command, SessionCommand(action: "put_away", drawer: "Money", say: "Filing it in Money."))
         XCTAssertEqual(a.inputTokens, 900); XCTAssertEqual(a.outputTokens, 40); XCTAssertEqual(a.engine, .claude)
         XCTAssertThrowsError(try AnthropicEngine.parse(Data(#"{"content":[{"type":"text","text":"no tool"}]}"#.utf8)))
+        let asText = #"{"content":[{"type":"text","text":"Here it is: {\"action\":\"put_away\",\"drawer\":\"Orders\"}"}]}"#
+        XCTAssertEqual(try AnthropicEngine.parse(Data(asText.utf8)).command, SessionCommand(action: "put_away", drawer: "Orders"),
+                       "A model that writes the JSON as text still works")
     }
 
     func testXAIRequestAndAnswers() throws {
