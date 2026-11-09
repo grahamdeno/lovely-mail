@@ -11,6 +11,9 @@ struct NotesThreadView: View {
     @State private var problem: String?
     @State private var resetCount = 0
     @State private var handoffPost: Post?
+    /// Swipe left, like Messages, to slide the bubbles over and show each one's time.
+    @State private var reveal: CGFloat = 0
+    private static let revealWidth: CGFloat = 76
 
     private var account: String { store.account ?? "demo" }
     private var notes: [Post] { store.digest.notes.sorted { $0.email.date < $1.email.date } }
@@ -32,11 +35,30 @@ struct NotesThreadView: View {
                             Text("Email yourself a note and it shows up here. Then talk it through with Lovely.")
                                 .font(.callout).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
                         }
-                        ForEach(entries) { entry in
-                            switch entry {
-                            case .note(let post): noteBubble(post).id(entry.id)
-                            case .message(let m): messageBubble(m).id(entry.id)
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                            if index == 0 || !Calendar.current.isDate(entries[index - 1].date, inSameDayAs: entry.date) {
+                                Text(NotesThreadView.dayHeader(entry.date)).font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                                    .frame(maxWidth: .infinity).padding(.top, 6)
                             }
+                            ZStack(alignment: .trailing) {
+                                Group {
+                                    switch entry {
+                                    case .note(let post): noteBubble(post)
+                                    case .message(let m): messageBubble(m)
+                                    }
+                                }
+                                .offset(x: reveal)
+                                // Revealed by the swipe: the time, and what it was (a note from Gmail, typed here, or which engine answered).
+                                VStack(alignment: .trailing, spacing: 1) {
+                                    Text(entry.date.formatted(date: .omitted, time: .shortened)).font(.caption2.weight(.semibold))
+                                    Text(caption(entry)).font(.caption2).lineLimit(2).multilineTextAlignment(.trailing)
+                                }
+                                .foregroundStyle(CalmStyle.secondary)
+                                .frame(width: NotesThreadView.revealWidth - 6, alignment: .trailing)
+                                .offset(x: NotesThreadView.revealWidth + reveal)
+                                .opacity(Double(-reveal / NotesThreadView.revealWidth))
+                            }
+                            .id(entry.id)
                         }
                         if thinking { ProgressView().frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 12).id("thinking") }
                         if let problem { Text(problem).font(.caption).foregroundStyle(CalmStyle.secondary).id("problem") }
@@ -44,6 +66,15 @@ struct NotesThreadView: View {
                     .padding(.horizontal, 16).padding(.vertical, 12)
                 }
                 .scrollDismissesKeyboard(.interactively)
+                .clipped()
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 16)
+                        .onChanged { v in
+                            guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                            reveal = max(-NotesThreadView.revealWidth, min(0, v.translation.width))
+                        }
+                        .onEnded { _ in withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { reveal = 0 } }
+                )
                 .onAppear { if let last = entries.last { reader.scrollTo(last.id, anchor: .bottom) } }
                 .onChange(of: thread.count) { _, _ in
                     if let last = (notes.map(Entry.note) + thread.map(Entry.message)).sorted(by: { $0.date < $1.date }).last {
@@ -67,6 +98,19 @@ struct NotesThreadView: View {
     }
 
     // MARK: Bubbles
+
+    static func dayHeader(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return "Today" }
+        if let y = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: y) { return "Yesterday" }
+        return date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    private func caption(_ entry: Entry) -> String {
+        switch entry {
+        case .note(let p): return "Emailed from " + (p.email.from.email.split(separator: "@").last.map(String.init) ?? "Gmail")
+        case .message(let m): return m.role == .me ? "Typed here" : (m.engine ?? "Lovely")
+        }
+    }
 
     private func noteBubble(_ post: Post) -> some View {
         let selected = post.id == focused?.id
