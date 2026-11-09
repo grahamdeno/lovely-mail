@@ -78,6 +78,19 @@ extension FeedStore {
 
     /// Several at once, with one Undo.
     func keepShortTerm(_ list: [Post], confirmed: ConfirmedAction) {
+        fileWithLabel(list, label: ShortTerm.label, confirmed: confirmed,
+                      title: list.count == 1 ? "Kept 2 weeks: " + (list.first.map { $0.email.subject.isEmpty ? $0.email.from.name : $0.email.subject } ?? "")
+                                             : "Kept \(list.count) for 2 weeks")
+    }
+
+    /// Notes to self he is done with: Lovely/Notes, out of the inbox, read. One Undo.
+    func fileNotes(_ list: [Post], confirmed: ConfirmedAction) {
+        fileWithLabel(list, label: NotesPlaybook.label, confirmed: confirmed,
+                      title: list.count == 1 ? "Note filed" : "Filed \(list.count) notes")
+    }
+
+    /// A Lovely label, out of the inbox, read. Leaves Lovely at once; Gmail changes after the 10-second Undo.
+    func fileWithLabel(_ list: [Post], label: String, confirmed: ConfirmedAction, title: String) {
         guard !list.isEmpty else { return }
         guard let actions else { errorMessage = "Connect Gmail first."; return }
         for post in list {
@@ -93,10 +106,8 @@ extension FeedStore {
             persist()
         }
         let gmail = self.gmail
-        let title = list.count == 1 ? "Kept 2 weeks: " + (list[0].email.subject.isEmpty ? list[0].email.from.name : list[0].email.subject)
-                                    : "Kept \(list.count) for 2 weeks"
         undo.enqueue(title: title, work: {
-            let labelID = try await actions.ensureLabel(ShortTerm.label, confirmed: confirmed)
+            let labelID = try await actions.ensureLabel(label, confirmed: confirmed)
             for post in list {
                 try await actions.file(messageID: post.id, labelID: labelID, removeFromInbox: true, confirmed: confirmed)
                 try await gmail.markRead(messageID: post.id)

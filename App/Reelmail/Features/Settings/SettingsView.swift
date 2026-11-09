@@ -68,6 +68,7 @@ struct SettingsView: View {
 
                 SettingsHeader(text: "Inbox session")
                 SettingsRow(title: "Conversation engine") { router.open(.engineSettings) }
+                if store.actions != nil { SettingsRow(title: "New senders") { router.open(.screenedOut) } }
                 if store.mode == .gmail { SettingsRow(title: "Clean up old login emails") { router.open(.cleanup) } }
                 if store.mode == .gmail { SettingsRow(title: "Short-term mail") { router.open(.shortTermCleanup) } }
 

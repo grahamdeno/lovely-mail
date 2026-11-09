@@ -236,17 +236,13 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
+        // 1. Today: the brief and the inbox session in one card.
         let toGoThrough = store.sessionCandidates.count
         let older = toGoThrough == 0 && store.mode == .gmail ? store.backlogCandidates.count : 0
-        if toGoThrough > 0 {
-            SessionStartCard(count: toGoThrough, waiting: d.waiting.count)
-                .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        } else if older > 0 {
-            SessionStartCard(count: older, waiting: 0, backlog: true)
-                .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
+        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
+        TodayCard(toGoThrough: toGoThrough, waiting: d.waiting.count, thisWeek: soon.count, older: older)
+            .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         if store.shortTermExpired > 0 {
             Button { router.open(.shortTermCleanup) } label: {
                 HStack(spacing: 10) {
@@ -274,15 +270,55 @@ struct HomeView: View {
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
             }
         }
-        youSaidYouWould()
-        todo(d.todo)
-        if !d.notes.isEmpty {
-            title("Notes to self", d.notes.count, opens: "notes")
-            rows(d.notes, compact: true)
+        // 3. Coming up this week, inline.
+        if !soon.isEmpty {
+            title("Coming up", soon.count, opens: nil)
+            ForEach(soon.prefix(3)) { entry in
+                Button { router.open(.email(entry.post.id)) } label: {
+                    HStack(spacing: 12) {
+                        Text(ComingUp.fullLabel(entry.date)).font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                            .frame(width: 92, alignment: .leading)
+                        Text(entry.post.email.subject.isEmpty ? entry.post.email.from.name : entry.post.email.subject)
+                            .font(.subheadline).foregroundStyle(CalmStyle.ink).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(minHeight: 40).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            }
+            if soon.count > 3 {
+                Button { router.open(.comingUp) } label: {
+                    Text("See all \(soon.count) this week").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+            }
         }
-        if !d.people.isEmpty {
-            title("People", d.people.count, opens: "people")
-            rows(d.people, compact: true)
+        youSaidYouWould()
+        // 4. To do.
+        todo(d.todo)
+        // 5. Notes: one row into the thread with Lovely.
+        if !d.notes.isEmpty {
+            let fresh = d.notes.filter { NotesPlaybook.isNew($0.email.date, now: Date()) }.count
+            Button { router.open(.notes) } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill").foregroundStyle(CalmStyle.blue)
+                        .frame(width: 40, height: 40).background(CalmStyle.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notes to self").font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.ink)
+                        Text(fresh > 0 ? "\(fresh) new · talk them through with Lovely" : "\(d.notes.count) · talk them through with Lovely")
+                            .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                }
+                .padding(12).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain).accessibilityIdentifier("home.notes")
+            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         let watching = store.waitingOnThem
         if !watching.isEmpty {
@@ -290,36 +326,16 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
-        if !soon.isEmpty {
-            ComingUpRow(count: soon.count)
-                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
-        let newSenders = store.actions == nil ? 0 : store.newSenders.count
-        if newSenders > 0 {
-            ScreenedOutRow(count: newSenders)
-                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
-        BriefRow()
-            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        // 6. Kids, Energy, Money on one line.
         let kidProfiles = InsightSettings().load().kids
-        if !kidProfiles.isEmpty {
-            KidsRow(count: kidProfiles.reduce(0) { $0 + store.kidMail(for: $1).count })
-                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
+        let kidCount = kidProfiles.reduce(0) { $0 + store.kidMail(for: $1).count }
         let energy = EnergyInsights.summary(store.insights.store, household: nil)
-        if energy.latest != nil {
-            EnergyRow(summary: energy)
-                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
         let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
-        if !store.insights.store.bills.isEmpty || !money.accounts.isEmpty {
-            MoneyRow(summary: money)
+        let showMoney = !store.insights.store.bills.isEmpty || !money.accounts.isEmpty
+        if !kidProfiles.isEmpty || energy.latest != nil || showMoney {
+            InsightTiles(kids: kidProfiles.isEmpty ? nil : (kidCount == 0 ? "Nothing new" : "\(kidCount) in mail"),
+                         energy: energy.latest == nil ? nil : energy.headline,
+                         money: showMoney ? MoneyRow(summary: money).line : nil)
                 .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
