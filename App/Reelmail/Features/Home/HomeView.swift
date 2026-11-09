@@ -238,11 +238,9 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        // 1. Today: the brief and the inbox session in one card.
-        let toGoThrough = store.sessionCandidates.count
-        let older = toGoThrough == 0 && store.mode == .gmail ? store.backlogCandidates.count : 0
-        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
-        TodayCard(toGoThrough: toGoThrough, waiting: d.waiting.count, thisWeek: soon.count, older: older)
+        // Today: up to three steps, only the first lit (owner chose design D, Nov 9).
+        let older = store.sessionCandidates.isEmpty && store.mode == .gmail ? store.backlogCandidates.count : 0
+        TodayStepsCard(steps: store.todaySteps())
             .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         if store.shortTermExpired > 0 {
@@ -259,69 +257,28 @@ struct HomeView: View {
             .buttonStyle(.plain).accessibilityIdentifier("home.shortTermExpired")
             .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        if !d.waiting.isEmpty {
-            title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
-            // Two on Home so Next up stays on the first screen; the rest are one tap away.
-            rows(Array(d.waiting.prefix(Self.waitingOnHome)), compact: false)
-            if d.waiting.count > Self.waitingOnHome {
-                Button { router.open(.mailList("waiting")) } label: {
-                    Text("See all \(d.waiting.count) waiting on you").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).accessibilityIdentifier("home.waiting.all")
-                .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-            }
-        }
-        youSaidYouWould()
-        // 4. To do.
-        todo(d.todo)
-        // 5. Notes: one row into the thread with Lovely.
-        if !d.notes.isEmpty {
-            let fresh = d.notes.filter { NotesPlaybook.isNew($0.email.date, now: Date()) }.count
-            Button { router.open(.notes) } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill").foregroundStyle(CalmStyle.blue)
-                        .frame(width: 40, height: 40).background(CalmStyle.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Notes to self").font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.ink)
-                        Text(fresh > 0 ? "\(fresh) new · talk them through with Lovely" : "\(d.notes.count) · talk them through with Lovely")
-                            .font(.caption).foregroundStyle(CalmStyle.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
-                }
-                .padding(12).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("home.notes")
-            .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
-        let watching = store.waitingOnThem
-        if !watching.isEmpty {
-            WaitingOnThemRow(count: watching.count)
-                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
-        // 6. Glance cards: coming up, money, kids, energy, older mail, organizations, by urgency.
-        let kidProfiles = InsightSettings().load().kids
-        let kidMail = kidProfiles.flatMap { kid in store.kidMail(for: kid).map { (kid.name, $0.post) } }
-        let latestKid = kidMail.max { $0.1.email.date < $1.1.email.date }
-        let energy = EnergyInsights.summary(store.insights.store, household: nil)
+        // Everything else, as quiet chips.
         let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
-        let cards = HomeGlance.cards(
-            next: soon.first.map { HomeGlance.Next(date: $0.date.start, hasTime: $0.date.hasTime,
-                                                   title: $0.post.email.subject.isEmpty ? $0.post.email.from.name : $0.post.email.subject) },
-            thisWeek: soon.count,
-            openBills: money.households.filter { !$0.ended }.flatMap(\.open).map { HomeGlance.DueBill(payee: $0.payee, amount: $0.amount, dueOn: $0.dueOn) },
-            paymentProblem: money.alarms.first?.payee,
-            kidsCount: kidMail.count, latestKid: latestKid.map { ($0.0, $0.1.email.subject) },
-            energyPerDay: energy.latest?.dollarsPerDay, energyChange: energy.latest?.changePerDay,
-            earlier: d.earlier.count, organizations: d.organizations.map { ($0.name, $0.posts.count) }, now: Date())
-        if !cards.isEmpty {
-            GlanceGrid(cards: cards)
-                .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 4, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
+        let bills = money.households.filter { !$0.ended }.reduce(0) { $0 + $1.open.count }
+        let kids = InsightSettings().load().kids.reduce(0) { $0 + store.kidMail(for: $1).count }
+        let energy = EnergyInsights.summary(store.insights.store, household: nil)
+        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
+        var chips: [MinuteChips.Chip] = []
+        if !d.todo.isEmpty { chips.append(.init(title: "To do · \(d.todo.count)", route: .mailList("todo"))) }
+        if !d.waiting.isEmpty { chips.append(.init(title: "Waiting on you · \(d.waiting.count)", route: .mailList("waiting"))) }
+        if !soon.isEmpty { chips.append(.init(title: "\(soon.count) date\(soon.count == 1 ? "" : "s") this week", route: .comingUp)) }
+        if !d.notes.isEmpty { chips.append(.init(title: "Notes · \(d.notes.count)", route: .notes)) }
+        if bills > 0 || !money.alarms.isEmpty { chips.append(.init(title: money.alarms.isEmpty ? "Bills · \(bills) due" : "Bills · problem", route: .money)) }
+        if kids > 0 { chips.append(.init(title: "Kids · \(kids)", route: .kids)) }
+        if let latest = energy.latest { chips.append(.init(title: String(format: "Energy $%.2f/day", latest.dollarsPerDay), route: .energy)) }
+        if !store.promises.isEmpty { chips.append(.init(title: "You said you would · \(store.promises.count)", route: .promises)) }
+        if !store.waitingOnThem.isEmpty { chips.append(.init(title: "Waiting on them · \(store.waitingOnThem.count)", route: .waitingOnThem)) }
+        if !d.earlier.isEmpty { chips.append(.init(title: "\(d.earlier.count) older", route: .mailList("earlier"))) }
+        if older > 0 { chips.append(.init(title: "Clear older mail", route: .backlog)) }
+        chips.append(.init(title: "All cards", route: .glance))
+        MinuteChips(chips: chips)
+            .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
             BriefOfferCard()
                 .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 8, trailing: 20))

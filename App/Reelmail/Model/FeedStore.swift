@@ -869,7 +869,7 @@ final class FeedStore {
         }.sorted { $0.until < $1.until }
     }
 
-    private static func dayKey(_ date: Date) -> String {
+    static func dayKey(_ date: Date) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
         return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
     }

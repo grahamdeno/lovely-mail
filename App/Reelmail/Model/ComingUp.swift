@@ -18,7 +18,7 @@ enum ComingUp {
         posts.compactMap { post -> Entry? in
             guard ![.reading, .updates, .notes].contains(section(post)) else { return nil }
             guard !ConversationPresentation.isSensitive(post.email, summary: post.summary) else { return nil }
-            guard let first = MailDates.extract(post.email, now: now, calendar: calendar).first else { return nil }
+            guard let first = MailDates.extract(post.email, now: now, calendar: calendar).first(where: { !isVagueToday($0) }) else { return nil }
             return Entry(post: post, date: first)
         }
         .reduce(into: [String: Entry]()) { byThread, entry in
@@ -29,6 +29,11 @@ enum ComingUp {
         }
         .values
         .sorted { $0.date.start < $1.date.start }
+    }
+
+    /// "today" with no time ("so I can post your kit today") is about the sender doing something, not an event.
+    static func isVagueToday(_ d: MailDate) -> Bool {
+        !d.hasTime && ["today", "this morning", "this afternoon", "right now", "now"].contains(d.phrase.lowercased().trimmingCharacters(in: .whitespaces))
     }
 
     /// Entries within the next 7 days.
