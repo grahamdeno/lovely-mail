@@ -14,8 +14,16 @@ iPhone by Apple Intelligence. See `docs/calm-feed.md` for the sorting rules and 
   deletes only filters it made. Nothing is ever permanently deleted. Settings, Gmail activity lists everything done.
   CI (`scripts/privacy_guard.py`) fails if any of these endpoints appears outside `GmailActions.swift`, if a changing
   function lacks a preview approval, or if the full-access scope, permanent delete or any other Gmail setting appears.
-- **On-device AI.** Summaries and reply drafts use Apple's Foundation Models framework on the
-  iPhone. Email text is never sent to any server, including ours (there isn't one).
+- **On-device AI by default.** Summaries, reply drafts and the inbox session use Apple's Foundation Models framework
+  on the iPhone. With the default setting (Settings, Conversation engine: Apple only), email text is never sent to
+  any server, including ours (there isn't one).
+- **Optional cloud engines (Sprint 7, off until you turn one on and add your own key).** If you choose Claude or Grok
+  for the inbox session, Lovely sends that engine the current email's own words (no quoted history; codes, card and
+  account numbers removed), its sender and subject, what you said, and Lovely's instructions. Health mail is never
+  sent. Keys stay in the iPhone's Keychain. Only `Session/Engines/CloudEngines.swift` may call these services
+  (`scripts/privacy_guard.py` checks it).
+- **Inbox session.** Putting mail away files it under a `Lovely/` drawer label, marks it read and takes it out of the
+  inbox, after a 10-second Undo. The session's own button is the preview: it names the drawer and the messages.
 - **Replies.** "Draft reply" offers **Copy**, **Open in Gmail** and, for a single recipient, **Send** (preview, tap, 10-second Undo).
 - **No secrets in the repo.** The Google client ID is public by design for iOS OAuth clients. OAuth tokens live in the
   Keychain, this device only. Email bodies are never logged.

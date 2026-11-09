@@ -140,6 +140,12 @@ struct SessionItemScreen: View {
     @State private var calendar: SessionCalendarBox?
     @State private var pendingDateMove: SessionMove?
     @State private var pendingDateApproval: ConfirmedAction?
+    @State private var askText = ""
+    @State private var thinking = false
+    @State private var proposals: [SessionProposal] = []
+    @State private var askNote: String?
+    @State private var handoff: SessionHandoffOffer?
+    @FocusState private var askFocused: Bool
 
     var body: some View {
         if let item = model.item(itemID), let post = store.sessionPost(itemID) {
@@ -148,7 +154,7 @@ struct SessionItemScreen: View {
                     VStack(alignment: .leading, spacing: 16) {
                         SessionMailCard(item: item, post: post) { router.open(.email(post.id)) }
                         switch mode {
-                        case .decide: EmptyView()
+                        case .decide: askSection(item, post)
                         case .drawers: drawerGrid(item)
                         case .reply: replyEditor
                         }
@@ -167,6 +173,7 @@ struct SessionItemScreen: View {
             }
             .onAppear { if case .decide = item.suggestion, item.drawer == nil { mode = .drawers } }
             .sheet(item: $calendar, onDismiss: finishDate) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
+            .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -312,8 +319,8 @@ struct SessionItemScreen: View {
         drafting = true
         let name = store.mode == .gmail ? "" : store.me.firstName
         Task {
-            let text = (try? await ReplyDrafterFactory.best().draft(replyTo: post.email, myName: name))
-                ?? (try? await TemplateReplyDrafter().draft(replyTo: post.email, myName: name)) ?? ""
+            var text = (try? await ReplyDrafterFactory.best().draft(replyTo: post.email, myName: name)) ?? ""
+            if text.isEmpty { text = (try? await TemplateReplyDrafter().draft(replyTo: post.email, myName: name)) ?? "" }
             if draft.isEmpty { draft = text }
             drafting = false
         }
@@ -562,5 +569,253 @@ struct SessionWrapScreen: View {
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: Say what to do (Sprint 7 step 3)
+
+/// One engine's proposal for the current email. In compare mode there are two, side by side.
+struct SessionProposal: Identifiable, Equatable {
+    var engine: EngineKind
+    var action: SessionAction
+    var say: String
+    /// "Instant" for the built-in quick commands.
+    var quick = false
+    var id: String { engine.rawValue + (quick ? "-quick" : "") }
+    var label: String { quick ? "Instant" : engine.name }
+}
+
+struct SessionHandoffOffer: Identifiable {
+    let id = UUID().uuidString
+    let task: String
+    let item: SessionItem
+    let reportTo: String?
+}
+
+extension SessionItemScreen {
+    private var ownerName: String { let n = store.me.firstName; return n == "You" ? "" : n }
+
+    @ViewBuilder func askSection(_ item: SessionItem, _ post: Post) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("Or say what to do", text: $askText, axis: .vertical)
+                    .lineLimit(1...4).submitLabel(.go).focused($askFocused)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                    .onSubmit { ask(item, post) }
+                    .accessibilityIdentifier("session.ask")
+                Button { ask(item, post) } label: {
+                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
+                        .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
+                        .background(CalmStyle.blue, in: Circle())
+                }
+                .disabled(thinking || askText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
+            }
+            if askText.isEmpty, proposals.isEmpty, askNote == nil {
+                Text(hint(item)).font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            if thinking { ProgressView().frame(maxWidth: .infinity) }
+            if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
+            ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
+        }
+    }
+
+    private func hint(_ item: SessionItem) -> String {
+        let engine = EngineSettings().engine
+        let base = item.message.isPerson ? "Try \u{201C}tell her yes, Thursday works\u{201D} or \u{201C}file it in Money\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D} or \u{201C}archive\u{201D}."
+        return base + " Tap the mic on the keyboard to talk." + (engine == .apple ? "" : " Using \(engine.name).")
+    }
+
+    private func ask(_ item: SessionItem, _ post: Post) {
+        let said = askText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !said.isEmpty, !thinking else { return }
+        askFocused = false
+        askNote = nil
+        proposals = []
+        let kids = store.sessionKids
+        if let quick = SessionQuickCommands.parse(said, kids: kids, fromPerson: item.message.isPerson) {
+            proposals = [SessionProposal(engine: .apple, action: SessionCommandValidator.validate(quick, item: item, kids: kids),
+                                         say: quick.say ?? "", quick: true)]
+            return
+        }
+        let settings = EngineSettings()
+        let kinds = EngineRouter.plan(for: item, settings: settings)
+        if settings.engine.isCloud, !EngineRouter.allowsCloud(item) { askNote = EngineError.notForCloud.localizedDescription }
+        else if settings.engine.isCloud, !EngineSettings.hasKey(settings.engine) { askNote = EngineError.noKey(settings.engine).localizedDescription }
+        let request = EngineRouter.request(for: item, said: said, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
+        thinking = true
+        Task {
+            var results: [SessionProposal] = []
+            var problems: [String] = []
+            await withTaskGroup(of: (EngineKind, Result<EngineAnswer, Error>).self) { group in
+                for kind in kinds {
+                    let engine = EngineRouter.engine(kind, settings: settings)
+                    group.addTask { do { return (kind, .success(try await engine.interpret(request))) } catch { return (kind, .failure(error)) } }
+                }
+                for await (kind, result) in group {
+                    switch result {
+                    case .success(let answer):
+                        EngineUsage().recordCall(answer)
+                        results.append(SessionProposal(engine: kind, action: SessionCommandValidator.validate(answer.command, item: item, kids: kids),
+                                                       say: answer.command.say ?? ""))
+                    case .failure(let error):
+                        problems.append("\(kind.name): \(error.localizedDescription)")
+                    }
+                }
+            }
+            proposals = results.sorted { kinds.firstIndex(of: $0.engine) ?? 0 < kinds.firstIndex(of: $1.engine) ?? 0 }
+            if !problems.isEmpty { askNote = ([askNote].compactMap { $0 } + problems).joined(separator: "\n") }
+            thinking = false
+        }
+    }
+
+    @ViewBuilder private func proposalCard(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if comparing || !p.quick {
+                Text(p.label.uppercased()).font(.caption2.weight(.bold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            }
+            if !p.say.isEmpty { Text(p.say).font(.callout) }
+            if case .reply(let text, _) = p.action {
+                Text(text).font(.body).padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 12))
+            }
+            proposalButton(p, item, post, comparing: comparing)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder private func proposalButton(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
+        let said = askText
+        let pick: () -> Void = {
+            if comparing { EngineUsage().recordPick(p.engine) }
+            SessionExampleStore().record(said: said, action: Self.actionName(p.action), drawer: Self.drawerName(p.action))
+            proposals = []; askText = ""
+        }
+        switch p.action {
+        case .reply(let text, let drawer):
+            if store.canSendSessionReply(post) {
+                SessionConfirmButton(title: p.action.title,
+                                     previews: [FeedStore.replyPreview(post, body: text), FeedStore.replyFilingPreview(post, drawer: drawer)],
+                                     prominent: !comparing || p.engine == proposals.first?.engine, identifier: "session.proposal.send") { approvals in
+                    pick()
+                    store.sendSessionReply(post, body: text, drawer: drawer, confirmed: approvals[0], filing: approvals[1],
+                                           onReturn: { [model] ids in model.reopen(ids) })
+                    model.record(item.id, .replied); model.advance()
+                }
+            } else {
+                Button("Edit and finish in Gmail") { pick(); draft = text; openInGmail(post) }.buttonStyle(SessionButtonStyle(prominent: false))
+            }
+        case .putAway(let d):
+            let move = SessionMove(messageID: item.id, drawer: d)
+            SessionConfirmButton(title: p.action.title, previews: [FeedStore.putAwayPreview([move])], identifier: "session.proposal.putAway") { approvals in
+                pick(); put(move, approvals[0])
+            }
+        case .addDateThenPutAway(let d):
+            dateButton(item, post, d)
+        case .archive:
+            let move = SessionMove(messageID: item.id, drawer: nil)
+            SessionConfirmButton(title: p.action.title, previews: [FeedStore.putAwayPreview([move])], identifier: "session.proposal.archive") { approvals in
+                pick(); put(move, approvals[0])
+            }
+        case .later(let when):
+            Button(p.action.title) {
+                pick()
+                let options = LaterSchedule.options(now: Date())
+                let chosen = options.first { $0.title.lowercased() == when } ?? options.first
+                if let chosen { store.putOff(post, until: chosen.date) }
+                model.record(item.id, .leftUnread); model.advance()
+            }.buttonStyle(SessionButtonStyle())
+        case .leaveUnread:
+            Button(p.action.title) { pick(); model.record(item.id, .leftUnread); model.advance() }.buttonStyle(SessionButtonStyle())
+        case .skip:
+            Button(p.action.title) { pick(); model.skip(item.id) }.buttonStyle(SessionButtonStyle())
+        case .handoff(let task):
+            Button("Hand off: \(task)") {
+                pick(); handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account)
+            }.buttonStyle(SessionButtonStyle()).lineLimit(3)
+        case .unclear:
+            EmptyView()
+        }
+    }
+
+    static func actionName(_ a: SessionAction) -> String {
+        switch a {
+        case .reply: return "reply"
+        case .putAway: return "put_away"
+        case .addDateThenPutAway: return "add_date"
+        case .later: return "later"
+        case .leaveUnread: return "leave_unread"
+        case .archive: return "archive"
+        case .skip: return "skip"
+        case .handoff: return "handoff"
+        case .unclear: return "unclear"
+        }
+    }
+
+    static func drawerName(_ a: SessionAction) -> String? {
+        switch a {
+        case .reply(_, let d), .putAway(let d), .addDateThenPutAway(let d): return d.child.map { "Kids/\($0)" } ?? d.drawer.title
+        default: return nil
+        }
+    }
+}
+
+/// Hand a task to Grok or Claude: their app opens with the prompt filled in, falling back to the website, then to copy.
+/// The prompt asks the agent to email a report with a [Lovely] subject, which the next session recognizes.
+struct SessionHandoffSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let offer: SessionHandoffOffer
+    let sent: () -> Void
+    @State private var reportID = HandoffPrompt.newReportID()
+    @State private var copied = false
+
+    private func prompt(_ agent: HandoffAgent) -> String {
+        HandoffPrompt.sessionPrompt(task: offer.task, item: offer.item, agent: agent, reportTo: offer.reportTo, reportID: reportID)
+    }
+
+    private var allowed: Bool {
+        HandoffPrompt.isAllowed(address: offer.item.message.fromAddress, name: offer.item.message.fromName,
+                                subject: offer.item.message.subject, sensitive: offer.item.message.isHealth)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Hand this off").font(.title2.weight(.bold))
+                Text(offer.task).font(.body)
+                if allowed {
+                    Text("The agent stops before anything you cannot undo, like Submit or Pay, and emails you a report when it is done.")
+                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    Spacer()
+                    let first = HandoffAgent.current
+                    let second: HandoffAgent = first == .grok ? .claude : .grok
+                    Button("Send to \(first.name)") { send(first) }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("handoff.first")
+                    Button("Send to \(second.name)") { send(second) }.buttonStyle(SessionButtonStyle(prominent: false)).accessibilityIdentifier("handoff.second")
+                    Button(copied ? "Copied" : "Copy the prompt") { UIPasteboard.general.string = prompt(first); copied = true }
+                        .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
+                } else {
+                    Text("Health mail stays on this iPhone, so Lovely does not write a prompt for it.").foregroundStyle(CalmStyle.secondary)
+                    Spacer()
+                }
+            }
+            .padding(20)
+            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+            .toolbar { Button("Cancel") { dismiss() } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func send(_ agent: HandoffAgent) {
+        let text = prompt(agent)
+        UIPasteboard.general.string = text   // the fallback is always ready
+        let web = HandoffLink.webURL(agent, prompt: text)
+        if let app = HandoffLink.appURL(agent, prompt: text) {
+            openURL(app) { accepted in if !accepted, let web { openURL(web) } }
+        } else if let web { openURL(web) }
+        sent()
+        dismiss()
     }
 }

@@ -66,6 +66,9 @@ struct SettingsView: View {
                 SettingsHeader(text: "Morning brief")
                 MorningBriefCard()
 
+                SettingsHeader(text: "Inbox session")
+                SettingsRow(title: "Conversation engine") { router.open(.engineSettings) }
+
                 SettingsHeader(text: "Households and kids")
                 SettingsRow(title: "Households and kids") { router.open(.insightSettings) }
                 ICloudBackupCard()

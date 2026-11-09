@@ -143,6 +143,7 @@ enum SessionPlanner {
     /// Order matters only for the reason shown; any one of these holds it back.
     static func holdReason(_ m: SessionMessage, guess: DrawerGuess?) -> String? {
         if m.section == .waiting { return m.ask.map { "Asks: \($0)" } ?? "Waiting on your answer" }
+        if HandoffPrompt.isReport(subject: m.subject) { return "A report from your agent" }
         if m.isHealth { return "Health mail" }
         if m.asksForAction { return "Asks you to pay, sign or act" }
         if m.section == .notes { return "A note you sent yourself" }

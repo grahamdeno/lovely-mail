@@ -120,6 +120,10 @@ enum Route: Hashable {
     case aboutPrivacy
     /// The inbox session (Sprint 7): unread mail, one decision at a time.
     case session
+    /// Apple only, Claude or Grok for the inbox session, keys and compare mode.
+    case engineSettings
+    /// Every enabled engine against the fictional scorecard sentences.
+    case engineScorecard
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {
