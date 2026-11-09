@@ -123,7 +123,7 @@ struct OpenEmailView: View {
                         Button { store.undoNotWaiting(post) } label: { Label("Put back in Waiting", systemImage: "arrow.uturn.backward") }
                     }
                     Button { store.setSenderRule(post.email.from.email, destination: .reading) } label: { Label("Move sender to Reading", systemImage: "newspaper") }
-                    Button { store.setSenderRule(post.email.from.email, destination: .filtered) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
+                    Button { store.filterSender(post.email.from.email) } label: { Label("Filter this sender", systemImage: "line.3.horizontal.decrease.circle") }
                 }
                 Section {
                     Button { store.hide(post); leave() } label: { Label("Hide in Lovely", systemImage: "eye.slash") }

@@ -30,6 +30,8 @@ final class FeedStore {
     @ObservationIgnored var savedDrafts: [String: String] = [:]
     /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
     var declinedSenders: Set<String> = []
+    /// Set after a sender is filtered in Lovely; RootView shows it as a preview sheet.
+    var gmailFilterOffer: GmailFilterOffer?
     @ObservationIgnored var httpTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
     /// Facts read from the last 12 months of mail (bills, energy, appointments). On this phone only.
     let insights: InsightEngine

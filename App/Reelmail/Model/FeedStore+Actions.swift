@@ -79,12 +79,13 @@ extension FeedStore {
             ScreenedOut.candidates(inbox: posts.map(\.email), sent: sentByMe, approved: ScreenedOut.approved(),
                                    mine: Set([account ?? ""] + otherAddresses), now: Date(), checked: ScreenedOut.checked())
         }
-        return all.filter { !declinedSenders.contains($0.address.lowercased()) }
+        return all.filter { !declinedSenders.contains($0.address.lowercased())
+            && rules.decision(messageID: "", sender: $0.address).destination != .filtered }
     }
 
     /// Kid mail for Home's count and the Kids page, rebuilt only when mail or the profile changes.
     func kidMail(for kid: KidProfile) -> [KidMail] {
-        cached("kid." + kid.id, [kid]) { KidInsights.mail(for: kid, in: posts) }
+        cached("kid." + kid.id, [kid]) { KidInsights.mail(for: kid, in: activePosts) }
     }
 
     /// Looks up up to 20 unchecked senders. Read-only search; nothing changes in Gmail.
@@ -114,3 +115,56 @@ extension FeedStore {
         errorMessage = "Moved \(moved) old screened-out message\(moved == 1 ? "" : "s") to Trash."
     }
 }
+
+/// "Also filter this sender in Gmail?": shown after a sender is filtered in Lovely.
+struct GmailFilterOffer: Identifiable, Equatable {
+    let id = UUID().uuidString
+    let sender: String
+    let messageIDs: [String]
+    let preview: ActionPreview
+}
+
+extension FeedStore {
+    static let filteredLabel = "Lovely/Filtered"
+
+    /// Hides a sender (or "@domain") in Lovely at once, with Undo, then offers a matching Gmail filter.
+    func filterSender(_ address: String) {
+        guard mode == .sample || accountRules != nil else { errorMessage = "Your mail is still loading. Try again in a moment."; return }
+        let key = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard rules.setSender(key, destination: .filtered) else {
+            errorMessage = rules.persistenceError ?? "Lovely could not save that rule."
+            return
+        }
+        let shown = key.hasPrefix("@") ? "everything from " + key.dropFirst() : key
+        _ = undo.enqueue(title: "Filtered \(shown)", work: {}, undone: { [self] in _ = rules.setSender(key, destination: nil) })
+        guard actions != nil, ForwardAllowlist.isAddress(key),
+              !FilterRegistry().filters.contains(where: { $0.sender == key && $0.label != nil }) else { return }
+        let ids = posts.filter { $0.email.from.email.lowercased() == key }.map(\.id)
+        let lines = ["Creates a Gmail filter: new mail from \(key) skips your inbox and goes to the label \(Self.filteredLabel).",
+                     ids.isEmpty ? "Nothing is deleted." : "Also moves the \(ids.count) message\(ids.count == 1 ? "" : "s") from \(key) now in your inbox to that label. Nothing is deleted.",
+                     "Remove it any time in Settings > Gmail filters."]
+        gmailFilterOffer = GmailFilterOffer(sender: key, messageIDs: ids,
+                                            preview: ActionPreview(kind: .filter, title: "Also filter \(key) in Gmail?", lines: lines))
+    }
+
+    func unfilterSender(_ address: String) {
+        guard mode == .sample || accountRules != nil else { return }
+        _ = rules.setSender(address.lowercased(), destination: nil)
+    }
+
+    /// The Gmail side, after the owner confirms the preview. Held 10 seconds for Undo.
+    func createGmailFilter(_ offer: GmailFilterOffer, confirmed: ConfirmedAction) {
+        guard let actions else { errorMessage = "Connect Gmail first."; return }
+        undo.enqueue(title: "Gmail filter for \(offer.sender)", work: {
+            let label = try await actions.ensureLabel(Self.filteredLabel, confirmed: confirmed)
+            _ = try await actions.createFilter(sender: offer.sender, forwardTo: nil, labelID: label, skipInbox: true, confirmed: confirmed)
+            for id in offer.messageIDs.prefix(50) {
+                try await actions.file(messageID: id, labelID: label, removeFromInbox: true, confirmed: confirmed)
+            }
+        }, finished: { [self] error in
+            if let error { errorMessage = "The Gmail filter was not made. \(error.localizedDescription)" }
+            else { errorMessage = "Gmail now files \(offer.sender) under \(Self.filteredLabel)."; Task { await load() } }
+        })
+    }
+}
+

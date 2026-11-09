@@ -41,7 +41,7 @@ struct GmailActions {
 
     /// Files one message under a Lovely/ label, and optionally takes it out of the inbox.
     func file(messageID: String, labelID: String, removeFromInbox: Bool, confirmed: ConfirmedAction) async throws {
-        try confirmed.require([.label])
+        try confirmed.require([.label, .filter])
         guard labels.isLovely(id: labelID) else { throw ActionError.notALovelyLabel(labelID) }
         var body: [String: Any] = ["addLabelIds": [labelID]]
         if removeFromInbox { body["removeLabelIds"] = ["INBOX"] }
@@ -52,7 +52,8 @@ struct GmailActions {
     // MARK: Filters (Lovely-created only)
 
     /// A filter for one sender that labels and/or forwards. Forwarding goes only to an address in the allowlist.
-    func createFilter(sender: String, forwardTo: String?, labelID: String?, confirmed: ConfirmedAction) async throws -> RecordedFilter {
+    /// `skipInbox` also keeps new mail from that sender out of the inbox (only INBOX is ever removed).
+    func createFilter(sender: String, forwardTo: String?, labelID: String?, skipInbox: Bool = false, confirmed: ConfirmedAction) async throws -> RecordedFilter {
         try confirmed.require([.filter, .shoebox])
         guard ForwardAllowlist.isAddress(sender) else { throw ActionError.badAddress(sender) }
         var action: [String: Any] = [:]
@@ -64,6 +65,7 @@ struct GmailActions {
         if let labelID {
             guard labels.isLovely(id: labelID) else { throw ActionError.notALovelyLabel(labelID) }
             action["addLabelIds"] = [labelID]
+            if skipInbox { action["removeLabelIds"] = ["INBOX"] }
         }
         guard !action.isEmpty else { throw ActionError.wrongPreview }
         let from = sender.lowercased()

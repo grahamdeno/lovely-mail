@@ -63,8 +63,15 @@ final class LocalTriageRules {
         if let route = state.messages[messageID] {
             return LocalTriageDecision(destination: route, reason: "Your decision for this message")
         }
-        if let route = state.senders[Self.normalize(sender)] {
+        let address = Self.normalize(sender)
+        if let route = state.senders[address] {
             return LocalTriageDecision(destination: route, reason: "Your saved rule for this sender")
+        }
+        // Company-wide rules are saved as "@domain" and cover subdomains (mail.example.com under example.com).
+        for domain in Self.domainKeys(address) {
+            if let route = state.senders[domain] {
+                return LocalTriageDecision(destination: route, reason: "Your saved rule for everything from \(domain.dropFirst())")
+            }
         }
         return LocalTriageDecision(destination: .inbox, reason: "No saved rule; kept visible")
     }
@@ -158,6 +165,22 @@ final class LocalTriageRules {
             return false
         }
     }
+
+    /// Senders and domains you filtered, A to Z. Domains start with "@".
+    var filteredSenders: [String] { state.senders.filter { $0.value == .filtered }.keys.sorted() }
+
+    /// "a@mail.example.com" → ["@mail.example.com", "@example.com"]. Stops before the top-level domain.
+    static func domainKeys(_ address: String) -> [String] {
+        guard let at = address.lastIndex(of: "@") else { return [] }
+        var parts = address[address.index(after: at)...].split(separator: ".").map(String.init)
+        var keys: [String] = []
+        while parts.count >= 2 { keys.append("@" + parts.joined(separator: ".")); parts.removeFirst() }
+        return keys
+    }
+
+    /// Mailbox providers shared by millions of people: never filtered as a whole domain.
+    static let publicDomains: Set<String> = ["gmail.com", "googlemail.com", "yahoo.com", "outlook.com", "hotmail.com", "live.com", "msn.com",
+                                            "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com", "comcast.net", "att.net", "verizon.net"]
 
     /// Something before and after one "@", and a dot in the domain.
     static func looksLikeAddress(_ value: String) -> Bool {

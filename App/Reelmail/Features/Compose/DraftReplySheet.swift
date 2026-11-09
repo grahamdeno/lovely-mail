@@ -55,7 +55,7 @@ struct DraftReplySheet: View {
                 Spacer()
                 if sendable {
                     Button { previewSend() } label: { Label("Send", systemImage: "paperplane") }.accessibilityIdentifier("draft.send")
-                        .buttonStyle(CalmActionStyle(prominent: true)).disabled(!canSend)
+                        .buttonStyle(CalmActionStyle(prominent: true)).disabled(!canSend).opacity(canSend ? 1 : 0.5)
                 }
                 Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                     .buttonStyle(CalmActionStyle(prominent: !sendable))
