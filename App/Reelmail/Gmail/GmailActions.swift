@@ -49,6 +49,14 @@ struct GmailActions {
         activity.record(kind: "label", summary: "Filed a message under a Lovely label" + (removeFromInbox ? " and out of the inbox" : ""))
     }
 
+    /// Takes one message out of the inbox without a label (a skimmed newsletter in an inbox session). Nothing is deleted;
+    /// the message stays in All Mail and in search.
+    func archive(messageID: String, confirmed: ConfirmedAction) async throws {
+        try confirmed.require([.label])
+        let _: Empty = try await call("POST", "/messages/\(encode(messageID))/modify", json: ["removeLabelIds": ["INBOX"]])
+        activity.record(kind: "label", summary: "Took a message out of the inbox")
+    }
+
     // MARK: Filters (Lovely-created only)
 
     /// A filter for one sender that labels and/or forwards. Forwarding goes only to an address in the allowlist.

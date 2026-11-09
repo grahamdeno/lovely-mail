@@ -112,3 +112,12 @@ struct DrawerMemory: Codable, Equatable, Sendable {
         if let data = try? JSONEncoder().encode(self) { defaults.set(data, forKey: Self.key(account: account)) }
     }
 }
+
+extension DrawerChoice {
+    /// Every drawer the owner can pick, in order; Kids is followed by one sub-drawer per child.
+    static func all(kids: [KidProfile]) -> [DrawerChoice] {
+        Drawer.allCases.flatMap { d -> [DrawerChoice] in
+            d == .kids ? [DrawerChoice(.kids)] + kids.map { DrawerChoice(.kids, child: $0.name) }.filter { $0.child != nil } : [DrawerChoice(d)]
+        }
+    }
+}

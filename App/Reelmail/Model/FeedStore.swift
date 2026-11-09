@@ -202,7 +202,7 @@ final class FeedStore {
         }
     }
 
-    private func persist() {
+    func persist() {
         bump()
         guard mode == .gmail, let account, let cacheStore else { return }
         let snapshot = MailboxSnapshot(account: account, inbox: posts.map(\.email), sent: sentByMe,
@@ -665,7 +665,7 @@ final class FeedStore {
     func isTodo(_ post: Post) -> Bool { posts.first { $0.id == post.id }?.email.isUnread ?? false }
 
     @discardableResult
-    private func setUnread(_ id: String, _ unread: Bool) -> Bool {
+    func setUnread(_ id: String, _ unread: Bool) -> Bool {
         guard let i = posts.firstIndex(where: { $0.id == id }), posts[i].email.isUnread != unread else { return false }
         bump()
         posts[i].email.isUnread = unread
@@ -682,7 +682,7 @@ final class FeedStore {
         doneDay = saved?["day"] as? String ?? ""
         doneCount = saved?["count"] as? Int ?? 0
     }
-    private func countDone(_ delta: Int) {
+    func countDone(_ delta: Int) {
         doneCount = max(0, doneToday + delta)
         doneDay = Self.dayKey(Date())
         triageDefaults.set(["day": doneDay, "count": doneCount], forKey: doneKey)
@@ -816,7 +816,7 @@ final class FeedStore {
         return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
     }
 
-    private func changeFailed(_ error: Error) {
+    func changeFailed(_ error: Error) {
         guard let e = error as? GmailService.GmailError else { return }
         switch e {
         case .needsTrashPermission: needsTrashPermission = true

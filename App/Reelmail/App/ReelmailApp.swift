@@ -118,6 +118,8 @@ enum Route: Hashable {
     case testingTools
     /// The privacy paragraph, inside Settings.
     case aboutPrivacy
+    /// The inbox session (Sprint 7): unread mail, one decision at a time.
+    case session
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

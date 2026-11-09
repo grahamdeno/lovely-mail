@@ -239,7 +239,7 @@ extension SessionMessage {
             isHealth: HealthMail.isHealth(address: e.from.email, name: e.from.name, subject: e.subject),
             isFirstTimeSender: isFirstTimeSender,
             asksForAction: Self.detectsAction(subject: e.subject, text: authored),
-            hasDates: !post.summary.dates.isEmpty)
+            hasDates: !MailDates.extract(e, now: Date()).isEmpty)
     }
 }
 

@@ -48,6 +48,7 @@ struct RootView: View {
                     case .settings: SettingsView()
                     case .testingTools: TestingToolsView()
                     case .aboutPrivacy: AboutPrivacyView()
+                    case .session: SessionView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)
