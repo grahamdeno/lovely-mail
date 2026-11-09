@@ -67,7 +67,7 @@ struct RootView: View {
                 // The session has its main button at the bottom, so its Undo sits under the header instead.
                 UndoBanner(limit: 1).padding(.top, typeSize.isAccessibilitySize ? 140 : 92)
             } else {
-                UndoBanner().padding(.bottom, typeSize.isAccessibilitySize ? 112 : 76)  // clears the taller tab bar at the largest text sizes
+                UndoBanner(limit: 1).padding(.bottom, typeSize.isAccessibilitySize ? 112 : 76)  // clears the taller tab bar at the largest text sizes
             }
         }
         #if DEBUG

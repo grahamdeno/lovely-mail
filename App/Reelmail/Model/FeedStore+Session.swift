@@ -152,6 +152,29 @@ extension FeedStore {
         Task { await moveToTrash(post) }
     }
 
+    /// Several to Trash with one Undo bar (a batch page used to add one bar per email). They leave Lovely at once and
+    /// move in Gmail after the 10-second Undo, like put away. Gmail keeps Trash for 30 days.
+    func sessionTrash(_ list: [Post]) {
+        guard !list.isEmpty else { return }
+        if list.count == 1 { sessionTrash(list[0]); return }
+        var memory = sessionTrashMemory
+        for post in list { memory.remember(post.email.from.email); hide(post) }
+        memory.save(account: account ?? "demo")
+        persist()
+        let gmail = self.gmail
+        let live = mode == .gmail
+        undo.enqueue(title: "Moved \(list.count) to Trash", work: {
+            guard live else { return }
+            for post in list { try await gmail.trash(messageID: post.id) }
+        }, finished: { [self] error in
+            if let error {
+                for post in list { unhide(post) }
+                persist()
+                errorMessage = "Some were not moved to Trash, so they are back. \(error.localizedDescription)"
+            }
+        }, undone: { [self] in for post in list { unhide(post) }; persist() })
+    }
+
     static func putAwayTitle(_ move: SessionMove, post: Post?) -> String {
         let what = post.map { $0.email.subject.isEmpty ? $0.email.from.name : $0.email.subject } ?? "Email"
         return move.drawer.map { "Filed in \($0.title): \(what)" } ?? "Archived: \(what)"

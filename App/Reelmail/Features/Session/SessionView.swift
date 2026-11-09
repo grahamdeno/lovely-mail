@@ -191,7 +191,9 @@ struct SessionItemScreen: View {
                             if mode != .reply { tagChips(item) }
                             switch mode {
                             case .decide: askResults(item, post)
-                            case .drawers: drawerGrid(item)
+                            case .drawers:
+                                askResults(item, post)
+                                if proposals.isEmpty { drawerGrid(item) }
                             case .reply: replyEditor
                             }
                         }
@@ -206,7 +208,11 @@ struct SessionItemScreen: View {
                 VStack(spacing: 10) {
                     switch mode {
                     case .decide: decideBar(item, post)
-                    case .drawers: secondaryRow(item, post, showOtherDrawer: false)
+                    case .drawers:
+                        // You can still talk about it when Lovely has no drawer to suggest.
+                        SessionAskField(hint: hint(item), thinking: thinking, onFocus: { typing = $0 }, onAsk: { ask($0, item, post) })
+                            .id("\(item.id)-\(askResetCount)")
+                        if !typing { secondaryRow(item, post, showOtherDrawer: false) }
                     case .reply: replyActions(item, post)
                     }
                 }
@@ -608,7 +614,7 @@ struct SessionBatchScreen: View {
                     store.rememberFates(model.fatesToRemember(page))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
-                    for id in trash { if let post = store.sessionPost(id) { store.sessionTrash(post) } }
+                    store.sessionTrash(trash.compactMap { store.sessionPost($0) })
                     model.finishBatchPage(moves, keptTwoWeeks: twoWeeks, trashed: trash)
                 }
                 Button(acting == 0 ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
@@ -693,7 +699,7 @@ struct SessionReadingScreen: View {
                     store.rememberFates(model.fatesToRemember(items, reading: true))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
-                    for id in trash { if let post = store.sessionPost(id) { store.sessionTrash(post) } }
+                    store.sessionTrash(trash.compactMap { store.sessionPost($0) })
                     model.finishReading(moves, keptTwoWeeks: twoWeeks, trashed: trash)
                 }
                 Button(acting == 0 ? "Continue" : "Leave them unread") { model.finishReading([]) }
@@ -855,6 +861,10 @@ extension SessionItemScreen {
             if thinking { ProgressView().frame(maxWidth: .infinity) }
             if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
+            if !proposals.isEmpty, mode == .drawers {
+                Button("Not that, show the drawers") { clearAsk() }
+                    .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+            }
         }
         .id("session.askResults")
     }

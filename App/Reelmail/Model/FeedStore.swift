@@ -703,7 +703,8 @@ final class FeedStore {
     }
 
     /// How many to-dos you've marked Done today, on this phone. Resets each day.
-    var doneToday: Int { doneDay == Self.dayKey(Date()) ? doneCount : 0 }
+    /// Counted from the saved records, so "N done today" always matches the Done today list.
+    var doneToday: Int { doneTodayRecords.count }
     private var doneDay = ""
     private var doneCount = 0
     private var doneKey: String { "lovely.doneToday." + (mode == .gmail ? MailCache.accountKey(account ?? "") : "demo") }
@@ -732,9 +733,12 @@ final class FeedStore {
         doneCount = max(0, doneToday + delta)
         if let id {
             doneRecords.removeAll { $0.id == id }
-            if delta > 0, let post = posts.first(where: { $0.id == id }) {
-                doneRecords.insert(DoneRecord(id: id, from: post.email.from.name.isEmpty ? post.email.from.email : post.email.from.name,
-                                              subject: post.email.subject, date: post.email.date, doneAt: Date()), at: 0)
+            if delta > 0 {
+                // Always record it, even if the message is no longer loaded, so the count and the list agree.
+                let post = posts.first(where: { $0.id == id })
+                let from = post.map { $0.email.from.name.isEmpty ? $0.email.from.email : $0.email.from.name } ?? "An email"
+                doneRecords.insert(DoneRecord(id: id, from: from, subject: post?.email.subject ?? "",
+                                              date: post?.email.date ?? Date(), doneAt: Date()), at: 0)
             }
         }
         doneDay = Self.dayKey(Date())
