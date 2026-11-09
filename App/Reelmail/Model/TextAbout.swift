@@ -7,6 +7,15 @@ import Foundation
 enum TextAbout {
     static let maxLength = 320
 
+    /// "text Julia", "Text my wife about this", "send this to Sam": a request to text someone about this email.
+    static func isTextRequest(_ said: String) -> Bool {
+        let t = said.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let words = t.split(separator: " ")
+        guard let first = words.first, words.count >= 2, words.count <= 8 else { return false }
+        if first == "text" || first == "message" { return true }
+        return t.hasPrefix("send this to ") || t.hasPrefix("send it to ") || t.hasPrefix("share this with ")
+    }
+
     /// The draft: who it's from, what it's about, the first date in it, and an opener. Sensitive mail gets only
     /// the sender and subject, never the summary.
     static func draft(fromName: String, subject: String, blurb: String, sensitive: Bool, dateLabel: String?) -> String {
