@@ -10,6 +10,7 @@ struct CleanupView: View {
     @State private var found: [MessageStub]?
     @State private var searching = false
     @State private var moved: Int?
+    @State private var auto = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,8 +18,16 @@ struct CleanupView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(kind == .logins
                          ? "Login codes, new-device checks and password resets you no longer need. Nothing moves until you tap the button, and Gmail keeps Trash for 30 days."
-                         : "Mail you chose to keep for \(ShortTerm.keepDays) days, now past that. Nothing moves until you tap the button, and Gmail keeps Trash for 30 days.")
+                         : "Mail you chose to keep for \(ShortTerm.keepDays) days, now past that. Gmail keeps Trash for 30 days.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    if kind == .shortTerm {
+                        Toggle("Move to Trash automatically after \(ShortTerm.keepDays) days", isOn: $auto)
+                            .onChange(of: auto) { _, on in UserDefaults.standard.set(on, forKey: ShortTerm.autoKey(account: store.account ?? "")) }
+                            .accessibilityIdentifier("shortTerm.auto")
+                        Text(auto ? "Starred mail and mail from people you write to are never moved. You get the usual Undo bar."
+                                  : "Off: Home tells you when some have expired, and nothing moves until you tap.")
+                            .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    }
                     if kind == .logins {
                         Picker("Older than", selection: $age) {
                             Text("90 days").tag(90)
@@ -69,8 +78,11 @@ struct CleanupView: View {
             }
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
-        .navigationTitle(kind == .logins ? "Old login emails" : "Expired short-term mail").navigationBarTitleDisplayMode(.inline)
-        .task { if found == nil { await search() } }
+        .navigationTitle(kind == .logins ? "Old login emails" : "Short-term mail").navigationBarTitleDisplayMode(.inline)
+        .task {
+            auto = ShortTerm.autoTrash(account: store.account ?? "")
+            if found == nil { await search() }
+        }
     }
 
     private func search() async {

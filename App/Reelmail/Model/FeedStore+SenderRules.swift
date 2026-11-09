@@ -118,7 +118,8 @@ extension FeedStore {
         return out.sorted { $0.date < $1.date }
     }
 
-    /// For the Home note: how many have expired, checked at most every few hours (IDs only, no message reads).
+    /// Checked at most every few hours. With automatic Trash on (the default, approved by the owner Nov 9, 2026), expired
+    /// short-term mail moves to Trash with the usual 10-second Undo; otherwise Home shows how many are waiting for a tap.
     func refreshShortTermExpired(force: Bool = false) async {
         guard mode == .gmail else { shortTermExpired = 0; return }
         let key = "lovely.shortTerm.checked." + (account ?? "")
@@ -127,13 +128,17 @@ extension FeedStore {
         guard let (ids, _, _) = try? await gmail.listMessageIDs(query: ShortTerm.query(), limit: ShortTerm.limit) else { return }
         shortTermExpired = ids.count
         triageDefaults.set(Date().timeIntervalSince1970, forKey: key)
+        guard !ids.isEmpty, ShortTerm.autoTrash(account: account ?? "", defaults: triageDefaults),
+              let expired = try? await findExpiredShortTerm(), !expired.isEmpty else { return }
+        trashExpiredShortTerm(expired, automatic: true)
     }
 
     /// Moves the listed messages to Gmail's Trash after the 10-second Undo. Gmail keeps Trash for 30 days.
-    func trashExpiredShortTerm(_ stubs: [MessageStub], finished: @escaping @MainActor (Int) -> Void = { _ in }) {
+    func trashExpiredShortTerm(_ stubs: [MessageStub], automatic: Bool = false, finished: @escaping @MainActor (Int) -> Void = { _ in }) {
         guard !stubs.isEmpty else { return }
         let gmail = self.gmail
-        undo.enqueue(title: "Moving \(stubs.count) expired short-term emails to Trash", work: { [self] in
+        let title = (automatic ? "Kept 2 weeks, now moving " : "Moving ") + "\(stubs.count) short-term email\(stubs.count == 1 ? "" : "s") to Trash"
+        undo.enqueue(title: title, work: { [self] in
             var done = 0
             for stub in stubs {
                 do { try await gmail.trash(messageID: stub.id); done += 1 } catch { errorMessage = "Some were not moved to Trash. \(error.localizedDescription)" }
