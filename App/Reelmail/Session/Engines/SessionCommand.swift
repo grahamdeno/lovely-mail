@@ -58,13 +58,22 @@ enum SessionAction: Equatable, Sendable {
 enum SessionCommandValidator {
     static let maxReplyCharacters = 4_000
 
+    /// Everyday words for the categories, and the drawer names from Sprint 7's first build.
+    static let aliases: [String: Drawer] = [
+        "house": .home, "utilities": .home, "bills": .money, "finance": .money, "taxes": .money, "school": .kids,
+        "family": .personal, "people": .personal, "reference": .personal, "medical": .health, "doctor": .health,
+        "job": .work, "career": .work, "business": .projects, "apps": .projects, "shopping": .orders, "order": .orders,
+        "trips": .travel, "trip": .travel, "security": .accounts, "logins": .accounts, "login": .accounts,
+    ]
+
     /// The drawer a name refers to, from the fixed set only. "kids/avery", "Kids · Avery" and "Money" all work.
     static func drawer(named raw: String?, kids: [KidProfile]) -> DrawerChoice? {
         guard let raw else { return nil }
         let cleaned = raw.replacingOccurrences(of: "Lovely/", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "·", with: "/").trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = cleaned.split(separator: "/").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
-        guard let first = parts.first, let d = Drawer.allCases.first(where: { $0.title.lowercased() == first || $0.rawValue == first }) else { return nil }
+        guard let first = parts.first,
+              let d = Drawer.allCases.first(where: { $0.title.lowercased() == first || $0.rawValue == first }) ?? aliases[first] else { return nil }
         if d == .kids, parts.count > 1 {
             guard let kid = kids.first(where: { $0.name.lowercased() == parts[1] }) else { return DrawerChoice(.kids) }
             return DrawerChoice(.kids, child: kid.name)
@@ -85,7 +94,7 @@ enum SessionCommandValidator {
             let text = (c.reply ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return .unclear("I could not write that reply. Try saying what to tell them.") }
             guard text.count <= maxReplyCharacters else { return .unclear("That reply is too long to send from here. Finish it in Gmail.") }
-            return .reply(text: text, drawer: drawerOrFallback() ?? DrawerChoice(.people))
+            return .reply(text: text, drawer: drawerOrFallback() ?? DrawerChoice(.personal))
         case "put_away":
             guard let d = drawerOrFallback() else { return .unclear(c.drawer.map { "There is no \($0) drawer." } ?? "Which drawer?") }
             return .putAway(d)

@@ -26,7 +26,7 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "reply", reply: "  "), item: item, kids: kids),
                        .unclear("I could not write that reply. Try saying what to tell them."))
         XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "reply", reply: "Works for me."), item: EngineScorecard.ask, kids: kids),
-                       .reply(text: "Works for me.", drawer: DrawerChoice(.people)))
+                       .reply(text: "Works for me.", drawer: DrawerChoice(.personal)))
         XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "later", later: "someday"), item: item, kids: kids), .later("tomorrow"))
         XCTAssertEqual(SessionCommandValidator.validate(SessionCommand(action: "handoff", task: "Fill out the renewal"), item: item, kids: kids),
                        .handoff(task: "Fill out the renewal"))
@@ -49,7 +49,7 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertEqual(SessionQuickCommands.parse("yes", kids: kids, fromPerson: false)?.action, "put_away")
         XCTAssertNil(SessionQuickCommands.parse("tell her Thursday at 2 works", kids: kids))
         XCTAssertNil(SessionQuickCommands.parse("can you write back and say that I would love to come but I am traveling", kids: kids))
-        XCTAssertEqual(SessionQuickCommands.parse("Put it in the house drawer.", kids: kids)?.drawer, "House")
+        XCTAssertEqual(SessionQuickCommands.parse("Put it in the house drawer.", kids: kids)?.drawer, "Home", "Common words map to the categories")
     }
 
     // MARK: Playbook

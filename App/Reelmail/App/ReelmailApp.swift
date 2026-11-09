@@ -126,6 +126,8 @@ enum Route: Hashable {
     case engineSettings
     /// Every enabled engine against the fictional scorecard sentences.
     case engineScorecard
+    /// Old login codes and device checks, listed, then moved to Trash with one tap.
+    case cleanup
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

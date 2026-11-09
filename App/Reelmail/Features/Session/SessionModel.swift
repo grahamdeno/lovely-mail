@@ -80,10 +80,19 @@ final class SessionModel {
     /// The drawer a batch row will use: the owner's change, else the suggestion.
     func batchDrawer(_ item: SessionItem) -> DrawerChoice? { batchDrawers[item.id] ?? item.drawer?.choice }
 
-    /// Moves for the batch page: rows not left out, each with its drawer.
+    /// Tags for a batch row. If the owner changed the category, only tags that do not depend on it are kept
+    /// (type, person, tax year); topics and property belong to the suggested category.
+    func batchTags(_ item: SessionItem) -> [MailTag] {
+        guard let changed = batchDrawers[item.id], changed != item.drawer?.choice else { return item.tags }
+        var tags = item.tags.filter { [.type, .person, .taxes].contains($0.group) }
+        if let child = changed.child, !tags.contains(MailTag(group: .person, name: child)) { tags.append(MailTag(group: .person, name: child)) }
+        return tags.sorted()
+    }
+
+    /// Moves for the batch page: rows not left out, each with its category and tags.
     var batchMoves: [SessionMove] {
         batchPage.filter { !batchLeftOut.contains($0.id) }.compactMap { item in
-            batchDrawer(item).map { SessionMove(messageID: item.id, drawer: $0) }
+            batchDrawer(item).map { SessionMove(messageID: item.id, drawer: $0, tags: batchTags(item)) }
         }
     }
 

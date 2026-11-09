@@ -172,6 +172,7 @@ struct SessionItemScreen: View {
     @State private var proposals: [SessionProposal] = []
     @State private var askNote: String?
     @State private var handoff: SessionHandoffOffer?
+    @State private var removedTags: Set<MailTag> = []
     @FocusState private var askFocused: Bool
 
     var body: some View {
@@ -180,6 +181,7 @@ struct SessionItemScreen: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         SessionMailCard(item: item, post: post) { router.open(.email(post.id)) }
+                        if mode != .reply { tagChips(item) }
                         switch mode {
                         case .decide: askSection(item, post)
                         case .drawers: drawerGrid(item)
@@ -245,7 +247,7 @@ struct SessionItemScreen: View {
     }
 
     private func putAwayButton(_ item: SessionItem, _ d: DrawerChoice) -> some View {
-        let move = SessionMove(messageID: item.id, drawer: d)
+        let move = filedMove(item, d)
         return SessionConfirmButton(title: "Put away in \(d.title)", previews: [FeedStore.putAwayPreview([move])],
                                     identifier: "session.putAway") { approvals in
             put(move, approvals[0])
@@ -261,7 +263,7 @@ struct SessionItemScreen: View {
     }
 
     private func dateButton(_ item: SessionItem, _ post: Post, _ d: DrawerChoice) -> some View {
-        let move = SessionMove(messageID: item.id, drawer: d)
+        let move = filedMove(item, d)
         let first = MailDates.extract(post.email, now: Date()).first
         return SessionConfirmButton(title: first.map { "Add \(ComingUp.fullLabel($0)), then put away in \(d.title)" } ?? "Put away in \(d.title)",
                                     previews: [FeedStore.putAwayPreview([move])], identifier: "session.addDate") { approvals in
@@ -279,6 +281,38 @@ struct SessionItemScreen: View {
         put(move, approval)
     }
 
+    /// The move for this item in a category, without any tags the owner tapped off.
+    private func filedMove(_ item: SessionItem, _ d: DrawerChoice) -> SessionMove {
+        var move = store.sessionMove(item, choice: d)
+        move.tags.removeAll { removedTags.contains($0) }
+        return move
+    }
+
+    /// The suggested tags as chips. Tap one to leave it off; tap again to bring it back.
+    @ViewBuilder private func tagChips(_ item: SessionItem) -> some View {
+        if !item.tags.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(item.tags, id: \.self) { tag in
+                        let off = removedTags.contains(tag)
+                        Button {
+                            if off { removedTags.remove(tag) } else { removedTags.insert(tag) }
+                        } label: {
+                            Text(tag.title).font(.caption.weight(.medium)).strikethrough(off)
+                                .padding(.horizontal, 10).frame(minHeight: 30)
+                                .foregroundStyle(off ? CalmStyle.secondary : CalmStyle.blue)
+                                .background((off ? CalmStyle.secondary : CalmStyle.blue).opacity(0.1), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(off ? "\(tag.title), left off" : "Tag \(tag.title)")
+                        .accessibilityHint(off ? "Adds the tag back" : "Leaves this tag off")
+                    }
+                }
+            }
+            .accessibilityIdentifier("session.tags")
+        }
+    }
+
     private func put(_ move: SessionMove, _ approval: ConfirmedAction) {
         store.putAway([move], confirmed: approval, onReturn: { [model] ids in model.reopen(ids) })
         model.recordMoves([move])
@@ -292,7 +326,7 @@ struct SessionItemScreen: View {
             Text("WHERE DOES IT GO?").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
-                    let move = SessionMove(messageID: item.id, drawer: d)
+                    let move = filedMove(item, d)
                     SessionConfirmButton(title: d.title, previews: [FeedStore.putAwayPreview([move])], prominent: d == item.drawer?.choice,
                                          identifier: "session.drawer.\(d.labelName)") { approvals in put(move, approvals[0]) }
                 }
@@ -317,13 +351,13 @@ struct SessionItemScreen: View {
     }
 
     @ViewBuilder private func replyActions(_ item: SessionItem, _ post: Post) -> some View {
-        let drawer = item.drawer?.choice ?? DrawerChoice(.people)
+        let drawer = item.drawer?.choice ?? DrawerChoice(.personal)
         if store.canSendSessionReply(post) {
             SessionConfirmButton(title: "Send and put away in \(drawer.title)",
                                  previews: [FeedStore.replyPreview(post, body: draft), FeedStore.replyFilingPreview(post, drawer: drawer)],
                                  enabled: !drafting && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                                  identifier: "session.send") { approvals in
-                store.sendSessionReply(post, body: draft, drawer: drawer, confirmed: approvals[0], filing: approvals[1],
+                store.sendSessionReply(post, body: draft, drawer: drawer, tags: filedMove(item, drawer).tags, confirmed: approvals[0], filing: approvals[1],
                                        onReturn: { [model] ids in model.reopen(ids) })
                 model.record(item.id, .replied)
                 model.advance()
@@ -455,6 +489,10 @@ struct SessionBatchScreen: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                let tags = model.batchTags(item)
+                if !tags.isEmpty {
+                    Text(tags.map(\.title).joined(separator: " · ")).font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1)
+                }
                 if let date, let post {
                     Button { calendar = SessionCalendarBox(draft: CalendarDraft.make(email: post.email, date: date)) } label: {
                         Label("Add \(ComingUp.fullLabel(date))", systemImage: "calendar.badge.plus").font(.caption.weight(.medium))
@@ -738,7 +776,7 @@ extension SessionItemScreen {
                                      previews: [FeedStore.replyPreview(post, body: text), FeedStore.replyFilingPreview(post, drawer: drawer)],
                                      prominent: !comparing || p.engine == proposals.first?.engine, identifier: "session.proposal.send") { approvals in
                     pick()
-                    store.sendSessionReply(post, body: text, drawer: drawer, confirmed: approvals[0], filing: approvals[1],
+                    store.sendSessionReply(post, body: text, drawer: drawer, tags: filedMove(item, drawer).tags, confirmed: approvals[0], filing: approvals[1],
                                            onReturn: { [model] ids in model.reopen(ids) })
                     model.record(item.id, .replied); model.advance()
                 }
@@ -746,7 +784,7 @@ extension SessionItemScreen {
                 Button("Edit and finish in Gmail") { pick(); draft = text; openInGmail(post) }.buttonStyle(SessionButtonStyle(prominent: false))
             }
         case .putAway(let d):
-            let move = SessionMove(messageID: item.id, drawer: d)
+            let move = filedMove(item, d)
             SessionConfirmButton(title: p.action.title, previews: [FeedStore.putAwayPreview([move])], identifier: "session.proposal.putAway") { approvals in
                 pick(); put(move, approvals[0])
             }

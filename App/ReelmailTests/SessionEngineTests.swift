@@ -34,10 +34,10 @@ final class SessionEngineTests: XCTestCase {
 
     func testDrawerLabelsAndKidsSubDrawers() {
         XCTAssertEqual(DrawerChoice(.money).labelName, "Lovely/Money")
-        XCTAssertEqual(DrawerChoice(.kids, child: "Avery").labelName, "Lovely/Kids/Avery")
+        XCTAssertEqual(DrawerChoice(.kids, child: "Avery").labelName, "Lovely/Kids", "A child is a Person tag, not a sub-label")
         XCTAssertEqual(DrawerChoice(.kids, child: "Avery").title, "Kids · Avery")
         XCTAssertNil(DrawerChoice(.money, child: "Avery").child, "Only Kids has sub-drawers")
-        XCTAssertNil(DrawerChoice(.kids, child: "A/B").child, "A slash would make a deeper label")
+        XCTAssertNil(DrawerChoice(.kids, child: "A/B").child, "A slash would make a deeper label name")
         XCTAssertNil(DrawerChoice(.kids, child: "  ").child)
     }
 
@@ -47,8 +47,8 @@ final class SessionEngineTests: XCTestCase {
         XCTAssertEqual(memory.recall("alerts@mail.brokerage.example"), DrawerChoice(.money))
         XCTAssertEqual(memory.recall("docs@statements.brokerage.example"), DrawerChoice(.money), "Same company domain")
 
-        memory.remember(DrawerChoice(.people), for: "friend@gmail.com")
-        XCTAssertEqual(memory.recall("friend@gmail.com"), DrawerChoice(.people))
+        memory.remember(DrawerChoice(.personal), for: "friend@gmail.com")
+        XCTAssertEqual(memory.recall("friend@gmail.com"), DrawerChoice(.personal))
         XCTAssertNil(memory.recall("stranger@gmail.com"), "Public providers are never remembered as a whole")
 
         memory.remember(DrawerChoice(.kids), for: "noreply@psu1.mg.infinitecampus.org")
@@ -62,7 +62,7 @@ final class SessionEngineTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "SessionEngineTests"))
         defaults.removePersistentDomain(forName: "SessionEngineTests")
         var memory = DrawerMemory()
-        memory.remember(DrawerChoice(.house), for: "billing@power.example")
+        memory.remember(DrawerChoice(.home), for: "billing@power.example")
         memory.save(account: "Owner@Lovely.example", defaults: defaults)
         XCTAssertEqual(DrawerMemory.load(account: "owner@lovely.example", defaults: defaults), memory)
         XCTAssertEqual(DrawerMemory.load(account: "someone@lovely.example", defaults: defaults), DrawerMemory())
@@ -78,10 +78,13 @@ final class SessionEngineTests: XCTestCase {
         XCTAssertEqual(guess("Your order has shipped", "Tracking number 1Z"), DrawerChoice(.orders))
         XCTAssertEqual(guess("Receipt for your order #4411"), DrawerChoice(.orders), "An order receipt is an order")
         XCTAssertEqual(guess("Your itinerary for March"), DrawerChoice(.travel))
-        XCTAssertEqual(guess("Your electric bill is ready"), DrawerChoice(.house))
+        XCTAssertEqual(guess("Your electric bill is ready"), DrawerChoice(.home))
+        XCTAssertEqual(guess("Graham, please verify your new device"), DrawerChoice(.accounts))
+        XCTAssertEqual(guess("Build 12 is available to test", "TestFlight"), DrawerChoice(.projects))
+        XCTAssertEqual(guess("Mortgage payment received"), DrawerChoice(.home))
         XCTAssertEqual(guess("Lacrosse practice moved", "Practice is now Thursday."), DrawerChoice(.kids, child: "Avery"))
         XCTAssertEqual(guess("Weekly update", address: "noreply@psu1.mg.infinitecampus.org"), DrawerChoice(.kids))
-        XCTAssertEqual(guess("Lunch Saturday?", person: true), DrawerChoice(.people))
+        XCTAssertEqual(guess("Lunch Saturday?", person: true), DrawerChoice(.personal))
         XCTAssertNil(guess("Something happened", "A note with no clues."))
     }
 
@@ -110,10 +113,10 @@ final class SessionEngineTests: XCTestCase {
 
     func testMemoryBeatsRules() {
         var memory = DrawerMemory()
-        memory.remember(DrawerChoice(.house), for: statement.fromAddress)
+        memory.remember(DrawerChoice(.home), for: statement.fromAddress)
         let item = plan([statement], memory: memory).items[0]
         XCTAssertEqual(item.drawer?.confidence, .remembered)
-        XCTAssertEqual(item.suggestion, .putAway(DrawerChoice(.house)))
+        XCTAssertEqual(item.suggestion, .putAway(DrawerChoice(.home)))
         XCTAssertTrue(item.drawer?.reason.contains("before") ?? false)
     }
 
@@ -145,10 +148,10 @@ final class SessionEngineTests: XCTestCase {
 
     func testModelGuessAloneIsNotEnoughForABatch() {
         let unsure = msg("unsure", subject: "Something happened", text: "No clues here.")
-        let guess = DrawerGuess(choice: DrawerChoice(.reference), confidence: .model, reason: "Apple Intelligence")
+        let guess = DrawerGuess(choice: DrawerChoice(.personal), confidence: .model, reason: "Apple Intelligence")
         let item = plan([unsure], model: ["unsure": guess]).items[0]
         XCTAssertEqual(item.group, .oneAtATime)
-        XCTAssertEqual(item.suggestion, .putAway(DrawerChoice(.reference)), "Suggested, but the owner confirms it alone")
+        XCTAssertEqual(item.suggestion, .putAway(DrawerChoice(.personal)), "Suggested, but the owner confirms it alone")
     }
 
     func testHealthAndActionNeverHideInReading() {
@@ -223,7 +226,7 @@ final class SessionEngineTests: XCTestCase {
         let pay = msg("pay", subject: "Payment failed", text: "Your statement is ready", action: true)
         let p = SessionPlanner.plan([jo, pay], memory: DrawerMemory(), kids: kids, backlog: true)
         XCTAssertEqual(p.items.first { $0.id == "jo" }?.group, .quick, "Already read once: file it with the batch")
-        XCTAssertEqual(p.items.first { $0.id == "jo" }?.suggestion, .putAway(DrawerChoice(.people)))
+        XCTAssertEqual(p.items.first { $0.id == "jo" }?.suggestion, .putAway(DrawerChoice(.personal)))
         XCTAssertEqual(p.items.first { $0.id == "pay" }?.group, .oneAtATime, "Asks for action: still its own turn")
     }
 

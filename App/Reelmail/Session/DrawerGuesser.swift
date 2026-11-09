@@ -23,6 +23,22 @@ enum DrawerGuesser {
     static let schoolDomains = ["infinitecampus", "parentsquare", "schoolmessenger", "remind.com", "classdojo", "procaresoftware",
                                 "gomotionapp", "teamsnap", "sportsengine", "k12", ".edu"]
 
+    static let accountWords = ["verification code", "one-time code", "one-time passcode", "security code", "sign-in code", "your code",
+                               "new device", "verify your new device", "new login", "password reset", "reset your password",
+                               "account has been unlocked", "trusted device", "two-factor", "2-step"]
+    static let projectWords = ["testflight", "app store connect", "beta testing", "apple developer", "developer program",
+                               "github", "pull request", "api key", "api credits", "domain", "dns", "hosting", "registered agent",
+                               "annual report"]
+    static let projectDomains = ["github.com", "vercel.com", "squarespace", "anthropic.com", "perplexity.ai", "openai.com",
+                                 "x.ai", "cloudflare.com", "netlify", "northcarolinaregisteredagent"]
+    static let workWords = ["onboarding", "new hire", "background check", "background verification", "payroll", "pay stub",
+                            "job alert", "recruiter", "interview", "offer letter", "orientation"]
+    static let workDomains = ["hireright.com", "myisolved.com", "linkedin.com", "indeed.com", "workday", "adp.com", "gusto.com"]
+    static let travelDomains = ["aa.com", "delta.com", "united.com", "southwest.com", "alaskaair.com", "hilton.com", "marriott.com",
+                                "hyatt.com", "ihg.com", "airbnb.com", "uber.com", "lyft.com", "expedia.com", "booking.com"]
+    static let mortgageWords = ["mortgage", "escrow", "home loan", "loan servicing", "homeowners insurance", "home warranty",
+                                "garage door", "exterminat", "pest control", "backflow", "hoa", "property tax"]
+
     struct Input {
         var fromAddress: String
         var fromName: String
@@ -31,35 +47,53 @@ enum DrawerGuesser {
         var text: String
         var category: PostCategory
         var isPerson: Bool
+        var isHealth: Bool = false
     }
 
     /// The best rule guess, or nil when the rules are not sure.
     static func guess(_ m: Input, kids: [KidProfile]) -> DrawerGuess? {
-        if m.isPerson {
-            return DrawerGuess(choice: DrawerChoice(.people), confidence: .rule, reason: "Personal mail")
-        }
         let haystack = (m.subject + "\n" + String(m.text.prefix(2000))).lowercased()
         let domain = InsightText.domain(of: m.fromAddress.lowercased())
+        let kid = matchKid(haystack: haystack, kids: kids)
+        let schoolish = schoolDomains.contains(where: domain.contains) || m.category == .school || hasAny(haystack, schoolWords)
 
-        if let kid = matchKid(haystack: haystack, kids: kids) {
+        if m.isHealth {
+            return DrawerGuess(choice: DrawerChoice(.health), confidence: .rule, reason: "Health")
+        }
+        if m.isPerson {
+            if let kid { return DrawerGuess(choice: DrawerChoice(.kids, child: kid.name), confidence: .rule, reason: "About \(kid.name)") }
+            if schoolish { return DrawerGuess(choice: DrawerChoice(.kids), confidence: .rule, reason: "School or activities") }
+            return DrawerGuess(choice: DrawerChoice(.personal), confidence: .rule, reason: "Personal mail")
+        }
+        if hasAny(haystack, accountWords) {
+            return DrawerGuess(choice: DrawerChoice(.accounts), confidence: .rule, reason: "Login or account notice")
+        }
+        if let kid {
             return DrawerGuess(choice: DrawerChoice(.kids, child: kid.name), confidence: .rule, reason: "Mentions \(kid.name)'s school or activities")
         }
-        if schoolDomains.contains(where: domain.contains) || m.category == .school || hasAny(haystack, schoolWords) {
+        if schoolish {
             let only = kids.count == 1 ? kids[0].name : nil
             return DrawerGuess(choice: DrawerChoice(.kids, child: only), confidence: .rule, reason: "School or activities")
         }
-        // Order before money: an order receipt is an order, not a statement.
+        if projectDomains.contains(where: domain.contains) || hasAny(haystack, projectWords) {
+            return DrawerGuess(choice: DrawerChoice(.projects), confidence: .rule, reason: "Projects: developer, hosting or company mail")
+        }
+        if workDomains.contains(where: domain.contains) || hasAny(haystack, workWords) {
+            return DrawerGuess(choice: DrawerChoice(.work), confidence: .rule, reason: "Work or career")
+        }
+        if travelDomains.contains(where: { domain.hasSuffix($0) }) || m.category == .travel || hasAny(haystack, travelWords) {
+            return DrawerGuess(choice: DrawerChoice(.travel), confidence: .rule, reason: "Travel")
+        }
+        // Home before orders (a mortgage or utility notice is about the house); orders before money (an order receipt
+        // is an order, not a statement). An appliance delivery is an order.
+        if hasAny(haystack, mortgageWords) || hasAny(haystack, houseWords) {
+            return DrawerGuess(choice: DrawerChoice(.home), confidence: .rule, reason: "Home: mortgage, utilities or services")
+        }
         if DeliveryNotice.hasPhrase(haystack) || hasAny(haystack, orderWords) {
             return DrawerGuess(choice: DrawerChoice(.orders), confidence: .rule, reason: "Order or shipping")
         }
-        if m.category == .travel || hasAny(haystack, travelWords) {
-            return DrawerGuess(choice: DrawerChoice(.travel), confidence: .rule, reason: "Travel booking")
-        }
-        if hasAny(haystack, houseWords) {
-            return DrawerGuess(choice: DrawerChoice(.house), confidence: .rule, reason: "House or utilities")
-        }
         if m.category == .money || hasAny(haystack, moneyWords) {
-            return DrawerGuess(choice: DrawerChoice(.money), confidence: .rule, reason: "Money: statement, bill or receipt")
+            return DrawerGuess(choice: DrawerChoice(.money), confidence: .rule, reason: "Money: statement, bill or account")
         }
         return nil
     }

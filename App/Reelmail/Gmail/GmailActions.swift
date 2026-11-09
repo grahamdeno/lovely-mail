@@ -49,6 +49,17 @@ struct GmailActions {
         activity.record(kind: "label", summary: "Filed a message under a Lovely label" + (removeFromInbox ? " and out of the inbox" : ""))
     }
 
+    /// Files one message under several Lovely/ labels at once (a category plus its tags), in one Gmail call.
+    func file(messageID: String, labelIDs: [String], removeFromInbox: Bool, confirmed: ConfirmedAction) async throws {
+        try confirmed.require([.label, .filter])
+        guard !labelIDs.isEmpty else { return }
+        for id in labelIDs where !labels.isLovely(id: id) { throw ActionError.notALovelyLabel(id) }
+        var body: [String: Any] = ["addLabelIds": labelIDs]
+        if removeFromInbox { body["removeLabelIds"] = ["INBOX"] }
+        let _: Empty = try await call("POST", "/messages/\(encode(messageID))/modify", json: body)
+        activity.record(kind: "label", summary: "Filed a message under \(labelIDs.count) Lovely labels" + (removeFromInbox ? " and out of the inbox" : ""))
+    }
+
     /// Takes one message out of the inbox without a label (a skimmed newsletter in an inbox session). Nothing is deleted;
     /// the message stays in All Mail and in search.
     func archive(messageID: String, confirmed: ConfirmedAction) async throws {

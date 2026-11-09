@@ -65,6 +65,8 @@ struct SessionItem: Identifiable, Hashable, Sendable {
     var drawer: DrawerGuess?
     /// Why it is not in the batch, when it could have been ("Asks you to pay").
     var heldBecause: String?
+    /// Tags filed with it beside the category (type, topic, property, person, tax year).
+    var tags: [MailTag] = []
     var id: String { message.id }
 }
 
@@ -101,8 +103,14 @@ enum SessionPlanner {
     /// `backlog`: read mail still in the inbox. It was already dealt with once, so mail from people and notes to self
     /// may go in a batch; everything else in the never-in-a-batch list still gets its own turn.
     static func plan(_ messages: [SessionMessage], memory: DrawerMemory, kids: [KidProfile],
-                     promises: [CarriedPromise] = [], modelGuesses: [String: DrawerGuess] = [:], backlog: Bool = false) -> SessionPlan {
-        let items = messages.map { item(for: $0, memory: memory, kids: kids, modelGuess: modelGuesses[$0.id], backlog: backlog) }
+                     promises: [CarriedPromise] = [], modelGuesses: [String: DrawerGuess] = [:], backlog: Bool = false,
+                     households: [Household] = []) -> SessionPlan {
+        let context = TagContext(households: households, kids: kids)
+        let items = messages.map { m -> SessionItem in
+            var it = item(for: m, memory: memory, kids: kids, modelGuess: modelGuesses[m.id], backlog: backlog)
+            it.tags = tags(for: m, choice: it.drawer?.choice, context: context)
+            return it
+        }
         return SessionPlan(items: items.sorted(by: order), carried: promises.sorted { $0.sent < $1.sent })
     }
 
@@ -112,7 +120,7 @@ enum SessionPlanner {
             return DrawerGuess(choice: remembered, confidence: .remembered, reason: "You filed \(m.fromName) in \(remembered.title) before")
         }
         let input = DrawerGuesser.Input(fromAddress: m.fromAddress, fromName: m.fromName, subject: m.subject,
-                                        text: m.text, category: m.category, isPerson: m.isPerson)
+                                        text: m.text, category: m.category, isPerson: m.isPerson, isHealth: m.isHealth)
         return DrawerGuesser.guess(input, kids: kids) ?? modelGuess
     }
 
@@ -173,6 +181,17 @@ enum SessionPlanner {
         if m.asksForAction { return 1 }
         if m.isPerson || m.section == .notes { return 2 }
         return 3
+    }
+
+    /// Tags for a message in a category. A Kids choice about one child always carries that child's Person tag.
+    static func tags(for m: SessionMessage, choice: DrawerChoice?, context: TagContext) -> [MailTag] {
+        guard let choice else { return [] }
+        var tags = MailTagger.tags(for: .init(category: choice.drawer, fromAddress: m.fromAddress, subject: m.subject, text: m.text, date: m.date),
+                                   context: context)
+        if let child = choice.child, !tags.contains(MailTag(group: .person, name: child)) {
+            tags.append(MailTag(group: .person, name: child)); tags.sort()
+        }
+        return tags
     }
 
     /// Quick items in pages for one confirm each.

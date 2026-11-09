@@ -40,9 +40,9 @@ enum EngineScorecard {
                                  text: "This week: five long reads for a slow Sunday.", section: .reading)
     static let ask = item("ask", from: "Dana Brooks", address: "dana@lovely.example", subject: "Review on Thursday?",
                           text: "Hi, can you do Thursday at 2 for the review? Dana", person: true, section: .waiting,
-                          ask: "Can you do Thursday at 2 for the review?", drawer: DrawerChoice(.people))
+                          ask: "Can you do Thursday at 2 for the review?", drawer: DrawerChoice(.personal))
     static let lease = item("lease", from: "Oak Court Leasing", address: "leasing@oakcourt.example", subject: "Please eSign your renewal",
-                            text: "Your lease renewal is ready. Please eSign by Nov 20 on our resident portal.", drawer: DrawerChoice(.house))
+                            text: "Your lease renewal is ready. Please eSign by Nov 20 on our resident portal.", drawer: DrawerChoice(.home))
     static let shipped = item("ship", from: "Trail Outfitters", address: "orders@trailoutfitters.example", subject: "Your order has shipped",
                               text: "Your running shoes have shipped and arrive Monday.", drawer: DrawerChoice(.orders))
 

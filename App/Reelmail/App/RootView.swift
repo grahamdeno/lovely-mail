@@ -53,6 +53,7 @@ struct RootView: View {
                     case .backlog: SessionView(backlog: true)
                     case .engineSettings: EngineSettingsView()
                     case .engineScorecard: EngineScorecardView()
+                    case .cleanup: CleanupView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

@@ -33,17 +33,34 @@ extension FeedStore {
                            isFirstTimeSender: firstTime.contains(post.email.from.email.lowercased()))
         }
         return SessionPlanner.plan(messages, memory: drawerMemory, kids: sessionKids,
-                                   promises: backlog ? [] : promises.map(CarriedPromise.init), modelGuesses: modelGuesses, backlog: backlog)
+                                   promises: backlog ? [] : promises.map(CarriedPromise.init), modelGuesses: modelGuesses, backlog: backlog,
+                                   households: InsightSettings().load().households)
     }
 
     func sessionPost(_ id: String) -> Post? { posts.first { $0.id == id } }
+
+    /// Tags for an item filed in a different category than suggested (topics depend on the category).
+    func sessionTags(_ item: SessionItem, choice: DrawerChoice?) -> [MailTag] {
+        SessionPlanner.tags(for: item.message, choice: choice,
+                            context: TagContext(households: InsightSettings().load().households, kids: sessionKids))
+    }
+
+    /// The move for an item: its category and tags (recomputed when the owner picks another category).
+    func sessionMove(_ item: SessionItem, choice: DrawerChoice?) -> SessionMove {
+        guard let choice else { return SessionMove(messageID: item.id, drawer: nil) }
+        let tags = choice == item.drawer?.choice ? item.tags : sessionTags(item, choice: choice)
+        return SessionMove(messageID: item.id, drawer: choice, tags: tags)
+    }
 
     /// What a put-away covers, for the button that confirms it.
     static func putAwayPreview(_ moves: [SessionMove]) -> ActionPreview {
         let filed = moves.filter { $0.drawer != nil }.count
         let archived = moves.count - filed
         var lines: [String] = []
-        if filed > 0 { lines.append("Files \(filed) in Lovely drawers, marks them read and takes them out of the inbox.") }
+        if filed > 0 {
+            let tagCount = Set(moves.flatMap(\.tags)).count
+            lines.append("Files \(filed) under Lovely categories\(tagCount > 0 ? " and \(tagCount) tag\(tagCount == 1 ? "" : "s")" : ""), marks them read and takes them out of the inbox.")
+        }
         if archived > 0 { lines.append("Marks \(archived) read and takes them out of the inbox.") }
         lines.append("Nothing is deleted. You have 10 seconds to undo.")
         return ActionPreview(kind: .label, title: moves.count == 1 ? "Put away" : "Put away \(moves.count)", lines: lines)
@@ -86,10 +103,12 @@ extension FeedStore {
             for move in moves {
                 do {
                     if let drawer = move.drawer {
-                        let name = drawer.labelName
-                        let id: String
-                        if let known = labelIDs[name] { id = known } else { id = try await actions.ensureLabel(name, confirmed: confirmed); labelIDs[name] = id }
-                        try await actions.file(messageID: move.messageID, labelID: id, removeFromInbox: true, confirmed: confirmed)
+                        var ids: [String] = []
+                        for name in [drawer.labelName] + move.tags.map(\.labelName) {
+                            if let known = labelIDs[name] { ids.append(known) }
+                            else { let id = try await actions.ensureLabel(name, confirmed: confirmed); labelIDs[name] = id; ids.append(id) }
+                        }
+                        try await actions.file(messageID: move.messageID, labelIDs: ids, removeFromInbox: true, confirmed: confirmed)
                     } else {
                         try await actions.archive(messageID: move.messageID, confirmed: confirmed)
                     }
@@ -135,7 +154,7 @@ extension FeedStore {
 
     /// Sends the reply, then puts the message away in `drawer` (People by default). Held 10 seconds for Undo; one Undo covers both.
     /// If the send fails, the text is kept for the Reply sheet and nothing is put away.
-    func sendSessionReply(_ post: Post, body: String, drawer: DrawerChoice?, confirmed: ConfirmedAction, filing: ConfirmedAction,
+    func sendSessionReply(_ post: Post, body: String, drawer: DrawerChoice?, tags: [MailTag] = [], confirmed: ConfirmedAction, filing: ConfirmedAction,
                           finished: @escaping @MainActor (Error?) -> Void = { _ in }, onReturn: @escaping @MainActor ([String]) -> Void = { _ in }) {
         guard let actions, canSendSessionReply(post) else { errorMessage = "Reply in Gmail for this one."; return }
         let to = post.email.from.email, subject = GmailCompose.replySubject(post.email.subject), thread = post.email.threadId
@@ -160,8 +179,9 @@ extension FeedStore {
             // The reply went. Filing is a bonus: if it fails, the message stays answered and read, just still in the inbox.
             do {
                 if let drawer {
-                    let id = try await actions.ensureLabel(drawer.labelName, confirmed: filing)
-                    try await actions.file(messageID: post.id, labelID: id, removeFromInbox: true, confirmed: filing)
+                    var ids: [String] = []
+                    for name in [drawer.labelName] + tags.map(\.labelName) { ids.append(try await actions.ensureLabel(name, confirmed: filing)) }
+                    try await actions.file(messageID: post.id, labelIDs: ids, removeFromInbox: true, confirmed: filing)
                 } else {
                     try await actions.archive(messageID: post.id, confirmed: filing)
                 }
@@ -178,4 +198,35 @@ extension FeedStore {
 struct SessionMove: Hashable, Sendable {
     var messageID: String
     var drawer: DrawerChoice?
+    /// Filed with the category: type, topic, property, person, tax year.
+    var tags: [MailTag] = []
+}
+
+// MARK: Clean up old login codes (shown before anything moves)
+
+extension FeedStore {
+    /// Finds old account notices in Gmail and returns them for the owner to look at. Changes nothing.
+    func findOldAccountNotices(ageDays: Int = AccountsCleanup.defaultAgeDays) async throws -> [MessageStub] {
+        guard mode == .gmail else { return [] }
+        let (ids, _, _) = try await gmail.listMessageIDs(query: AccountsCleanup.query(ageDays: ageDays), limit: AccountsCleanup.limit)
+        let known = Set(people.map { $0.email.lowercased() })
+        var out: [MessageStub] = []
+        for id in ids {
+            if let stub = try? await gmail.getMetadata(id: id), AccountsCleanup.keep(stub, knownPeople: known) { out.append(stub) }
+        }
+        return out.sorted { $0.date < $1.date }
+    }
+
+    /// Moves the listed messages to Gmail's Trash after the 10-second Undo. Gmail keeps Trash for 30 days.
+    func trashOldAccountNotices(_ stubs: [MessageStub], finished: @escaping @MainActor (Int) -> Void = { _ in }) {
+        guard !stubs.isEmpty else { return }
+        let gmail = self.gmail
+        undo.enqueue(title: "Moving \(stubs.count) old login emails to Trash", work: { [self] in
+            var done = 0
+            for stub in stubs {
+                do { try await gmail.trash(messageID: stub.id); done += 1 } catch { errorMessage = "Some were not moved to Trash. \(error.localizedDescription)" }
+            }
+            finished(done)
+        }, undone: {})
+    }
 }

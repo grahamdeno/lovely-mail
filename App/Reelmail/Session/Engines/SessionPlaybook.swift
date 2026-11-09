@@ -33,20 +33,12 @@ enum SessionPlaybook {
     Always fill "say" with one short sentence he will read: what will happen.
     """
 
-    static let drawerDefinitions: [(Drawer, String)] = [
-        (.money, "statements, bills, receipts, taxes, banking and investments"),
-        (.house, "utilities, repairs, the lease, rent, the apartment, home services"),
-        (.kids, "school, sports, band and activities; use Kids/<name> when it is about one child"),
-        (.orders, "shipping, deliveries and purchases"),
-        (.travel, "bookings, itineraries and confirmations"),
-        (.people, "personal mail from people, worth keeping"),
-        (.reference, "anything else worth keeping"),
-    ]
+    static var drawerDefinitions: [(Drawer, String)] { Drawer.allCases.map { ($0, $0.meaning) } }
 
     static let standingCalls = """
     HIS STANDING CALLS:
     - A business asking him to act on its website (sign a lease, complete a form, pay) is a task for him: do not just file it.
-    - A bare forward from his wife is personal mail (People).
+    - A bare forward from his wife is personal mail (Personal).
     - Mail he sent himself from his other addresses is a note to self; file it where its content belongs.
     - Unread means not done yet. Only put something away when he says so or clearly means it.
     """
@@ -67,7 +59,7 @@ enum SessionPlaybook {
         var lines = ["DRAWERS (use these names exactly):"]
         for (d, meaning) in drawerDefinitions { lines.append("- \(d.title): \(meaning)") }
         let names = kids.map(\.name).filter { !$0.isEmpty && !$0.contains("/") }
-        if !names.isEmpty { lines.append("- Kids sub-drawers: " + names.map { "Kids/\($0)" }.joined(separator: ", ")) }
+        if !names.isEmpty { lines.append("- For Kids mail about one child, use Kids/<name>: " + names.map { "Kids/\($0)" }.joined(separator: ", ")) }
         return lines.joined(separator: "\n")
     }
 
