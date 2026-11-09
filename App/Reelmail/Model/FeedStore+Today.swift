@@ -30,7 +30,7 @@ extension FeedStore {
         var inputs = TodayPlan.Inputs()
         inputs.waiting = d.waiting.map { ($0.id, $0.email.from.firstName, $0.email.subject.isEmpty ? $0.summary.blurb : $0.email.subject) }
         inputs.toGoThrough = sessionCandidates.count
-        inputs.bills = money.households.filter { !$0.ended }.flatMap(\.open).compactMap { b in b.dueOn.map { (b.payee, $0) } }
+        inputs.bills = money.households.filter { !$0.ended }.flatMap(\.open).compactMap { b in b.dueOn.map { (b.payee, $0, Optional(b.id)) } }
         inputs.today = comingUp.filter { cal.isDate($0.date.start, inSameDayAs: now) }.map { e in
             (e.post.id, e.date.hasTime ? HomeGlance.dayLabel(e.date.start, hasTime: true, now: now).replacingOccurrences(of: "Today ", with: "") : "Today",
              e.post.email.subject.isEmpty ? e.post.email.from.name : e.post.email.subject)

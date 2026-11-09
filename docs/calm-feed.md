@@ -358,3 +358,7 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
   e.g. "Text Sam about this"). Before, it showed only on read organization mail.
 - Nov 9: the Brief's "Walk through today's mail" (old cards: no Ask, no Trash) now opens the inbox session instead. WalkthroughView is unused; remove it later.
 - Nov 9: inbox session: "Text Julia about this" in the … sheet, and typing "text Julia" (or "send this to …") in the ask field opens the same Messages sheet.
+- Nov 9: Money links and the Pay step opened "Email not found": Money lists a year of bills, but only recent inbox mail is
+  loaded. Mail not loaded is now read from Gmail (read-only, FetchedEmailView). Today's Pay step skips bills due more than
+  3 days ago (a month-old bill showed as "Due Sun"), opens the bill's email, and past dates read as dates or "Yesterday".
+- Build 1047 opened fine: the launch freeze fix worked.

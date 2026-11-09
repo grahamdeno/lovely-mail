@@ -9,7 +9,7 @@ final class TodayPlanTests: XCTestCase {
         var i = TodayPlan.Inputs()
         i.waiting = [("p1", "Tamara", "Contact number")]
         i.toGoThrough = 8
-        i.bills = [("NC Farm Bureau", day(15)), ("Power", day(12))]
+        i.bills = [("NC Farm Bureau", day(15), "b1"), ("Power", day(12), "b2")]
         let steps = TodayPlan.merge(saved: nil, candidates: TodayPlan.candidates(i, now: day(9, 11), calendar: cal))
         XCTAssertEqual(steps.map(\.title), ["Answer Tamara", "Go through 8 emails", "Pay Power"])
         XCTAssertEqual(steps[2].detail, "Due Thu")
@@ -66,5 +66,14 @@ final class TodayPlanTests: XCTestCase {
         _ = store.todaySteps()
         _ = store.todaySteps()
         XCTAssertEqual(writes, 0)
+    /// A bill from a month ago showed as "Pay NC Farm Bureau, Due Sun" and opened nothing.
+    func testOldBillsAreNotStepsAndBillsOpenTheirEmail() {
+        var i = TodayPlan.Inputs()
+        i.bills = [("Old Insurer", day(1, 9).addingTimeInterval(-29 * 86_400), "old")]
+        XCTAssertTrue(TodayPlan.candidates(i, now: day(9, 11), calendar: cal).isEmpty)
+        i.bills = [("Water", day(8), "w1")]
+        let step = TodayPlan.candidates(i, now: day(9, 11), calendar: cal).first
+        XCTAssertEqual(step?.detail, "Was due Yesterday")
+        XCTAssertEqual(step?.postID, "w1")
     }
 }

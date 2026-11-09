@@ -60,7 +60,8 @@ struct OpenEmailView: View {
                 ActionPreviewSheet(preview: p, confirmTitle: "Unsubscribe") { _ in if let url = unsubscribeURL { Task { await store.unsubscribe(url: url, sender: email.from.name) } } }
             }
         } else {
-            ContentUnavailableView("Email not found", systemImage: "envelope").background(CalmStyle.background)
+            // Not in the loaded inbox (older bills on Money, say): read it from Gmail instead of a dead end.
+            FetchedEmailView(messageID: postID)
         }
     }
 

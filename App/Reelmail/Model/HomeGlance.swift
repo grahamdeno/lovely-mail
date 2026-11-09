@@ -70,7 +70,9 @@ enum HomeGlance {
         var day: String
         if calendar.isDate(date, inSameDayAs: now) { day = "Today" }
         else if let t = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: t) { day = "Tomorrow" }
-        else if date.timeIntervalSince(now) < 6 * 86_400 { f.dateFormat = "EEE"; day = f.string(from: date) }
+        else if let y = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: y) { day = "Yesterday" }
+        // A weekday name only for the days ahead; a past date reads as a date ("Oct 11"), never "Sun".
+        else if date > now, date.timeIntervalSince(now) < 6 * 86_400 { f.dateFormat = "EEE"; day = f.string(from: date) }
         else { f.dateFormat = "MMM d"; day = f.string(from: date) }
         guard hasTime else { return day }
         f.dateFormat = calendar.component(.minute, from: date) == 0 ? "h a" : "h:mm a"
