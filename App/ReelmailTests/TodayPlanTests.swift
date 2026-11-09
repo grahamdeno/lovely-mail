@@ -54,4 +54,17 @@ final class TodayPlanTests: XCTestCase {
         XCTAssertEqual(store.load(day: "2026-11-09")?.count, 1)
         XCTAssertNil(store.load(day: "2026-11-10"))
     }
+
+    /// Build 1046 froze at launch: Home wrote the day's steps on every draw, and each write redrew Home.
+    @MainActor
+    func testDrawingHomeTwiceWritesSettingsOnlyOnce() {
+        let store = FeedStore(gmail: nil, summarizeOnDevice: false, cacheStore: nil)
+        _ = store.todaySteps()
+        var writes = 0
+        let token = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: nil) { _ in writes += 1 }
+        defer { NotificationCenter.default.removeObserver(token) }
+        _ = store.todaySteps()
+        _ = store.todaySteps()
+        XCTAssertEqual(writes, 0)
+    }
 }

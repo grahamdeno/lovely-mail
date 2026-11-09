@@ -348,3 +348,9 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - **Found in your mail (Settings > Households and kids):** `Discovery` offers children (parent of, student, Name's report card, first name plus the owner's last name, in school and care mail) and properties (street addresses in mortgage, utility, lease, insurance and closing mail; sale wording marks one as past), each with how many emails, to add or dismiss. Nothing is added on its own.
 - **Clean up old login emails (Settings, Gmail only):** lists account notices older than 90 days or a year, then one tap moves them to Trash after the 10-second Undo. Never runs on its own.
 - **Not done yet:** device check of everything in Sprint 7; first real scorecard runs per engine.
+
+### Nov 9: build 1046 froze at launch
+- Cause (most likely): Home built the Today steps while drawing and saved them to settings on every draw. Each save
+  made SwiftUI redraw Home, which saved again, so the app never finished launching and iOS closed it (no crash report,
+  which matches a launch watchdog kill). Fix: save only when the steps changed. Regression test in TodayPlanTests.
+- Rule: never write settings or files from a view body.
