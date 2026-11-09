@@ -1,0 +1,909 @@
+import SwiftUI
+
+/// The inbox session (Sprint 7): unread mail one decision at a time. Each screen has one main button.
+/// Gmail stays the place for heavy email work; this is the calm front end.
+struct SessionView: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    @State private var model: SessionModel?
+    var backlog = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let model {
+                SessionHeader(model: model, title: backlog ? "Older mail" : "Inbox session", close: close)
+                content(model)
+            } else {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .background(CalmStyle.background)
+        .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
+        .toolbar(.hidden, for: .navigationBar)
+        .task {
+            guard model == nil else { return }
+            let plan = store.makeSessionPlan(backlog: backlog)
+            let fresh = SessionModel(plan: plan, backlog: backlog)
+            model = fresh
+            // Routine mail the rules could not place gets an on-device drawer suggestion, so its screen has one main button.
+            let unplaced = plan.items.filter { $0.drawer == nil && !$0.message.isPerson && $0.group != .reading }.map(\.message)
+            guard !unplaced.isEmpty else { return }
+            let guesses = await AppleDrawerGuesser.guesses(for: unplaced)
+            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses, backlog: backlog)) }
+        }
+    }
+
+    @ViewBuilder private func content(_ m: SessionModel) -> some View {
+        switch m.phase {
+        case .start: SessionStartScreen(model: m, openBacklog: openBacklog)
+        case .item(let id): SessionItemScreen(model: m, itemID: id).id(id)
+        case .batch: SessionBatchScreen(model: m)
+        case .reading: SessionReadingScreen(model: m)
+        case .wrap: SessionWrapScreen(model: m, close: close, openBacklog: openBacklog)
+        }
+    }
+
+    private func close() { if !router.path.isEmpty { router.path.removeLast() } }
+
+    /// Older mail waiting in the inbox, if any, as a next step from the start or wrap-up screens.
+    private var openBacklog: (() -> Void)? {
+        guard store.backlogCandidates.count > 0 else { return nil }
+        return { close(); router.open(.backlog) }
+    }
+}
+
+// MARK: Header
+
+struct SessionHeader: View {
+    let model: SessionModel
+    var title = "Inbox session"
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title).font(.headline)
+                Spacer()
+                Button(action: close) {
+                    Image(systemName: "xmark").font(.body.weight(.semibold))
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).foregroundStyle(CalmStyle.secondary).frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Close session").accessibilityIdentifier("session.close")
+            }
+            if model.plan.count > 0 {
+                HStack {
+                    Text("\(model.progress.dealtWith) of \(model.plan.count)").font(.caption.weight(.semibold))
+                    Spacer()
+                    if model.progress.dealtWith < model.plan.count {
+                        Text("about \(remainingMinutes) min").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    }
+                }
+                ProgressView(value: model.progress.fraction).tint(CalmStyle.blue)
+                    .accessibilityLabel("\(model.progress.dealtWith) of \(model.plan.count) handled")
+            }
+        }
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+    }
+
+    private var remainingMinutes: Int {
+        let left = model.plan.count - model.progress.dealtWith
+        guard model.plan.count > 0 else { return 0 }
+        return max(1, Int((Double(model.plan.estimatedMinutes) * Double(left) / Double(model.plan.count)).rounded(.up)))
+    }
+}
+
+// MARK: Start
+
+struct SessionStartScreen: View {
+    let model: SessionModel
+    var openBacklog: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if model.isEmpty {
+                        Text("Nothing to go through").font(.largeTitle.weight(.bold))
+                        Text(model.backlog ? "No older mail is left in your inbox." : "Nothing new is waiting. New mail will be here next time.")
+                            .foregroundStyle(CalmStyle.secondary)
+                    } else {
+                        Text(model.backlog ? "\(model.plan.count) older emails" : "\(model.plan.count) to go through").font(.largeTitle.weight(.bold))
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(SessionGroup.allCases, id: \.self) { group in
+                                let n = model.plan.items.filter { $0.group == group }.count
+                                if n > 0 {
+                                    HStack {
+                                        Text(group.title)
+                                        Spacer()
+                                        Text("\(n)").font(.body.weight(.semibold))
+                                    }
+                                }
+                            }
+                        }
+                        .padding(16).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                        Text("About \(model.plan.estimatedMinutes) min. Each one ends up answered, dated or filed, and out of your inbox.")
+                            .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    }
+                    if !model.plan.carried.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("STILL OPEN FROM BEFORE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                            ForEach(model.plan.carried.prefix(3), id: \.id) { p in
+                                Text("You told \(p.recipient): \u{201C}\(p.text)\u{201D}").font(.callout).lineLimit(2)
+                            }
+                        }
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+                .padding(20)
+            }
+            if !model.isEmpty {
+                Button("Start") { model.start() }
+                    .buttonStyle(SessionButtonStyle()).padding(20)
+                    .accessibilityIdentifier("session.start")
+            } else if let openBacklog, !model.backlog {
+                Button("Clear older mail in your inbox") { openBacklog() }
+                    .buttonStyle(SessionButtonStyle()).padding(20)
+                    .accessibilityIdentifier("session.backlog")
+            }
+        }
+    }
+}
+
+// MARK: One item
+
+struct SessionItemScreen: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
+    let model: SessionModel
+    let itemID: String
+
+    private enum Mode { case decide, drawers, reply }
+    @State private var mode: Mode = .decide
+    @State private var draft = ""
+    @State private var drafting = false
+    @State private var calendar: SessionCalendarBox?
+    @State private var pendingDateMove: SessionMove?
+    @State private var pendingDateApproval: ConfirmedAction?
+    @State private var askText = ""
+    @State private var thinking = false
+    @State private var proposals: [SessionProposal] = []
+    @State private var askNote: String?
+    @State private var handoff: SessionHandoffOffer?
+    @State private var removedTags: Set<MailTag> = []
+    @FocusState private var askFocused: Bool
+
+    var body: some View {
+        if let item = model.item(itemID), let post = store.sessionPost(itemID) {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        SessionMailCard(item: item, post: post) { router.open(.email(post.id)) }
+                        if mode != .reply { tagChips(item) }
+                        switch mode {
+                        case .decide: askSection(item, post)
+                        case .drawers: drawerGrid(item)
+                        case .reply: replyEditor
+                        }
+                    }
+                    .padding(.horizontal, 20).padding(.bottom, 20)
+                }
+                VStack(spacing: 10) {
+                    switch mode {
+                    case .decide: decideActions(item, post)
+                    case .drawers: secondaryRow(item, post, showOtherDrawer: false)
+                    case .reply: replyActions(item, post)
+                    }
+                }
+                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
+                .background(CalmStyle.background)
+            }
+            .onAppear { if case .decide = item.suggestion, item.drawer == nil { mode = .drawers } }
+            .sheet(item: $calendar, onDismiss: finishDate) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
+            .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
+        } else {
+            Color.clear.task { model.drop(itemID) }
+        }
+    }
+
+    // MARK: Decide
+
+    @ViewBuilder private func decideActions(_ item: SessionItem, _ post: Post) -> some View {
+        switch item.suggestion {
+        case .reply:
+            Button("Reply") { openReply(post) }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("session.reply")
+        case .putAway(let d):
+            putAwayButton(item, d)
+        case .addDatesThenPutAway(let d):
+            dateButton(item, post, d)
+        case .archive:
+            archiveButton(item, prominent: true)
+        case .decide:
+            if let d = item.drawer?.choice { putAwayButton(item, d) }
+            else { Button("Choose a drawer") { mode = .drawers }.buttonStyle(SessionButtonStyle()) }
+        }
+        secondaryRow(item, post, showOtherDrawer: true)
+    }
+
+    private func secondaryRow(_ item: SessionItem, _ post: Post, showOtherDrawer: Bool) -> some View {
+        HStack(spacing: 8) {
+            if item.suggestion != .reply, item.message.isPerson || item.message.section == .notes {
+                small("Reply", id: "session.replyInstead") { openReply(post) }
+            }
+            if showOtherDrawer { small("Other drawer", id: "session.otherDrawer") { mode = .drawers } }
+            small("Leave unread", id: "session.leaveUnread") { model.record(item.id, .leftUnread); model.advance() }
+            small("Skip", id: "session.skip") { model.skip(item.id) }
+        }
+    }
+
+    private func small(_ title: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .font(.subheadline.weight(.medium)).lineLimit(1).minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .foregroundStyle(CalmStyle.blue)
+            .accessibilityIdentifier(id)
+    }
+
+    private func putAwayButton(_ item: SessionItem, _ d: DrawerChoice) -> some View {
+        let move = filedMove(item, d)
+        return SessionConfirmButton(title: "Put away in \(d.title)", previews: [FeedStore.putAwayPreview([move])],
+                                    identifier: "session.putAway") { approvals in
+            put(move, approvals[0])
+        }
+    }
+
+    private func archiveButton(_ item: SessionItem, prominent: Bool) -> some View {
+        let move = SessionMove(messageID: item.id, drawer: nil)
+        return SessionConfirmButton(title: "Archive, no drawer", previews: [FeedStore.putAwayPreview([move])],
+                                    prominent: prominent, identifier: "session.archive") { approvals in
+            put(move, approvals[0])
+        }
+    }
+
+    private func dateButton(_ item: SessionItem, _ post: Post, _ d: DrawerChoice) -> some View {
+        let move = filedMove(item, d)
+        let first = MailDates.extract(post.email, now: Date()).first
+        return SessionConfirmButton(title: first.map { "Add \(ComingUp.fullLabel($0)), then put away in \(d.title)" } ?? "Put away in \(d.title)",
+                                    previews: [FeedStore.putAwayPreview([move])], identifier: "session.addDate") { approvals in
+            guard let first else { put(move, approvals[0]); return }
+            pendingDateMove = move; pendingDateApproval = approvals[0]
+            calendar = SessionCalendarBox(draft: CalendarDraft.make(email: post.email, date: first))
+        }
+    }
+
+    /// After Apple's Add Event sheet closes, the message is put away either way; the calendar is Apple's to keep.
+    private func finishDate() {
+        guard let move = pendingDateMove, let approval = pendingDateApproval else { return }
+        pendingDateMove = nil; pendingDateApproval = nil
+        model.addedDate()
+        put(move, approval)
+    }
+
+    /// The move for this item in a category, without any tags the owner tapped off.
+    private func filedMove(_ item: SessionItem, _ d: DrawerChoice) -> SessionMove {
+        var move = store.sessionMove(item, choice: d)
+        move.tags.removeAll { removedTags.contains($0) }
+        return move
+    }
+
+    /// The suggested tags as chips. Tap one to leave it off; tap again to bring it back.
+    @ViewBuilder private func tagChips(_ item: SessionItem) -> some View {
+        if !item.tags.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(item.tags, id: \.self) { tag in
+                        let off = removedTags.contains(tag)
+                        Button {
+                            if off { removedTags.remove(tag) } else { removedTags.insert(tag) }
+                        } label: {
+                            Text(tag.title).font(.caption.weight(.medium)).strikethrough(off)
+                                .padding(.horizontal, 10).frame(minHeight: 30)
+                                .foregroundStyle(off ? CalmStyle.secondary : CalmStyle.blue)
+                                .background((off ? CalmStyle.secondary : CalmStyle.blue).opacity(0.1), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(off ? "\(tag.title), left off" : "Tag \(tag.title)")
+                        .accessibilityHint(off ? "Adds the tag back" : "Leaves this tag off")
+                    }
+                }
+            }
+            .accessibilityIdentifier("session.tags")
+        }
+    }
+
+    private func put(_ move: SessionMove, _ approval: ConfirmedAction) {
+        store.putAway([move], confirmed: approval, onReturn: { [model] ids in model.reopen(ids) })
+        model.recordMoves([move])
+        model.advance()
+    }
+
+    // MARK: Drawers
+
+    private func drawerGrid(_ item: SessionItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("WHERE DOES IT GO?").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
+                    let move = filedMove(item, d)
+                    SessionConfirmButton(title: d.title, previews: [FeedStore.putAwayPreview([move])], prominent: d == item.drawer?.choice,
+                                         identifier: "session.drawer.\(d.labelName)") { approvals in put(move, approvals[0]) }
+                }
+            }
+            archiveButton(item, prominent: false)
+        }
+    }
+
+    // MARK: Reply
+
+    private var replyEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("YOUR REPLY").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $draft)
+                    .frame(minHeight: 180).scrollContentBackground(.hidden)
+                    .padding(10).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                    .accessibilityIdentifier("session.replyText")
+                if drafting { ProgressView().padding(18) }
+            }
+        }
+    }
+
+    @ViewBuilder private func replyActions(_ item: SessionItem, _ post: Post) -> some View {
+        let drawer = item.drawer?.choice ?? DrawerChoice(.personal)
+        if store.canSendSessionReply(post) {
+            SessionConfirmButton(title: "Send and put away in \(drawer.title)",
+                                 previews: [FeedStore.replyPreview(post, body: draft), FeedStore.replyFilingPreview(post, drawer: drawer)],
+                                 enabled: !drafting && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                 identifier: "session.send") { approvals in
+                store.sendSessionReply(post, body: draft, drawer: drawer, tags: filedMove(item, drawer).tags, confirmed: approvals[0], filing: approvals[1],
+                                       onReturn: { [model] ids in model.reopen(ids) })
+                model.record(item.id, .replied)
+                model.advance()
+            }
+            Text("To \(post.email.from.email). You have 10 seconds to undo.").font(.caption).foregroundStyle(CalmStyle.secondary)
+        } else {
+            Button("Finish in Gmail") { openInGmail(post) }.buttonStyle(SessionButtonStyle())
+            Text("Several people are on this one, so Gmail sends it.").font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        HStack {
+            small("Back", id: "session.replyBack") { mode = .decide }
+            small("Skip", id: "session.skip") { model.skip(item.id) }
+        }
+    }
+
+    private func openReply(_ post: Post) {
+        mode = .reply
+        guard draft.isEmpty else { return }
+        if let saved = store.savedDrafts.removeValue(forKey: post.id) { draft = saved; return }
+        drafting = true
+        let name = store.mode == .gmail ? "" : store.me.firstName
+        Task {
+            var text = (try? await ReplyDrafterFactory.best().draft(replyTo: post.email, myName: name)) ?? ""
+            if text.isEmpty { text = (try? await TemplateReplyDrafter().draft(replyTo: post.email, myName: name)) ?? "" }
+            if draft.isEmpty { draft = text }
+            drafting = false
+        }
+    }
+
+    private func openInGmail(_ post: Post) {
+        let plan = ReplyRecipients.reply(post.email)
+        let subject = GmailCompose.replySubject(post.email.subject)
+        guard let app = GmailCompose.appURL(to: plan.toLine, subject: subject, body: draft) else { return }
+        openURL(app) { accepted in
+            if !accepted, let web = GmailCompose.webURL(to: plan.toLine, subject: subject, body: draft) { openURL(web) }
+        }
+    }
+}
+
+struct SessionCalendarBox: Identifiable {
+    let draft: CalendarDraft
+    var id: String { "\(draft.start.timeIntervalSince1970)-\(draft.title)" }
+}
+
+/// Who, what and when for one email. Tapping "Open the email" shows the original.
+struct SessionMailCard: View {
+    let item: SessionItem
+    let post: Post
+    let open: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                CalmAvatar(person: post.email.from, size: 44, waiting: item.message.section == .waiting, organization: !item.message.isPerson)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(post.email.from.name).font(.headline).lineLimit(1)
+                    Text(HomeDigest.age(of: post.email.date, now: Date()) + (post.email.isUnread ? " · unread" : ""))
+                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
+                Spacer()
+            }
+            if !post.email.subject.isEmpty {
+                Text(post.email.subject).font(.title3.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+            }
+            if let ask = item.message.ask {
+                Text("\u{201C}\(ask)\u{201D}").font(.body).foregroundStyle(CalmStyle.roseInk).fixedSize(horizontal: false, vertical: true)
+            } else if !post.summary.blurb.isEmpty {
+                Text(post.summary.blurb).font(.body).foregroundStyle(CalmStyle.secondary).lineLimit(5)
+            }
+            if let reason = item.drawer?.reason, item.suggestion != .reply {
+                Label(reason, systemImage: "tray.and.arrow.down").font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            Button("Open the email", action: open).font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                .frame(minHeight: 44).accessibilityIdentifier("session.openEmail")
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 20))
+        .padding(.top, 4)
+    }
+}
+
+// MARK: Batch
+
+struct SessionBatchScreen: View {
+    @Environment(FeedStore.self) private var store
+    @Bindable var model: SessionModel
+    @State private var calendar: SessionCalendarBox?
+
+    var body: some View {
+        let page = model.batchPage
+        let moves = model.batchMoves
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
+                    Text("Each goes in its drawer, marked read and out of your inbox. Tap a drawer to change it.")
+                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    VStack(spacing: 0) {
+                        ForEach(page) { item in
+                            row(item)
+                            if item.id != page.last?.id { Divider().overlay(CalmStyle.divider) }
+                        }
+                    }
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .padding(.horizontal, 20).padding(.bottom, 20)
+            }
+            VStack(spacing: 10) {
+                SessionConfirmButton(title: moves.count == page.count ? "Put away all \(moves.count)" : "Put away \(moves.count)",
+                                     previews: [FeedStore.putAwayPreview(moves)], enabled: !moves.isEmpty,
+                                     identifier: "session.batch.confirm") { approvals in
+                    store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) })
+                    model.finishBatchPage(moves)
+                }
+                Button(moves.isEmpty ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
+                    .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                    .accessibilityIdentifier("session.batch.skip")
+            }
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
+        }
+        .sheet(item: $calendar) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
+    }
+
+    private func row(_ item: SessionItem) -> some View {
+        let leftOut = model.batchLeftOut.contains(item.id)
+        let post = store.sessionPost(item.id)
+        let date = post.flatMap { MailDates.extract($0.email, now: Date()).first }
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                let tags = model.batchTags(item)
+                if !tags.isEmpty {
+                    Text(tags.map(\.title).joined(separator: " · ")).font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1)
+                }
+                if let date, let post {
+                    Button { calendar = SessionCalendarBox(draft: CalendarDraft.make(email: post.email, date: date)) } label: {
+                        Label("Add \(ComingUp.fullLabel(date))", systemImage: "calendar.badge.plus").font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(CalmStyle.blue).frame(minHeight: 32)
+                }
+            }
+            .opacity(leftOut ? 0.45 : 1)
+            Spacer(minLength: 8)
+            Menu {
+                ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
+                    Button(d.title) { model.batchDrawers[item.id] = d; model.batchLeftOut.remove(item.id) }
+                }
+                Divider()
+                Button(leftOut ? "Put it away" : "Leave unread") {
+                    if leftOut { model.batchLeftOut.remove(item.id) } else { model.batchLeftOut.insert(item.id) }
+                }
+            } label: {
+                Text(leftOut ? "Stays unread" : (model.batchDrawer(item)?.title ?? "Choose"))
+                    .font(.caption.weight(.semibold)).lineLimit(1)
+                    .padding(.horizontal, 12).frame(minHeight: 34)
+                    .foregroundStyle(leftOut ? CalmStyle.secondary : CalmStyle.blue)
+                    .background((leftOut ? CalmStyle.secondary : CalmStyle.blue).opacity(0.1), in: Capsule())
+            }
+            .accessibilityIdentifier("session.batch.drawer")
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+    }
+}
+
+// MARK: Reading
+
+struct SessionReadingScreen: View {
+    @Environment(FeedStore.self) private var store
+    @Bindable var model: SessionModel
+
+    var body: some View {
+        let items = model.readingItems
+        let moves = model.readingMoves
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(items.count == 1 ? "One newsletter" : "\(items.count) newsletters").font(.title.weight(.bold))
+                    Text("Archive the ones you won't read. Tap Keep to leave one unread.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                    VStack(spacing: 0) {
+                        ForEach(items) { item in
+                            let kept = model.readingKept.contains(item.id)
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                    Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                                }
+                                Spacer(minLength: 8)
+                                Button(kept ? "Kept" : "Keep") {
+                                    if kept { model.readingKept.remove(item.id) } else { model.readingKept.insert(item.id) }
+                                }
+                                .font(.caption.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 34)
+                                .foregroundStyle(kept ? CalmStyle.onBlue : CalmStyle.blue)
+                                .background(kept ? CalmStyle.blue : CalmStyle.blue.opacity(0.1), in: Capsule())
+                                .accessibilityIdentifier("session.reading.keep")
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 12)
+                            if item.id != items.last?.id { Divider().overlay(CalmStyle.divider) }
+                        }
+                    }
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .padding(.horizontal, 20).padding(.bottom, 20)
+            }
+            VStack(spacing: 10) {
+                SessionConfirmButton(title: moves.count == items.count ? "Archive all \(moves.count)" : "Archive \(moves.count)",
+                                     previews: [FeedStore.putAwayPreview(moves)], enabled: !moves.isEmpty,
+                                     identifier: "session.reading.confirm") { approvals in
+                    store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) })
+                    model.finishReading(moves)
+                }
+                Button(moves.isEmpty ? "Continue" : "Leave them unread") { model.finishReading([]) }
+                    .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                    .accessibilityIdentifier("session.reading.skip")
+            }
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
+        }
+    }
+}
+
+// MARK: Wrap-up
+
+struct SessionWrapScreen: View {
+    let model: SessionModel
+    let close: () -> Void
+    var openBacklog: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(model.leftUnread.isEmpty ? "Inbox clear" : "Done for now").font(.largeTitle.weight(.bold))
+                    HStack(spacing: 10) {
+                        stat(model.replies, "Replies")
+                        stat(model.filed, "Filed")
+                        stat(model.archived, "Archived")
+                    }
+                    if !model.drawerSummary.isEmpty {
+                        Text(model.drawerSummary).font(.callout).foregroundStyle(CalmStyle.secondary)
+                    }
+                    if model.datesAdded > 0 {
+                        Label(model.datesAdded == 1 ? "1 date added to your calendar" : "\(model.datesAdded) dates added to your calendar",
+                              systemImage: "calendar").font(.callout)
+                    }
+                    if !model.leftUnread.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("LEFT UNREAD ON PURPOSE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                            ForEach(model.leftUnread.prefix(5)) { item in
+                                Text("\(item.message.fromName): \(item.message.subject)").font(.callout).lineLimit(1)
+                            }
+                            if model.leftUnread.count > 5 {
+                                Text("and \(model.leftUnread.count - 5) more").font(.caption).foregroundStyle(CalmStyle.secondary)
+                            }
+                        }
+                    }
+                    if !model.plan.carried.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("YOU PROMISED").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                            ForEach(model.plan.carried.prefix(5), id: \.id) { p in
+                                Text("\(p.recipient): \u{201C}\(p.text)\u{201D}").font(.callout).lineLimit(2)
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            VStack(spacing: 10) {
+                Button("Done") { close() }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("session.done")
+                if let openBacklog {
+                    Button(model.backlog ? "Clear the next page" : "Clear older mail too") { openBacklog() }
+                        .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                        .accessibilityIdentifier("session.backlog.next")
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    private func stat(_ n: Int, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(n)").font(.title.weight(.bold))
+            Text(label).font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: Say what to do (Sprint 7 step 3)
+
+/// One engine's proposal for the current email. In compare mode there are two, side by side.
+struct SessionProposal: Identifiable, Equatable {
+    var engine: EngineKind
+    var action: SessionAction
+    var say: String
+    /// "Instant" for the built-in quick commands.
+    var quick = false
+    var id: String { engine.rawValue + (quick ? "-quick" : "") }
+    var label: String { quick ? "Instant" : engine.name }
+}
+
+struct SessionHandoffOffer: Identifiable {
+    let id = UUID().uuidString
+    let task: String
+    let item: SessionItem
+    let reportTo: String?
+    /// Links in the full email, most likely first, for doing the task inside Lovely.
+    var links: [URL] = []
+}
+
+extension SessionItemScreen {
+    private var ownerName: String { let n = store.me.firstName; return n == "You" ? "" : n }
+
+    @ViewBuilder func askSection(_ item: SessionItem, _ post: Post) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("Or say what to do", text: $askText, axis: .vertical)
+                    .lineLimit(1...4).submitLabel(.go).focused($askFocused)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                    .onSubmit { ask(item, post) }
+                    .accessibilityIdentifier("session.ask")
+                Button { ask(item, post) } label: {
+                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
+                        .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
+                        .background(CalmStyle.blue, in: Circle())
+                }
+                .disabled(thinking || askText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
+            }
+            if askText.isEmpty, proposals.isEmpty, askNote == nil {
+                Text(hint(item)).font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            if thinking { ProgressView().frame(maxWidth: .infinity) }
+            if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
+            ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
+        }
+    }
+
+    private func hint(_ item: SessionItem) -> String {
+        let engine = EngineSettings().engine
+        let base = item.message.isPerson ? "Try \u{201C}tell \(item.message.fromName.split(separator: " ").first.map(String.init) ?? "them") Thursday works\u{201D} or \u{201C}file it in People\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D} or \u{201C}archive\u{201D}."
+        return base + " Tap the mic on the keyboard to talk." + (engine == .apple ? "" : " Using \(engine.name).")
+    }
+
+    private func ask(_ item: SessionItem, _ post: Post) {
+        let said = askText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !said.isEmpty, !thinking else { return }
+        askFocused = false
+        askNote = nil
+        proposals = []
+        let kids = store.sessionKids
+        if let quick = SessionQuickCommands.parse(said, kids: kids, fromPerson: item.message.isPerson) {
+            proposals = [SessionProposal(engine: .apple, action: SessionCommandValidator.validate(quick, item: item, kids: kids),
+                                         say: quick.say ?? "", quick: true)]
+            return
+        }
+        let settings = EngineSettings()
+        let kinds = EngineRouter.plan(for: item, settings: settings)
+        if settings.engine.isCloud, !EngineRouter.allowsCloud(item) { askNote = EngineError.notForCloud.localizedDescription }
+        else if settings.engine.isCloud, !EngineSettings.hasKey(settings.engine) { askNote = EngineError.noKey(settings.engine).localizedDescription }
+        let request = EngineRouter.request(for: item, said: said, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
+        thinking = true
+        Task {
+            var results: [SessionProposal] = []
+            var problems: [String] = []
+            await withTaskGroup(of: (EngineKind, Result<EngineAnswer, Error>).self) { group in
+                for kind in kinds {
+                    let engine = EngineRouter.engine(kind, settings: settings)
+                    group.addTask { do { return (kind, .success(try await engine.interpret(request))) } catch { return (kind, .failure(error)) } }
+                }
+                for await (kind, result) in group {
+                    switch result {
+                    case .success(let answer):
+                        EngineUsage().recordCall(answer)
+                        results.append(SessionProposal(engine: kind, action: SessionCommandValidator.validate(answer.command, item: item, kids: kids),
+                                                       say: answer.command.say ?? ""))
+                    case .failure(let error):
+                        problems.append("\(kind.name): \(error.localizedDescription)")
+                    }
+                }
+            }
+            proposals = results.sorted { kinds.firstIndex(of: $0.engine) ?? 0 < kinds.firstIndex(of: $1.engine) ?? 0 }
+            if !problems.isEmpty { askNote = ([askNote].compactMap { $0 } + problems).joined(separator: "\n") }
+            thinking = false
+        }
+    }
+
+    @ViewBuilder private func proposalCard(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if comparing || !p.quick {
+                Text(p.label.uppercased()).font(.caption2.weight(.bold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            }
+            if !p.say.isEmpty { Text(p.say).font(.callout) }
+            if case .reply(let text, _) = p.action {
+                Text(text).font(.body).padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 12))
+            }
+            proposalButton(p, item, post, comparing: comparing)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder private func proposalButton(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
+        let said = askText
+        let pick: () -> Void = {
+            if comparing { EngineUsage().recordPick(p.engine) }
+            SessionExampleStore().record(said: said, action: Self.actionName(p.action), drawer: Self.drawerName(p.action))
+            proposals = []; askText = ""
+        }
+        switch p.action {
+        case .reply(let text, let drawer):
+            if store.canSendSessionReply(post) {
+                SessionConfirmButton(title: p.action.title,
+                                     previews: [FeedStore.replyPreview(post, body: text), FeedStore.replyFilingPreview(post, drawer: drawer)],
+                                     prominent: !comparing || p.engine == proposals.first?.engine, identifier: "session.proposal.send") { approvals in
+                    pick()
+                    store.sendSessionReply(post, body: text, drawer: drawer, tags: filedMove(item, drawer).tags, confirmed: approvals[0], filing: approvals[1],
+                                           onReturn: { [model] ids in model.reopen(ids) })
+                    model.record(item.id, .replied); model.advance()
+                }
+            } else {
+                Button("Edit and finish in Gmail") { pick(); draft = text; openInGmail(post) }.buttonStyle(SessionButtonStyle(prominent: false))
+            }
+        case .putAway(let d):
+            let move = filedMove(item, d)
+            SessionConfirmButton(title: p.action.title, previews: [FeedStore.putAwayPreview([move])], identifier: "session.proposal.putAway") { approvals in
+                pick(); put(move, approvals[0])
+            }
+        case .addDateThenPutAway(let d):
+            dateButton(item, post, d)
+        case .archive:
+            let move = SessionMove(messageID: item.id, drawer: nil)
+            SessionConfirmButton(title: p.action.title, previews: [FeedStore.putAwayPreview([move])], identifier: "session.proposal.archive") { approvals in
+                pick(); put(move, approvals[0])
+            }
+        case .later(let when):
+            Button(p.action.title) {
+                pick()
+                let options = LaterSchedule.options(now: Date())
+                let chosen = options.first { $0.title.lowercased() == when } ?? options.first
+                if let chosen { store.putOff(post, until: chosen.date) }
+                model.record(item.id, .leftUnread); model.advance()
+            }.buttonStyle(SessionButtonStyle())
+        case .leaveUnread:
+            Button(p.action.title) { pick(); model.record(item.id, .leftUnread); model.advance() }.buttonStyle(SessionButtonStyle())
+        case .skip:
+            Button(p.action.title) { pick(); model.skip(item.id) }.buttonStyle(SessionButtonStyle())
+        case .handoff(let task):
+            Button("Hand off: \(task)") {
+                pick()
+                handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account,
+                                              links: FormScripts.links(in: post.email.body, senderAddress: post.email.from.email))
+            }.buttonStyle(SessionButtonStyle()).lineLimit(3)
+        case .unclear:
+            EmptyView()
+        }
+    }
+
+    static func actionName(_ a: SessionAction) -> String {
+        switch a {
+        case .reply: return "reply"
+        case .putAway: return "put_away"
+        case .addDateThenPutAway: return "add_date"
+        case .later: return "later"
+        case .leaveUnread: return "leave_unread"
+        case .archive: return "archive"
+        case .skip: return "skip"
+        case .handoff: return "handoff"
+        case .unclear: return "unclear"
+        }
+    }
+
+    static func drawerName(_ a: SessionAction) -> String? {
+        switch a {
+        case .reply(_, let d), .putAway(let d), .addDateThenPutAway(let d): return d.child.map { "Kids/\($0)" } ?? d.drawer.title
+        default: return nil
+        }
+    }
+}
+
+/// Hand a task to Grok or Claude: their app opens with the prompt filled in, falling back to the website, then to copy.
+/// The prompt asks the agent to email a report with a [Lovely] subject, which the next session recognizes.
+struct SessionHandoffSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let offer: SessionHandoffOffer
+    let sent: () -> Void
+    @State private var reportID = HandoffPrompt.newReportID()
+    @State private var copied = false
+    @State private var webForm: WebFormModel?
+
+    /// A link to open and a cloud engine to read the page.
+    private var canDoHere: Bool { !offer.links.isEmpty && WebFormModel.filler() != nil }
+
+    private func prompt(_ agent: HandoffAgent) -> String {
+        HandoffPrompt.sessionPrompt(task: offer.task, item: offer.item, agent: agent, reportTo: offer.reportTo, reportID: reportID)
+    }
+
+    private var allowed: Bool {
+        HandoffPrompt.isAllowed(address: offer.item.message.fromAddress, name: offer.item.message.fromName,
+                                subject: offer.item.message.subject, sensitive: offer.item.message.isHealth)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Hand this off").font(.title2.weight(.bold))
+                Text(offer.task).font(.body)
+                if allowed {
+                    Text(canDoHere ? "Do it here: the site opens in Lovely, the form is filled while you watch, and you press Submit."
+                                   : "The agent stops before anything you cannot undo, like Submit or Pay, and emails you a report when it is done.")
+                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    Spacer()
+                    let first = HandoffAgent.current
+                    let second: HandoffAgent = first == .grok ? .claude : .grok
+                    if canDoHere, let url = offer.links.first {
+                        Button("Do it here in Lovely") { webForm = WebFormModel(task: offer.task, emailFacts: offer.item.message.subject + "\n" + offer.item.message.text, url: url) }
+                            .buttonStyle(SessionButtonStyle()).accessibilityIdentifier("handoff.here")
+                    }
+                    Button("Send to \(first.name)") { send(first) }.buttonStyle(SessionButtonStyle(prominent: !canDoHere)).accessibilityIdentifier("handoff.first")
+                    Button("Send to \(second.name)") { send(second) }.buttonStyle(SessionButtonStyle(prominent: false)).accessibilityIdentifier("handoff.second")
+                    Button(copied ? "Copied" : "Copy the prompt") { UIPasteboard.general.string = prompt(first); copied = true }
+                        .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
+                } else {
+                    Text("Health mail stays on this iPhone, so Lovely does not write a prompt for it.").foregroundStyle(CalmStyle.secondary)
+                    Spacer()
+                }
+            }
+            .padding(20)
+            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+            .toolbar { Button("Cancel") { dismiss() } }
+            .fullScreenCover(item: $webForm) { model in WebFormView(model: model) { sent(); dismiss() } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func send(_ agent: HandoffAgent) {
+        let text = prompt(agent)
+        UIPasteboard.general.string = text   // the fallback is always ready
+        let web = HandoffLink.webURL(agent, prompt: text)
+        if let app = HandoffLink.appURL(agent, prompt: text) {
+            openURL(app) { accepted in if !accepted, let web { openURL(web) } }
+        } else if let web { openURL(web) }
+        sent()
+        dismiss()
+    }
+}

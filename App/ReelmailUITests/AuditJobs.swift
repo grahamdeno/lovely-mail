@@ -355,6 +355,8 @@ final class AuditJobs: AuditCase {
 
             // Disconnect.
             let disconnect = app.buttons["settings.disconnect"]
+            // Start from the top so the button is not under the navigation bar.
+            for _ in 0..<3 { app.swipeDown(); settle(0.2) }
             scrollIntoView(disconnect)
             if tap(disconnect, "Disconnect Gmail") {
                 let confirm = app.buttons.matching(NSPredicate(format: "label == %@", "Disconnect")).firstMatch
@@ -430,5 +432,67 @@ final class AuditJobs: AuditCase {
             }
         }
         mark("walked the error state")
+    }
+
+    // MARK: Job 11: inbox session (Sprint 7): go through unread mail, one decision per screen
+
+    func testJob11_InboxSession() { inboxSession(.light) }
+    func testJob11_InboxSession_Dark() { inboxSession(.dark) }
+    func testJob11_InboxSession_LargeText() { inboxSession(.largeText) }
+
+    private func inboxSession(_ c: AuditCondition) {
+        begin(11, "session", "Inbox session: go through unread mail", c)
+        guard waitForHome() else { return }
+        let card = app.buttons["home.session"]
+        check(card.waitForExistence(timeout: 20) || locate(card), "Home offers 'Go through your inbox'")
+        shot("home", screen: "Home")
+        guard tap(card, "Go through your inbox") else { return }
+        check(app.buttons["session.start"].waitForExistence(timeout: 8), "The session opens on its start screen")
+        shot("start", screen: "Session start")
+        auditAccessibility("Session start")
+        guard tap(app.buttons["session.start"], "Start") else { return }
+
+        var putAway = 0, batches = 0, leftUnread = 0
+        for step in 1...30 {
+            settle(0.6)
+            if app.buttons["session.done"].exists { break }
+            if step <= 4 { shot("step-\(step)", screen: step == 1 ? "Session item" : nil) }
+            if step == 1 { auditAccessibility("Session item") }
+            let batch = app.buttons["session.batch.confirm"], reading = app.buttons["session.reading.confirm"]
+            if batch.exists, batch.isEnabled {
+                shot("batch", screen: "Session batch")
+                if tap(batch, "Put away the batch") { batches += 1 }
+                continue
+            }
+            if reading.exists, reading.isEnabled {
+                shot("reading", screen: "Session newsletters")
+                if tap(reading, "Archive the newsletters") { batches += 1 }
+                continue
+            }
+            if app.buttons["session.putAway"].exists, tap(app.buttons["session.putAway"], "Put away") { putAway += 1; continue }
+            // Replies, dates and drawer choices need a person; the audit leaves those unread on purpose.
+            if app.buttons["session.leaveUnread"].exists, tap(app.buttons["session.leaveUnread"], "Leave unread") { leftUnread += 1; continue }
+            if app.buttons["session.batch.skip"].exists, tap(app.buttons["session.batch.skip"], "Continue") { continue }
+            if app.buttons["session.reading.skip"].exists, tap(app.buttons["session.reading.skip"], "Continue") { continue }
+            note("step \(step): no known button")
+            break
+        }
+        check(app.buttons["session.done"].waitForExistence(timeout: 8), "The session ends on the wrap-up")
+        shot("wrap", screen: "Session wrap-up")
+        note("put away \(putAway), batches \(batches), left unread \(leftUnread)")
+        check(putAway + batches > 0, "At least one thing was put away")
+        // Put away is held 10 seconds for Undo, then Gmail is asked.
+        check(waitForRequest("/modify", atLeast: 1, timeout: 25), "Gmail was asked to file or archive", "saw \(count("/modify"))")
+        check(waitForRequest("CLIENT markRead", atLeast: 1, timeout: 10), "Put-away mail was marked read")
+        check(count("/messages/send") == 0, "Nothing was sent")
+        check(count("DELETE") == 0, "Nothing was deleted")
+        if tap(app.buttons["session.done"], "Done") {
+            settle(1)
+            shot("after-done", screen: "Home after the session")
+            let home = waitForHome(timeout: 10)
+            if !home { note("After Done: " + visibleTexts(limit: 25).joined(separator: " | ")) }
+            check(home, "Back on Home")
+        }
+        mark("session finished")
     }
 }

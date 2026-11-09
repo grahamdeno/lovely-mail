@@ -37,11 +37,16 @@ struct ActionPreviewSheet: View {
 /// A countdown banner for held sends and forwards, with Undo.
 struct UndoBanner: View {
     @Environment(FeedStore.self) private var store
+    /// In the inbox session only the newest one shows, so the bar never covers the session's buttons.
+    var limit: Int? = nil
     var body: some View {
+        let all = store.undo.pending
+        let shown = limit.map { Array(all.suffix($0)) } ?? all
+        let hiddenCount = all.count - shown.count
         VStack(spacing: 6) {
-            ForEach(store.undo.pending) { item in
+            ForEach(shown) { item in
                 HStack {
-                    Text(item.title).font(.subheadline).lineLimit(2)
+                    Text(item.title + (hiddenCount > 0 && item.id == shown.last?.id ? " (+\(hiddenCount) more)" : "")).font(.subheadline).lineLimit(2)
                     Spacer()
                     Button("Undo") { store.undo.cancel(item.id) }.font(.subheadline.weight(.semibold)).accessibilityIdentifier("undo.banner")
                 }

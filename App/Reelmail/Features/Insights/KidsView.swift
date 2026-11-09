@@ -138,12 +138,31 @@ struct KidView: View {
 
 /// Households and children, kept on this phone. Names here never leave it.
 struct InsightSettingsView: View {
+    @Environment(FeedStore.self) private var store
     @State private var data = InsightSettings().load()
     @State private var newKid = ""
     @State private var newHousehold = ""
+    @State private var foundKids: [Discovery.Candidate] = []
+    @State private var foundPlaces: [Discovery.Candidate] = []
+    @State private var dismissed: Set<String> = []
 
     var body: some View {
         Form {
+            if !(foundKids + foundPlaces).filter({ !dismissed.contains($0.id) }).isEmpty {
+                Section {
+                    ForEach(foundKids.filter { !dismissed.contains($0.id) }) { c in
+                        foundRow(c, detail: "Child? Seen in \(c.count) emails") { add(kid: c.name) }
+                    }
+                    ForEach(foundPlaces.filter { !dismissed.contains($0.id) }) { c in
+                        foundRow(c, detail: (c.looksPast ? "Sold or closed? " : "Property? ") + "Seen in \(c.count) emails") {
+                            data.households.append(Household(id: UUID().uuidString, name: c.name, endsOn: c.looksPast ? c.lastSeen : nil))
+                            dismissed.insert(c.id)
+                        }
+                    }
+                } header: { Text("Found in your mail") } footer: {
+                    Text("Lovely only suggests these. Add the ones that are yours; they are used to tag mail and never leave this iPhone.")
+                }
+            }
             Section("Households") {
                 ForEach($data.households) { $h in
                     VStack(alignment: .leading) {
@@ -175,6 +194,28 @@ struct InsightSettingsView: View {
         }
         .navigationTitle("Households and kids").navigationBarTitleDisplayMode(.inline)
         .onChange(of: data) { _, new in InsightSettings().save(new) }
+        .task { discover() }
+    }
+
+    private func foundRow(_ c: Discovery.Candidate, detail: String, add: @escaping () -> Void) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(c.name).font(.body.weight(.semibold))
+                Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            Spacer()
+            Button("Add") { add(); dismissed.insert(c.id) }.buttonStyle(.borderless)
+            Button { dismissed.insert(c.id) } label: { Image(systemName: "xmark") }
+                .buttonStyle(.borderless).foregroundStyle(CalmStyle.secondary).accessibilityLabel("Not mine")
+        }
+    }
+
+    /// Reads the mail already on the phone and offers names and addresses, with how often each appears.
+    private func discover() {
+        let mails = store.posts.map { Discovery.Mail(subject: $0.email.subject, text: $0.email.body, fromAddress: $0.email.from.email, date: $0.email.date) }
+        let owner = store.me.name == "You" ? "" : store.me.name
+        foundKids = Discovery.kids(in: mails, ownerName: owner, known: data.kids.map(\.name))
+        foundPlaces = Discovery.properties(in: mails, known: data.households.map(\.name), now: Date())
     }
 
     private func list(_ b: Binding<[String]>) -> Binding<String> {

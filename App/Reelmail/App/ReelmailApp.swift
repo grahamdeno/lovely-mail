@@ -118,6 +118,16 @@ enum Route: Hashable {
     case testingTools
     /// The privacy paragraph, inside Settings.
     case aboutPrivacy
+    /// The inbox session (Sprint 7): unread mail, one decision at a time.
+    case session
+    /// The same session over read mail still in the inbox, a page at a time.
+    case backlog
+    /// Apple only, Claude or Grok for the inbox session, keys and compare mode.
+    case engineSettings
+    /// Every enabled engine against the fictional scorecard sentences.
+    case engineScorecard
+    /// Old login codes and device checks, listed, then moved to Trash with one tap.
+    case cleanup
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

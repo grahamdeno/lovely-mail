@@ -218,6 +218,17 @@ struct HomeView: View {
                 .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 4, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
+        let toGoThrough = store.sessionCandidates.count
+        let older = toGoThrough == 0 && store.mode == .gmail ? store.backlogCandidates.count : 0
+        if toGoThrough > 0 {
+            SessionStartCard(count: toGoThrough, waiting: d.waiting.count)
+                .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        } else if older > 0 {
+            SessionStartCard(count: older, waiting: 0, backlog: true)
+                .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
         if !d.waiting.isEmpty {
             title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")
             // Two on Home so Next up stays on the first screen; the rest are one tap away.
