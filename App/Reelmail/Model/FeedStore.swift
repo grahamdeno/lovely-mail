@@ -7,6 +7,8 @@ final class FeedStore {
     private(set) var posts: [Post] = []
     private(set) var sentByMe: [Email] = []
     private(set) var mode: DataMode = .sample
+    /// False until Lovely knows what goes on screen (your saved mail, or sample mail). The launch splash waits on it.
+    private(set) var hasStarted = false
     private(set) var isLoading = false
     private(set) var isSummarizing = false
     /// Set when Gmail needs a fresh sign-in. Loaded mail stays on screen.
@@ -66,6 +68,13 @@ final class FeedStore {
         self.cacheStore = cacheStore
         demoRules = LocalTriageRules(accountID: "demo-home-v1", defaults: triageDefaults)
         demoReview = SortingReview(accountID: "demo-home-v1", defaults: triageDefaults)
+        // Signed in with mail saved on this phone: show it from the first frame, before the refresh starts.
+        if self.gmail.isSignedIn, let cached = cacheStore?.loadCurrent() {
+            mode = .gmail
+            apply(cached)
+            loadDoneCount(); loadLater(); loadMailLists()
+            hasStarted = true
+        }
     }
 
     /// Review verdicts for what is on screen now. Nil in live mode until the account is known.
@@ -99,7 +108,7 @@ final class FeedStore {
         revision += 1
         let current = revision
         isLoading = true; isSummarizing = false; errorMessage = nil; refreshFailed = false
-        defer { if revision == current { isLoading = false } }
+        defer { if revision == current { isLoading = false }; hasStarted = true }
         if gmail.isSignedIn || mode == .gmail {
             await loadGmail(revision: current)
         } else {
@@ -115,12 +124,14 @@ final class FeedStore {
         sentByMe = SampleData.sentByMe
         let fallback = FallbackSummarizer()
         posts = SampleData.emails.map { Post(email: $0, summary: fallback.summarizeSync(SummaryInput(email: $0))) }
+        hasStarted = true
     }
 
     private func loadGmail(revision current: Int) async {
         if mode != .gmail { posts = []; hidden.removeAll(); seen.removeAll(); summaries = [:] }
         mode = .gmail
         if posts.isEmpty, let cached = cacheStore?.loadCurrent() { apply(cached) }
+        if !posts.isEmpty { hasStarted = true }
         guard gmailConfigured, gmail.isSignedIn else {
             needsReconnect = true
             errorMessage = "Gmail needs reconnecting. No demo mail has been substituted."

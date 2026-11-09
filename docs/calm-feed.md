@@ -57,6 +57,11 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Lovely remembers each sender's choice (SenderFateMemory, exact address, per account) and starts that sender's rows there next time.
 - Open question for the owner: auto-trash short-term mail after 14 days without a tap (needs explicit approval; today every trash waits for a tap).
 
+## Launch (Nov 9, 2026)
+- Signed in with saved mail: FeedStore applies the cache in init, so the first frame is your mail (the sample "Connect Gmail" page no longer flashes for ~2 seconds).
+- Otherwise a splash (icon's l and dot, "lovely" wordmark, "Mail from your people.") shows until Lovely knows what to show (`hasStarted`), then fades.
+- Not done: the system launch screen is still the generated blank one (a fraction of a second before the splash).
+
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
 - Summaries use Apple Intelligence when available (iPhone 15 Pro or newer); otherwise subject/first-sentence excerpts labeled as such.
