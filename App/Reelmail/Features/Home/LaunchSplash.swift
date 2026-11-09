@@ -14,11 +14,11 @@ struct LaunchSplash: View {
             .frame(width: 128, height: 128)
             .accessibilityHidden(true)
             Wordmark(size: 40)
-            Text("Mail from your people.").font(.callout).foregroundStyle(CalmStyle.secondary)
+            Text("Get through your email, calmly.").font(.callout).foregroundStyle(CalmStyle.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CalmStyle.background)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Lovely. Mail from your people. Opening.")
+        .accessibilityLabel("Lovely. Get through your email, calmly. Opening.")
     }
 }

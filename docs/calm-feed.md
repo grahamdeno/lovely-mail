@@ -59,7 +59,7 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 
 ## Launch (Nov 9, 2026)
 - Signed in with saved mail: FeedStore applies the cache in init, so the first frame is your mail (the sample "Connect Gmail" page no longer flashes for ~2 seconds).
-- Otherwise a splash (icon's l and dot, "lovely" wordmark, "Mail from your people.") shows until Lovely knows what to show (`hasStarted`), then fades.
+- Otherwise a splash (icon's l and dot, "lovely" wordmark, "Get through your email, calmly.") shows until Lovely knows what to show (`hasStarted`), then fades.
 - The iPhone launch screen (Config/Info.plist UILaunchScreen) uses LaunchBackground (app background, light/dark) and LaunchMark (the icon's l and dot, light/dark), so opening never shows black.
 
 ## Text someone about an email (Nov 9, 2026)
@@ -84,7 +84,7 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Next: use the same category colors on session drawer chips.
 
 ## Opening animation (Nov 9, 2026)
-- Cold start only, about 1.8 s, tap to skip: the icon's l writes itself in one stroke (path from Design/Brand/icon-layer-l.svg), the dot hops off the end, lands with a squash and a rubbery spring, then "lovely" and "Mail from your people." fade in. Continues from the still launch screen (same crop as LaunchMark). Mail loads underneath.
+- Cold start only, about 1.8 s, tap to skip: the icon's l writes itself in one stroke (path from Design/Brand/icon-layer-l.svg), the dot hops off the end, lands with a squash and a rubbery spring, then "lovely" and "Get through your email, calmly." fade in. Continues from the still launch screen (same crop as LaunchMark). Mail loads underneath.
 - Off with Reduce Motion, and in Settings > Appearance > Opening animation. All in `Features/Home/LaunchAnimation.swift`; to remove, delete the file and its one overlay line in ReelmailApp.swift. UI audits pass `-lovely.launchAnimation NO`.
 - Contact photos are zoomed 14% inside the avatar so photos with baked-in white corners (initials images) fill the shape.
 
@@ -94,6 +94,9 @@ Verify personal Gmail sign-in in a distributed build. Add persistent real-messag
 - Removed from Home: Waiting rows, Next up, the glance grid, the Today card.
 - Coming up ignores "today" with no time (Tamara's "post your kit today" showed as an event).
 - UI audit jobs that tap Next up (home.nextup.*) need updating to the new Home; not done yet.
+
+## Subtitle and positioning (Nov 9, 2026)
+- Subtitle: "Get through your email, calmly." (splash, opening animation, App Store). Positioning sentence and notes in Design/Brand/README.md; keep it for marketing, website and videos.
 
 ## Known limits
 - Google consent screen is in Testing: sign-in expires every 7 days; only test users can sign in.
