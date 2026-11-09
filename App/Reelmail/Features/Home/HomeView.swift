@@ -258,6 +258,19 @@ struct HomeView: View {
             .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         // Everything else, as quiet chips.
+        let chips = minuteChips(d, older: older)
+        MinuteChips(chips: chips)
+            .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
+            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
+            BriefOfferCard()
+                .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 8, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+    }
+
+    /// The "When you have a minute" chips. A plain function: a view body cannot build an array step by step.
+    private func minuteChips(_ d: HomeDigest, older: Int) -> [MinuteChips.Chip] {
         let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
         let bills = money.households.filter { !$0.ended }.reduce(0) { $0 + $1.open.count }
         let kids = InsightSettings().load().kids.reduce(0) { $0 + store.kidMail(for: $1).count }
@@ -276,14 +289,7 @@ struct HomeView: View {
         if !d.earlier.isEmpty { chips.append(.init(title: "\(d.earlier.count) older", route: .mailList("earlier"))) }
         if older > 0 { chips.append(.init(title: "Clear older mail", route: .backlog)) }
         chips.append(.init(title: "All cards", route: .glance))
-        MinuteChips(chips: chips)
-            .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
-            .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
-            BriefOfferCard()
-                .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 8, trailing: 20))
-                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
-        }
+        return chips
     }
 
     /// What you told people you would do, from mail you sent. Up to three; the rest open from the title.
