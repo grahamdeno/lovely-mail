@@ -30,6 +30,8 @@ final class FeedStore {
     @ObservationIgnored var savedDrafts: [String: String] = [:]
     /// Senders declined in this session, hidden from New senders at once (while the 10-second Undo runs, and after).
     var declinedSenders: Set<String> = []
+    /// Short-term mail past two weeks, from the last check (Home shows a note when above zero).
+    var shortTermExpired = 0
     /// Set after a sender is filtered in Lovely; RootView shows it as a preview sheet.
     var gmailFilterOffer: GmailFilterOffer?
     @ObservationIgnored var httpTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
@@ -45,7 +47,7 @@ final class FeedStore {
     let demoReview: SortingReview
     private(set) var accountReview: SortingReview?
     private let summarizeOnDevice: Bool
-    private let triageDefaults: UserDefaults
+    let triageDefaults: UserDefaults
     private let cacheStore: MailCacheStore?
     private var summaries: [String: EmailSummary] = [:]
     private var revision = 0

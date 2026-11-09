@@ -128,6 +128,7 @@ enum Route: Hashable {
     case engineScorecard
     /// Old login codes and device checks, listed, then moved to Trash with one tap.
     case cleanup
+    case shortTermCleanup
 }
 
 enum AppTab: Int, CaseIterable, Identifiable {

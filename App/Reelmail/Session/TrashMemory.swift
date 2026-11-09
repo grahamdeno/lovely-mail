@@ -35,3 +35,26 @@ struct TrashMemory: Equatable, Sendable {
         address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
+
+/// What he chose for each sender on the batch and newsletter screens (file, 2 weeks, archive, trash), by exact address,
+/// per account. Rows from that sender start on the same choice next time; he can still change any row.
+struct SenderFateMemory: Equatable, Sendable {
+    private(set) var fates: [String: BatchFate] = [:]
+
+    static func key(account: String) -> String { "lovely.session.senderFates." + account.lowercased() }
+
+    static func load(account: String, defaults: UserDefaults = .standard) -> SenderFateMemory {
+        let raw = defaults.dictionary(forKey: key(account: account)) as? [String: String] ?? [:]
+        return SenderFateMemory(fates: raw.compactMapValues(BatchFate.init(rawValue:)))
+    }
+
+    func save(account: String, defaults: UserDefaults = .standard) {
+        defaults.set(fates.mapValues(\.rawValue), forKey: Self.key(account: account))
+    }
+
+    mutating func remember(_ choices: [String: BatchFate]) {
+        for (address, fate) in choices where fate != .unread && address.contains("@") {
+            fates[TrashMemory.normalized(address)] = fate
+        }
+    }
+}

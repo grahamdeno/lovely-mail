@@ -99,6 +99,34 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertFalse(screen.lines.joined().contains("marks them read"), "Screened-out mail is not marked read")
     }
 
+    func testShortTermQueryAndPreviews() {
+        XCTAssertEqual(ShortTerm.searchLabel, "lovely-short-term")
+        XCTAssertEqual(ShortTerm.query(), "label:lovely-short-term older_than:14d -in:trash -is:starred")
+        let one = ShortTerm.preview(sender: nil)
+        XCTAssertEqual(one.kind, .label)
+        XCTAssertTrue(one.lines.joined().contains("Nothing is deleted before you tap"))
+        let always = ShortTerm.preview(sender: "digest@usps.example")
+        XCTAssertEqual(always.kind, .filter)
+        XCTAssertTrue(always.lines.joined().contains("digest@usps.example"))
+        let stub = MessageStub(id: "1", fromName: "Sam", fromAddress: "Sam@Example.com", subject: "s", date: Date())
+        XCTAssertFalse(ShortTerm.keep(stub, knownPeople: ["sam@example.com"]), "Mail from people he writes to is never cleaned up")
+    }
+
+    func testSenderFateMemoryRemembersChoicesNotUnread() {
+        var memory = SenderFateMemory()
+        memory.remember(["Digest@USPS.example": .keepTwoWeeks, "news@shop.example": .unread, "bad": .trash, "ci@github.example": .trash])
+        XCTAssertEqual(memory.fates["digest@usps.example"], .keepTwoWeeks)
+        XCTAssertNil(memory.fates["news@shop.example"], "Leaving one unread is not a habit")
+        XCTAssertNil(memory.fates["bad"])
+        let defaults = UserDefaults(suiteName: "SenderFateTests")!
+        defaults.removePersistentDomain(forName: "SenderFateTests")
+        memory.save(account: "me@example.com", defaults: defaults)
+        XCTAssertEqual(SenderFateMemory.load(account: "me@example.com", defaults: defaults).fates["ci@github.example"], .trash)
+        let p = SessionFateStrip.preview([], twoWeeks: 2, trash: 1)
+        XCTAssertEqual(p.title, "Do these 3")
+        XCTAssertTrue(p.lines.joined().contains("Keeps 2 for 14 days"))
+    }
+
     // MARK: Playbook
 
     func testPlaybookCarriesStandingCallsDrawersAndExamples() {

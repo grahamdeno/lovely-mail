@@ -168,7 +168,8 @@ struct HomeView: View {
             .listStyle(.plain)
             .environment(\.defaultMinListRowHeight, 0)
             .scrollContentBackground(.hidden)
-            .refreshable { await store.load() }
+            .refreshable { await store.load(); await store.refreshShortTermExpired(force: true) }
+            .task(id: store.mode == .gmail) { await store.refreshShortTermExpired() }
         }
         .background(CalmStyle.background)
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
@@ -245,6 +246,20 @@ struct HomeView: View {
             SessionStartCard(count: older, waiting: 0, backlog: true)
                 .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
                 .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        if store.shortTermExpired > 0 {
+            Button { router.open(.shortTermCleanup) } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock.arrow.circlepath").foregroundStyle(CalmStyle.blue)
+                    Text("\(store.shortTermExpired) short-term email\(store.shortTermExpired == 1 ? "" : "s") past \(ShortTerm.keepDays) days")
+                        .font(.subheadline).foregroundStyle(CalmStyle.ink)
+                    Spacer(minLength: 8)
+                    Text("Review").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                }
+                .frame(minHeight: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).accessibilityIdentifier("home.shortTermExpired")
+            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         if !d.waiting.isEmpty {
             title("Waiting on you", d.waiting.count, rose: true, opens: "waiting")

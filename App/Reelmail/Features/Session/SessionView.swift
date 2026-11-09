@@ -24,6 +24,7 @@ struct SessionView: View {
             guard model == nil else { return }
             let plan = store.makeSessionPlan(backlog: backlog)
             let fresh = SessionModel(plan: plan, backlog: backlog)
+            fresh.rememberedFates = store.senderFates.fates
             model = fresh
             // Routine mail the rules could not place gets an on-device drawer suggestion, so its screen has one main button.
             let unplaced = plan.items.filter { $0.drawer == nil && !$0.message.isPerson && $0.group != .reading }.map(\.message)
@@ -308,6 +309,13 @@ struct SessionItemScreen: View {
                             }
                         }
                     }
+                    let always2w = ShortTerm.preview(sender: sender)
+                    ruleBlock(always2w) {
+                        SessionConfirmButton(title: "Always keep 2 weeks, then Trash", previews: [always2w], identifier: "session.alwaysTwoWeeks") { a in
+                            store.applySenderRule(sender: sender, label: ShortTerm.label, posts: moving, markRead: true, screenOut: false, confirmed: a[0])
+                            finishSender(item, moving, .archived)
+                        }
+                    }
                     let screen = FeedStore.senderRulePreview(sender: sender, label: ScreenedOut.label, inboxCount: moving.count, screenOut: true)
                     ruleBlock(screen) {
                         SessionConfirmButton(title: "Screen out this sender", previews: [screen], prominent: drawer == nil, identifier: "session.screenOut") { a in
@@ -316,7 +324,8 @@ struct SessionItemScreen: View {
                         }
                     }
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Just this email. Gmail keeps Trash for 30 days.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                        Text("Just this email.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                        keepTwoWeeksButton(item, prominent: false)
                         trashButton(item, post, prominent: false)
                     }
                 }
@@ -441,7 +450,20 @@ struct SessionItemScreen: View {
                                          identifier: "session.drawer.\(d.labelName)") { approvals in put(move, approvals[0]) }
                 }
             }
+            keepTwoWeeksButton(item, prominent: false)
             archiveButton(item, prominent: false)
+        }
+    }
+
+    /// Out of the inbox now; after two weeks Lovely offers to move it to Trash (a safety net instead of deleting).
+    private func keepTwoWeeksButton(_ item: SessionItem, prominent: Bool) -> some View {
+        SessionConfirmButton(title: "Keep 2 weeks, then Trash", previews: [ShortTerm.preview(sender: nil)], prominent: prominent,
+                             identifier: "session.keepTwoWeeks") { approvals in
+            guard let post = store.sessionPost(item.id) else { return }
+            showMore = false
+            clearAsk()
+            store.keepShortTerm(post, confirmed: approvals[0])
+            model.record(item.id, .archived); model.advance()
         }
     }
 
@@ -559,11 +581,15 @@ struct SessionBatchScreen: View {
     var body: some View {
         let page = model.batchPage
         let moves = model.batchMoves
+        let twoWeeks = model.batchKeepTwoWeeksIDs
+        let trash = model.batchTrashIDs
+        let acting = moves.count + twoWeeks.count + trash.count
+        let allFiled = moves.count == page.count && moves.allSatisfy { $0.drawer != nil }
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
-                    Text("Each goes in its drawer, marked read and out of your inbox. Tap a drawer to change it.")
+                    Text("Each goes in its drawer, marked read and out of your inbox. Swipe a row's choices to decide it differently.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(page) { item in
@@ -576,13 +602,16 @@ struct SessionBatchScreen: View {
                 .padding(.horizontal, 20).padding(.bottom, 20)
             }
             VStack(spacing: 10) {
-                SessionConfirmButton(title: moves.count == page.count ? "Put away all \(moves.count)" : "Put away \(moves.count)",
-                                     previews: [FeedStore.putAwayPreview(moves)], enabled: !moves.isEmpty,
+                SessionConfirmButton(title: allFiled ? "Put away all \(acting)" : (acting == page.count ? "Do all \(acting)" : "Do \(acting)"),
+                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)], enabled: acting > 0,
                                      identifier: "session.batch.confirm") { approvals in
-                    store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) })
-                    model.finishBatchPage(moves)
+                    store.rememberFates(model.fatesToRemember(page))
+                    if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
+                    store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
+                    for id in trash { if let post = store.sessionPost(id) { store.sessionTrash(post) } }
+                    model.finishBatchPage(moves, keptTwoWeeks: twoWeeks, trashed: trash)
                 }
-                Button(moves.isEmpty ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
+                Button(acting == 0 ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
                     .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                     .accessibilityIdentifier("session.batch.skip")
             }
@@ -592,10 +621,10 @@ struct SessionBatchScreen: View {
     }
 
     private func row(_ item: SessionItem) -> some View {
-        let leftOut = model.batchLeftOut.contains(item.id)
+        let leftOut = model.batchFate(item) == .unread
         let post = store.sessionPost(item.id)
         let date = post.flatMap { MailDates.extract($0.email, now: Date()).first }
-        return HStack(spacing: 10) {
+        return VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
@@ -611,24 +640,9 @@ struct SessionBatchScreen: View {
                 }
             }
             .opacity(leftOut ? 0.45 : 1)
-            Spacer(minLength: 8)
-            Menu {
-                ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
-                    Button(d.title) { model.batchDrawers[item.id] = d; model.batchLeftOut.remove(item.id) }
-                }
-                Divider()
-                Button(leftOut ? "Put it away" : "Leave unread") {
-                    if leftOut { model.batchLeftOut.remove(item.id) } else { model.batchLeftOut.insert(item.id) }
-                }
-            } label: {
-                Text(leftOut ? "Stays unread" : (model.batchDrawer(item)?.title ?? "Choose"))
-                    .font(.caption.weight(.semibold)).lineLimit(1)
-                    .padding(.horizontal, 12).frame(minHeight: 34)
-                    .foregroundStyle(leftOut ? CalmStyle.secondary : CalmStyle.blue)
-                    .background((leftOut ? CalmStyle.secondary : CalmStyle.blue).opacity(0.1), in: Capsule())
-            }
-            .accessibilityIdentifier("session.batch.drawer")
+            SessionFateStrip(model: model, item: item)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 14).padding(.vertical, 12)
     }
 }
@@ -642,28 +656,28 @@ struct SessionReadingScreen: View {
     var body: some View {
         let items = model.readingItems
         let moves = model.readingMoves
+        let twoWeeks = model.ids(items, .keepTwoWeeks, reading: true)
+        let trash = model.ids(items, .trash, reading: true)
+        let acting = moves.count + twoWeeks.count + trash.count
+        let allArchive = moves.count == items.count && moves.allSatisfy { $0.drawer == nil }
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(items.count == 1 ? "One newsletter" : "\(items.count) newsletters").font(.title.weight(.bold))
-                    Text("Archive the ones you won't read. Tap Keep to leave one unread.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                    Text("Archive the ones you won't read. Swipe a row's choices to decide it differently; Lovely remembers each sender.")
+                        .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(items) { item in
-                            let kept = model.readingKept.contains(item.id)
-                            HStack(spacing: 10) {
+                            let unread = model.batchFate(item, reading: true) == .unread
+                            VStack(alignment: .leading, spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
                                     Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                                 }
-                                Spacer(minLength: 8)
-                                Button(kept ? "Kept" : "Keep") {
-                                    if kept { model.readingKept.remove(item.id) } else { model.readingKept.insert(item.id) }
-                                }
-                                .font(.caption.weight(.semibold)).padding(.horizontal, 12).frame(minHeight: 34)
-                                .foregroundStyle(kept ? CalmStyle.onBlue : CalmStyle.blue)
-                                .background(kept ? CalmStyle.blue : CalmStyle.blue.opacity(0.1), in: Capsule())
-                                .accessibilityIdentifier("session.reading.keep")
+                                .opacity(unread ? 0.45 : 1)
+                                SessionFateStrip(model: model, item: item, reading: true)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 14).padding(.vertical, 12)
                             if item.id != items.last?.id { Divider().overlay(CalmStyle.divider) }
                         }
@@ -673,18 +687,71 @@ struct SessionReadingScreen: View {
                 .padding(.horizontal, 20).padding(.bottom, 20)
             }
             VStack(spacing: 10) {
-                SessionConfirmButton(title: moves.count == items.count ? "Archive all \(moves.count)" : "Archive \(moves.count)",
-                                     previews: [FeedStore.putAwayPreview(moves)], enabled: !moves.isEmpty,
+                SessionConfirmButton(title: allArchive ? "Archive all \(acting)" : (acting == items.count ? "Do all \(acting)" : "Do \(acting)"),
+                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)], enabled: acting > 0,
                                      identifier: "session.reading.confirm") { approvals in
-                    store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) })
-                    model.finishReading(moves)
+                    store.rememberFates(model.fatesToRemember(items, reading: true))
+                    if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
+                    store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
+                    for id in trash { if let post = store.sessionPost(id) { store.sessionTrash(post) } }
+                    model.finishReading(moves, keptTwoWeeks: twoWeeks, trashed: trash)
                 }
-                Button(moves.isEmpty ? "Continue" : "Leave them unread") { model.finishReading([]) }
+                Button(acting == 0 ? "Continue" : "Leave them unread") { model.finishReading([]) }
                     .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                     .accessibilityIdentifier("session.reading.skip")
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
+    }
+}
+
+/// One row's choices, side by side and swipeable: its category (tap the arrow to pick another), 2 weeks, Archive,
+/// Trash, Unread. Used on the quick-ones and newsletter screens; the page's one button does every row.
+struct SessionFateStrip: View {
+    @Environment(FeedStore.self) private var store
+    @Bindable var model: SessionModel
+    let item: SessionItem
+    var reading = false
+
+    var body: some View {
+        let fate = model.batchFate(item, reading: reading)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                Menu {
+                    ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
+                        Button(d.title) { model.batchDrawers[item.id] = d; model.setBatchFate(.file, for: item) }
+                    }
+                } label: {
+                    chip((model.batchDrawer(item)?.title ?? "File") + " \u{25BE}", selected: fate == .file)
+                } primaryAction: {
+                    if model.batchDrawer(item) != nil { model.setBatchFate(.file, for: item) }
+                }
+                .accessibilityIdentifier("session.batch.drawer")
+                ForEach([BatchFate.keepTwoWeeks, .archive, .trash, .unread], id: \.self) { f in
+                    Button { model.setBatchFate(f, for: item) } label: { chip(f.title, selected: fate == f, rose: f == .trash) }
+                        .buttonStyle(.plain).accessibilityIdentifier("session.fate.\(f.rawValue)")
+                }
+            }
+        }
+    }
+
+    private func chip(_ title: String, selected: Bool, rose: Bool = false) -> some View {
+        let tint = rose ? CalmStyle.roseInk : CalmStyle.blue
+        return Text(title).font(.caption.weight(.semibold)).lineLimit(1)
+            .padding(.horizontal, 12).frame(minHeight: 34)
+            .foregroundStyle(selected ? CalmStyle.onBlue : tint)
+            .background(selected ? tint : tint.opacity(0.1), in: Capsule())
+    }
+
+    /// One preview for the whole page, so one tap confirms every row.
+    static func preview(_ moves: [SessionMove], twoWeeks: Int, trash: Int) -> ActionPreview {
+        let base = FeedStore.putAwayPreview(moves)
+        var lines = moves.isEmpty ? [] : Array(base.lines.dropLast())
+        if twoWeeks > 0 { lines.append("Keeps \(twoWeeks) for \(ShortTerm.keepDays) days under Short-term, then Lovely offers to move them to Trash.") }
+        if trash > 0 { lines.append("Moves \(trash) to Trash (Gmail keeps it 30 days).") }
+        lines.append("Nothing is deleted for good. You have 10 seconds to undo.")
+        let total = moves.count + twoWeeks + trash
+        return ActionPreview(kind: .label, title: total == 1 ? "Do this one" : "Do these \(total)", lines: lines)
     }
 }
 
