@@ -215,7 +215,7 @@ struct PhotoEventsView: View {
                 ?? start.addingTimeInterval(allDay ? 86_400 : 1_800)
             let title = e.title.trimmingCharacters(in: .whitespaces)
             return PhotoEvent(title: title.isEmpty ? "Untitled" : title, start: start, end: end, allDay: allDay,
-                              unsure: title.isEmpty || (!allDay && e.end.isEmpty))
+                              unsure: e.unsure || title.isEmpty || (!allDay && e.end.isEmpty))
         }
     }
 

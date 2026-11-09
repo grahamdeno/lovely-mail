@@ -235,6 +235,7 @@ enum CalendarPhotoReader {
         var start: String
         var end: String
         var allDay: Bool
+        var unsure = false
     }
 
     static let toolName = "calendar_events"
@@ -253,8 +254,9 @@ enum CalendarPhotoReader {
                             "start": ["type": "string", "description": "HH:mm, 24-hour. Empty for all-day."],
                             "end": ["type": "string", "description": "HH:mm, 24-hour. Empty if not visible."],
                             "all_day": ["type": "boolean"],
+                            "unsure": ["type": "boolean", "description": "True when the title is cut off, the end runs past the picture, or the time is a guess."],
                         ],
-                        "required": ["title", "day", "start", "end", "all_day"],
+                        "required": ["title", "day", "start", "end", "all_day", "unsure"],
                     ],
                 ],
             ],
@@ -267,8 +269,12 @@ enum CalendarPhotoReader {
         This is a photo or screenshot of a work calendar (Outlook, Teams or similar), possibly taken of a computer screen. \
         List every event you can see, once each. Today is \(today); the time zone is \(timeZone). In a week view, match each \
         event to its day column using the header dates, and read start and end times from the hour lines and the event's \
-        own text. Keep titles exactly as written (no added words). Skip declined or cancelled events if they are marked. \
-        Never invent an event. Answer by calling the \(toolName) tool once.
+        own text; events are usually on the hour, half hour or quarter hour. Keep titles as written, without the meeting \
+        app name, organizer or room lines under them (for "ATLAS Sync / Microsoft Teams Meeting / Raya, Thomas" the title \
+        is "ATLAS Sync"); if a title is cut off, keep what is visible and mark it unsure. Skip events marked Canceled or \
+        declined. Skip all-day or multi-day out-of-office banners about other people (names with OOO or OoO). If an event \
+        runs past the bottom of the picture, give its start, your best end, and mark it unsure. Never invent an event. \
+        Answer by calling the \(toolName) tool once.
         """
     }
 
@@ -304,7 +310,7 @@ enum CalendarPhotoReader {
         return events.compactMap { e in
             guard let title = e["title"] as? String, let day = e["day"] as? String else { return nil }
             return Event(title: title, day: day, start: e["start"] as? String ?? "", end: e["end"] as? String ?? "",
-                         allDay: e["all_day"] as? Bool ?? false)
+                         allDay: e["all_day"] as? Bool ?? false, unsure: e["unsure"] as? Bool ?? false)
         }
     }
 }
