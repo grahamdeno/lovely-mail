@@ -20,6 +20,7 @@ struct OpenEmailView: View {
             let organization = store.isAutomated(post)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    SenderWarning(verdict: store.senderVerdict(email))
                     EmailHeader(post: post, organization: organization)
                     EmailContext(post: post, assessment: assessment)
                     EmailDateRow(post: post)

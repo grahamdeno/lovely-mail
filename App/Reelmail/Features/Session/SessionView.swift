@@ -554,12 +554,14 @@ struct SessionCalendarBox: Identifiable {
 
 /// Who, what and when for one email. Tapping "Open the email" shows the original.
 struct SessionMailCard: View {
+    @Environment(FeedStore.self) private var store
     let item: SessionItem
     let post: Post
     let open: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            SenderWarning(verdict: store.senderVerdict(post.email), compact: true)
             HStack(spacing: 12) {
                 CalmAvatar(person: post.email.from, size: 44, waiting: item.message.section == .waiting, organization: !item.message.isPerson)
                 VStack(alignment: .leading, spacing: 2) {
@@ -646,6 +648,7 @@ struct SessionBatchScreen: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                if let post { SenderWarning(verdict: store.senderVerdict(post.email), compact: true).padding(.top, 4) }
                 let tags = model.batchTags(item)
                 if !tags.isEmpty {
                     Text(tags.map(\.title).joined(separator: " · ")).font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1)

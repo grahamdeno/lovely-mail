@@ -174,7 +174,7 @@ enum GmailMessageParser {
         let autoReply = !mine && AutoReply.isAutoReply(autoSubmitted: header("Auto-Submitted", in: message),
                                                         xAutoreply: header("X-Autoreply", in: message),
                                                         xAutorespond: header("X-Autorespond", in: message))
-        return Email(
+        var email = Email(
             id: message.id,
             threadId: message.threadId,
             from: from,
@@ -190,5 +190,8 @@ enum GmailMessageParser {
             promotional: !mine && labels.contains("CATEGORY_PROMOTIONS"),
             autoReply: autoReply
         )
+        email.authResults = header("Authentication-Results", in: message)
+        email.replyTo = addresses(in: header("Reply-To", in: message)).first
+        return email
     }
 }
