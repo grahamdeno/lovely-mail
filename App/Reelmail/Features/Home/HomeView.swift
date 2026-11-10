@@ -2,33 +2,34 @@ import SwiftUI
 
 /// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
-/// Neon (Outrun sunset: deep purple, hot magenta, sunset orange and yellow) replaces both when chosen in Settings.
+/// Neon (owner, Nov 9): dark mode's surfaces and text, with cool neon accents: electric cyan for everything you can
+/// tap, hot magenta for Waiting on you, violet in the stripe, lime for Done.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x1A0B2E)
+    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x121116)
     /// Cards, pills and fields that sit on the background.
-    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x2B1250)
-    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xFFF0FA)
-    static let secondary = Color(light: 0x5E5962, dark: 0xA9A3AC, neon: 0xD9B8F0)
-    /// Airmail blue: everything you can tap. In Neon, hot magenta.
-    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0xFF2E97)
-    /// Text and icons on `blue` (white in every palette).
-    static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0xFFFFFF)
-    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, sunset orange.
-    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF8A3D)
+    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x211F27)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF2EFEA)
+    static let secondary = Color(light: 0x5E5962, dark: 0xA9A3AC, neon: 0xA9A3AC)
+    /// Airmail blue: everything you can tap. In Neon, electric cyan.
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x2DE2E6)
+    /// Text and icons on `blue`: white, except near-black on Neon's bright cyan.
+    static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0x0B1416)
+    /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, hot magenta.
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF3CAC)
     /// Postmark rose for text; passes 4.5:1 on its background in every palette.
-    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFFB070)
+    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFF8FD0)
     /// Done. Swipe tint only, with white text.
-    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x1FB86B)
-    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x3D1E66)
+    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x17A866)
+    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x2C2A33)
     static let field = card
-    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x341763)
-    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x3D2410)
-    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFD319)
+    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x2A2731)
+    static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x332A14)
+    static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFE066)
     /// The Undo bar: dark in every palette, with white text.
-    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x3A1666)
-    /// Neon's signature sunset stripe: yellow, orange, magenta, purple. Used for the line under the top bar.
-    static let gel = LinearGradient(colors: [Color(hex: 0xFFD319), Color(hex: 0xFF8A3D), Color(hex: 0xFF2E97), Color(hex: 0x8C1EFF)],
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x2E2B36)
+    /// Neon's signature stripe: cyan, violet, magenta. Used for the line under the top bar.
+    static let gel = LinearGradient(colors: [Color(hex: 0x2DE2E6), Color(hex: 0x9D4EDD), Color(hex: 0xFF3CAC)],
                                     startPoint: .leading, endPoint: .trailing)
 }
 

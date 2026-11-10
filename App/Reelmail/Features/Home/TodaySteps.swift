@@ -24,7 +24,7 @@ struct TodayStepsCard: View {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Capsule().fill(CalmStyle.divider)
-                        Capsule().fill(CalmStyle.blue).frame(width: max(8, g.size.width * CGFloat(done) / CGFloat(steps.count)))
+                        Capsule().fill(ThemeState.neon ? AnyShapeStyle(CalmStyle.gel) : AnyShapeStyle(CalmStyle.blue)).frame(width: max(8, g.size.width * CGFloat(done) / CGFloat(steps.count)))
                     }
                 }
                 .frame(height: 6)

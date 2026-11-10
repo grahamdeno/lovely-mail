@@ -445,7 +445,7 @@ struct AppearanceCard: View {
                 ForEach(Appearance.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            Text(appearance == .neon ? "Outrun sunset: deep purple, hot magenta and a sunset stripe. Totally tubular."
+            Text(appearance == .neon ? "Dark mode with neon: electric cyan for what you can tap, hot magenta for people waiting on you, and a glowing stripe."
                  : "Auto follows your iPhone's light and dark setting.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
