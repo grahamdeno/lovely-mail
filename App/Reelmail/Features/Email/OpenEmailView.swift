@@ -34,10 +34,7 @@ struct OpenEmailView: View {
                         Text("No readable text was imported. Open it in Gmail to see it.")
                             .font(.body).foregroundStyle(CalmStyle.secondary)
                     } else {
-                        Text(EmailPresentation.linked(email.body))
-                            .font(.body).tint(CalmStyle.blue)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
+                        SelectableText(text: EmailPresentation.linked(email.body))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
