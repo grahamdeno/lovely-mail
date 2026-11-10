@@ -148,7 +148,8 @@ struct HomeView: View {
             TopBar()
             List {
                 StatusNotices()
-                    .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+                    .listRowInsets(rowInsets).listRowSeparator(.hidden)
+                    .listRowBackground(CalmStyle.background.overlay(PullDownOnly()))   // pull down refreshes; no push up past the end
 
                 if store.filter == .all {
                     digest(store.digest)
