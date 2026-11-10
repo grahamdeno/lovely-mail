@@ -20,6 +20,7 @@ struct SettingsView: View {
                 AccountAttention()
                 VStack(spacing: 8) {
                     SettingsRow(title: "Your rules", value: Self.rulesValue(store)) { router.open(.settingsRules) }
+                    SettingsRow(title: "Categories", value: "\(CategorySettings.current.visible.count) shown") { router.open(.settingsCategories) }
                     SettingsRow(title: "Morning brief", value: briefOn ? Self.timeLabel(briefMinutes) : "Off") { router.open(.settingsBrief) }
                     if store.mode == .gmail { SettingsRow(title: "Clean up", value: "Old login emails") { router.open(.cleanup) } }
                     SettingsRow(title: "Households and kids", value: Self.householdsValue()) { router.open(.insightSettings) }

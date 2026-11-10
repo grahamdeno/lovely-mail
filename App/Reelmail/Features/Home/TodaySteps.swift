@@ -135,29 +135,6 @@ struct TodayStepsCard: View {
     }
 }
 
-/// "When you have a minute": everything else, as quiet chips that open their pages.
-struct MinuteChips: View {
-    @Environment(Router.self) private var router
-    struct Chip: Identifiable { var title: String; var route: Route; var id: String { title } }
-    let chips: [Chip]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("WHEN YOU HAVE A MINUTE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
-            WrapLayout(spacing: 8) {
-                ForEach(chips) { chip in
-                    Button { router.open(chip.route) } label: {
-                        Text(chip.title).font(.subheadline).foregroundStyle(CalmStyle.ink)
-                            .padding(.horizontal, 12).frame(minHeight: 38)
-                            .background(CalmStyle.card, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-}
-
 /// A simple wrapping layout for chips.
 struct WrapLayout: Layout {
     var spacing: CGFloat = 8
@@ -182,14 +159,3 @@ struct WrapLayout: Layout {
     }
 }
 
-/// All the glance cards on their own page, for browsing.
-struct GlanceView: View {
-    @Environment(FeedStore.self) private var store
-    var body: some View {
-        ScrollView {
-            GlanceGrid(cards: store.glanceCards).padding(20)
-        }
-        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
-        .navigationTitle("At a glance").navigationBarTitleDisplayMode(.inline)
-    }
-}

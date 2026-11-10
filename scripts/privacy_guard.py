@@ -33,7 +33,7 @@ FIXTURE_SYMBOLS = r"\b(FixtureMode|FixtureGmailClient|FixtureLog|FixtureRequests
 # Helpers in GmailActions.swift that do not change anything by themselves.
 HELPERS = {"request", "call", "deliver", "encode", "init"}
 # Read-only functions in GmailActions.swift: no ConfirmedAction, and every call in them must be a GET.
-READ_ONLY = {"forwardingStatus"}
+READ_ONLY = {"forwardingStatus", "existingLabelID"}
 
 
 def strip_comments(text):
@@ -112,7 +112,9 @@ def check(files):
                     bad.append(f"{rel}:{text[: m.start()].count(chr(10)) + 1}: Outside GmailActions.swift only the UNREAD label may change.")
         else:
             for m in re.finditer(r"removeLabelIds[^\n]*", text):
-                if '["INBOX"]' not in m.group(0):
+                # Approved Nov 9, 2026: the category re-sort may remove Lovely-owned labels, in relabel() only,
+                # which checks every id with labels.isLovely first.
+                if '["INBOX"]' not in m.group(0) and 'removeLabelIds": lovelyOnlyRemovals' not in m.group(0):
                     bad.append(f"{rel}:{text[: m.start()].count(chr(10)) + 1}: removeLabelIds may remove INBOX only.")
             for m in re.finditer(r'"DELETE"[^\n]*', text):
                 pass

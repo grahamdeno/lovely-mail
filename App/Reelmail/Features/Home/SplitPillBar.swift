@@ -13,8 +13,19 @@ struct SplitPillBar: View {
     static var isOn: Bool { UserDefaults.standard.object(forKey: settingKey) as? Bool ?? true }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Round 5: the old Home chips live here, one tap away, until he starts typing.
+            if focused && router.searchText.isEmpty {
+                ShortcutRow(items: HomeShortcuts.items(hasKids: !InsightSettings().load().kids.isEmpty)) { focused = false }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            bar
+        }
+    }
+
+    private var bar: some View {
         @Bindable var router = router
-        HStack(spacing: 8) {
+        return HStack(spacing: 8) {
             if !focused && router.searchText.isEmpty {
                 HStack(spacing: 2) {
                     segment(.home, symbol: "house", label: "Home")
@@ -26,14 +37,27 @@ struct SplitPillBar: View {
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+                // Close sits on the left, away from the thumb; the right end is "go" (owner, Nov 9: a Cancel where
+                // he expected Search kept wiping what he typed).
+                if focused || !router.searchText.isEmpty {
+                    Button { router.searchText = ""; focused = false } label: {
+                        Image(systemName: "chevron.left").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                            .frame(width: 28, height: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).accessibilityLabel("Close search").accessibilityIdentifier("pill.close")
+                } else {
+                    Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+                }
                 TextField(router.tab == .people ? "Find a person or ask" : "Ask or search", text: $router.searchText)
                     .focused($focused).submitLabel(.search).autocorrectionDisabled()
                     .onSubmit { submit() }
                     .accessibilityIdentifier("pill.field")
-                if focused || !router.searchText.isEmpty {
-                    Button("Cancel") { router.searchText = ""; focused = false }
-                        .font(.subheadline).foregroundStyle(CalmStyle.blue)
+                if !router.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Button { ask() } label: {
+                        Image(systemName: "arrow.up.circle.fill").font(.title2).foregroundStyle(CalmStyle.blue)
+                            .frame(width: 36, height: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).accessibilityLabel("Ask Lovely").accessibilityIdentifier("pill.ask")
                 }
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
@@ -58,9 +82,17 @@ struct SplitPillBar: View {
     }
 
     /// Return on a question (a "?" or four or more words) asks Lovely; a word or a name stays a search.
+    /// Return: a question goes to Lovely; a name or word just closes the keyboard so the results above stay.
     private func submit() {
         let text = router.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard SplitPillBar.isQuestion(text) else { focused = false; return }
+        ask()
+    }
+
+    /// The arrow: always asks Lovely, whatever was typed.
+    private func ask() {
+        let text = router.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         AskLovelyUsage().recordAsk()
         router.searchText = ""
         focused = false

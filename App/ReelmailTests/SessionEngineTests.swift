@@ -33,9 +33,9 @@ final class SessionEngineTests: XCTestCase {
     // MARK: Drawers
 
     func testDrawerLabelsAndKidsSubDrawers() {
-        XCTAssertEqual(DrawerChoice(.money).labelName, "Lovely/Money")
-        XCTAssertEqual(DrawerChoice(.kids, child: "Avery").labelName, "Lovely/Kids", "A child is a Person tag, not a sub-label")
-        XCTAssertEqual(DrawerChoice(.kids, child: "Avery").title, "Kids · Avery")
+        XCTAssertEqual(DrawerChoice(.money).labelName, "Lovely/Finance", "Money is now Finance")
+        XCTAssertEqual(DrawerChoice(.family, child: "Avery").labelName, "Lovely/Family", "A child is a Person tag, not a sub-label")
+        XCTAssertEqual(DrawerChoice(.family, child: "Avery").title, "Family · Avery")
         XCTAssertNil(DrawerChoice(.money, child: "Avery").child, "Only Kids has sub-drawers")
         XCTAssertNil(DrawerChoice(.kids, child: "A/B").child, "A slash would make a deeper label name")
         XCTAssertNil(DrawerChoice(.kids, child: "  ").child)
