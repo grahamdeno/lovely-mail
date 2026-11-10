@@ -8,7 +8,7 @@ import Foundation
 struct SessionCommand: Codable, Equatable, Sendable {
     /// reply, put_away, add_date, later, leave_unread, archive, trash, skip, handoff, search, unclear
     var action: String
-    /// For put_away, add_date and reply: one of the drawer names in the playbook ("Money", "Kids/Avery").
+    /// For put_away, add_date and reply: one of the category names in the playbook ("Finance", "Family/Avery").
     var drawer: String?
     /// For reply: the full reply text, in the owner's voice.
     var reply: String?
@@ -68,25 +68,34 @@ enum SessionAction: Equatable, Sendable {
 enum SessionCommandValidator {
     static let maxReplyCharacters = 4_000
 
-    /// Everyday words for the categories, and the drawer names from Sprint 7's first build.
+    /// Everyday words for the categories, and the names from the first fixed set (Money, Kids, Orders, Personal).
     static let aliases: [String: Drawer] = [
-        "house": .home, "utilities": .home, "bills": .money, "finance": .money, "school": .kids,
-        "family": .personal, "people": .personal, "reference": .personal, "medical": .health, "doctor": .health,
-        "job": .work, "career": .work, "business": .projects, "apps": .projects, "shopping": .orders, "order": .orders,
-        "trips": .travel, "trip": .travel, "security": .accounts, "logins": .accounts, "login": .accounts,
+        "house": .home, "utilities": .home, "phone": .home, "internet": .home, "mortgage": .home,
+        "car": .auto, "cars": .auto, "vehicle": .auto, "truck": .auto,
+        "money": .finance, "bills": .finance, "bank": .finance, "banking": .finance,
+        "kids": .family, "school": .family, "wife": .family,
+        "life insurance": .lifeLegal, "legal": .lifeLegal, "life": .lifeLegal, "estate": .lifeLegal,
+        "va": .government, "military": .government, "irs": .government,
+        "medical": .health, "doctor": .health,
+        "job": .work, "career": .work, "business": .projects, "apps": .projects,
+        "orders": .shopping, "order": .shopping, "amazon": .shopping,
+        "personal": .community, "people": .community, "friends": .community, "reference": .community, "hockey": .community,
+        "trips": .travel, "trip": .travel, "pet": .pets, "vet": .pets,
+        "security": .accounts, "logins": .accounts, "login": .accounts,
     ]
 
-    /// The drawer a name refers to, from the fixed set only. "kids/avery", "Kids · Avery" and "Money" all work.
+    /// The category a name refers to, from the visible set only. "family/avery", "Kids · Avery" and "Money" all work.
     static func drawer(named raw: String?, kids: [KidProfile]) -> DrawerChoice? {
         guard let raw else { return nil }
         let cleaned = raw.replacingOccurrences(of: "Lovely/", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "·", with: "/").trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = cleaned.split(separator: "/").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
         guard let first = parts.first,
-              let d = Drawer.allCases.first(where: { $0.title.lowercased() == first || $0.rawValue == first }) ?? aliases[first] else { return nil }
-        if d == .kids, parts.count > 1 {
-            guard let kid = kids.first(where: { $0.name.lowercased() == parts[1] }) else { return DrawerChoice(.kids) }
-            return DrawerChoice(.kids, child: kid.name)
+              let d = Drawer.allCases.first(where: { $0.title.lowercased() == first || $0.rawValue == first })
+                ?? aliases[first].flatMap({ $0.isHidden ? nil : $0 }) else { return nil }
+        if d == .family, parts.count > 1 {
+            guard let kid = kids.first(where: { $0.name.lowercased() == parts[1] }) else { return DrawerChoice(.family) }
+            return DrawerChoice(.family, child: kid.name)
         }
         return DrawerChoice(d)
     }
@@ -168,7 +177,7 @@ enum SessionQuickCommands {
         rest = rest.replacingOccurrences(of: "the ", with: "").replacingOccurrences(of: " drawer", with: "")
         let candidate = rest.replacingOccurrences(of: " ", with: "/")
         if let d = SessionCommandValidator.drawer(named: candidate, kids: kids) ?? SessionCommandValidator.drawer(named: rest, kids: kids) {
-            return SessionCommand(action: "put_away", drawer: d.child.map { "Kids/\($0)" } ?? d.drawer.title)
+            return SessionCommand(action: "put_away", drawer: d.engineName)
         }
         return nil
     }

@@ -139,7 +139,7 @@ final class SessionEngineLayerTests: XCTestCase {
         let system = SessionPlaybook.system(ownerName: "Pat", kids: kids,
                                             examples: [SessionPlaybook.Example(said: "toss it", action: "archive", drawer: nil)])
         XCTAssertTrue(system.contains("His name is Pat."))
-        XCTAssertTrue(system.contains("Kids/Avery"))
+        XCTAssertTrue(system.contains("Family/Avery"))
         XCTAssertTrue(system.contains("bare forward from his wife"))
         XCTAssertTrue(system.contains("No em-dashes"))
         XCTAssertTrue(system.contains("\u{201C}toss it\u{201D} -> archive"))

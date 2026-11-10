@@ -39,6 +39,22 @@ enum DrawerGuesser {
     static let mortgageWords = ["mortgage", "escrow", "home loan", "loan servicing", "homeowners insurance", "home warranty",
                                 "garage door", "exterminat", "pest control", "backflow", "hoa", "property tax"]
 
+    // Nov 9 categories: insurance and loans go with what they cover.
+    static let lifeWords = ["life insurance", "term life", "whole life", "beneficiary", "annuity", "life policy"]
+    static let legalWords = ["estate plan", "last will", "living trust", "revocable trust", "power of attorney", "probate",
+                             "attorney at law", "notarized"]
+    static let autoWords = ["auto insurance", "car insurance", "auto policy", "vehicle", "auto loan", "car loan", "registration renewal",
+                            "dmv", "oil change", "recall notice", "service appointment", "lexus financial", "toyota financial",
+                            "nc quick pass", "e-zpass", "toll bill", "tire rotation", "dealership"]
+    static let homeCoverWords = ["home policy", "homeowners", "homeowner", "dwelling", "renters insurance", "property insurance",
+                                 "flood insurance", "home insurance"]
+    static let phoneWords = ["starlink", "verizon", "t-mobile", "at&t", "wireless bill", "cell phone", "phone bill", "spectrum",
+                             "xfinity", "internet bill"]
+    static let governmentWords = ["veterans affairs", "va benefits", "disability compensation", "retired pay", "mypay", "dfas",
+                                  "social security", "internal revenue service", "passport", "gi bill"]
+    static let governmentDomains = [".gov", ".mil", "va.gov", "irs.gov", "ssa.gov", "dfas.mil"]
+    static let petWords = ["veterinary", "vet appointment", "animal hospital", "pet insurance", "trupanion", "chewy", "rabies vaccine"]
+
     struct Input {
         var fromAddress: String
         var fromName: String
@@ -50,51 +66,52 @@ enum DrawerGuesser {
         var isHealth: Bool = false
     }
 
-    /// The best rule guess, or nil when the rules are not sure.
-    static func guess(_ m: Input, kids: [KidProfile]) -> DrawerGuess? {
+    /// The best rule guess, or nil when the rules are not sure. A guess for a hidden category is dropped.
+    static func guess(_ m: Input, kids: [KidProfile], settings: CategorySettings = .current) -> DrawerGuess? {
+        guard let g = rawGuess(m, kids: kids), !settings.isHidden(g.choice.drawer) else { return nil }
+        return g
+    }
+
+    /// The rule: the specific thing wins over the kind of mail. Car insurance is Auto, a school fee is Family,
+    /// a Farm Bureau home policy is Home. Health always wins (it never goes to cloud engines).
+    static func rawGuess(_ m: Input, kids: [KidProfile]) -> DrawerGuess? {
         let haystack = (m.subject + "\n" + String(m.text.prefix(2000))).lowercased()
         let domain = InsightText.domain(of: m.fromAddress.lowercased())
         let kid = matchKid(haystack: haystack, kids: kids)
         let schoolish = schoolDomains.contains(where: domain.contains) || m.category == .school || hasAny(haystack, schoolWords)
+        func g(_ d: Drawer, child: String? = nil, _ why: String) -> DrawerGuess {
+            DrawerGuess(choice: DrawerChoice(d, child: child), confidence: .rule, reason: why)
+        }
 
-        if m.isHealth {
-            return DrawerGuess(choice: DrawerChoice(.health), confidence: .rule, reason: "Health")
-        }
+        if m.isHealth { return g(.health, "Health") }
         if m.isPerson {
-            if let kid { return DrawerGuess(choice: DrawerChoice(.kids, child: kid.name), confidence: .rule, reason: "About \(kid.name)") }
-            if schoolish { return DrawerGuess(choice: DrawerChoice(.kids), confidence: .rule, reason: "School or activities") }
-            return DrawerGuess(choice: DrawerChoice(.personal), confidence: .rule, reason: "Personal mail")
+            if let kid { return g(.family, child: kid.name, "About \(kid.name)") }
+            if schoolish { return g(.family, "School or activities") }
+            return g(.community, "Mail from a person")
         }
-        if hasAny(haystack, accountWords) {
-            return DrawerGuess(choice: DrawerChoice(.accounts), confidence: .rule, reason: "Login or account notice")
-        }
-        if let kid {
-            return DrawerGuess(choice: DrawerChoice(.kids, child: kid.name), confidence: .rule, reason: "Mentions \(kid.name)'s school or activities")
-        }
-        if schoolish {
-            let only = kids.count == 1 ? kids[0].name : nil
-            return DrawerGuess(choice: DrawerChoice(.kids, child: only), confidence: .rule, reason: "School or activities")
-        }
+        if hasAny(haystack, accountWords) { return g(.accounts, "Login or account notice") }
+        if let kid { return g(.family, child: kid.name, "Mentions \(kid.name)'s school or activities") }
+        if schoolish { return g(.family, child: kids.count == 1 ? kids[0].name : nil, "School or activities") }
         if projectDomains.contains(where: domain.contains) || hasAny(haystack, projectWords) {
-            return DrawerGuess(choice: DrawerChoice(.projects), confidence: .rule, reason: "Projects: developer, hosting or company mail")
+            return g(.projects, "Projects: developer, hosting or company mail")
         }
-        if workDomains.contains(where: domain.contains) || hasAny(haystack, workWords) {
-            return DrawerGuess(choice: DrawerChoice(.work), confidence: .rule, reason: "Work or career")
+        if workDomains.contains(where: domain.contains) || hasAny(haystack, workWords) { return g(.work, "Work or career") }
+        if governmentDomains.contains(where: { domain.hasSuffix($0) }) || hasAny(haystack, governmentWords) {
+            return g(.government, "Government: VA, pay, IRS or passports")
         }
         if travelDomains.contains(where: { domain.hasSuffix($0) }) || m.category == .travel || hasAny(haystack, travelWords) {
-            return DrawerGuess(choice: DrawerChoice(.travel), confidence: .rule, reason: "Travel")
+            return g(.travel, "Travel")
         }
-        // Home before orders (a mortgage or utility notice is about the house); orders before money (an order receipt
-        // is an order, not a statement). An appliance delivery is an order.
-        if hasAny(haystack, mortgageWords) || hasAny(haystack, houseWords) {
-            return DrawerGuess(choice: DrawerChoice(.home), confidence: .rule, reason: "Home: mortgage, utilities or services")
+        // Insurance goes with what it covers.
+        if hasAny(haystack, lifeWords) || hasAny(haystack, legalWords) { return g(.lifeLegal, "Life insurance or legal papers") }
+        if hasAny(haystack, petWords) { return g(.pets, "Pets") }
+        if hasAny(haystack, autoWords) { return g(.auto, "Auto: car insurance, loan or service") }
+        if hasAny(haystack, homeCoverWords) || hasAny(haystack, mortgageWords) || hasAny(haystack, houseWords) || hasAny(haystack, phoneWords) {
+            return g(.home, "Home: insurance, utilities, phone or services")
         }
-        if DeliveryNotice.hasPhrase(haystack) || hasAny(haystack, orderWords) {
-            return DrawerGuess(choice: DrawerChoice(.orders), confidence: .rule, reason: "Order or shipping")
-        }
-        if m.category == .money || hasAny(haystack, moneyWords) {
-            return DrawerGuess(choice: DrawerChoice(.money), confidence: .rule, reason: "Money: statement, bill or account")
-        }
+        // Orders before finance: an order receipt is an order, not a statement. An appliance delivery is an order.
+        if DeliveryNotice.hasPhrase(haystack) || hasAny(haystack, orderWords) { return g(.shopping, "Order or shipping") }
+        if m.category == .money || hasAny(haystack, moneyWords) { return g(.finance, "Finance: bank, card, loan or statement") }
         return nil
     }
 

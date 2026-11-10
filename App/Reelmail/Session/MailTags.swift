@@ -29,6 +29,8 @@ struct TagContext: Sendable {
     var households: [Household]
     var kids: [KidProfile]
     var now: Date = Date()
+    /// Subcategories the owner added, by category id.
+    var extraSubcategories: [String: [String]] = CategorySettings.current.extraSubcategoryMap
 
     static let empty = TagContext(households: [], kids: [])
 }
@@ -59,27 +61,49 @@ enum MailTagger {
             ("Water", ["water bill", "public utility", "cfpua", "sewer"]),
             ("Utilities", ["utility", "utilities", "conservice"]),
             ("Internet", ["internet", "starlink", "broadband", "wi-fi service", "fiber"]),
+            ("Phone", ["verizon", "t-mobile", "at&t", "wireless bill", "cell phone", "phone bill"]),
             ("Trash", ["trash", "garbage", "recycling", "turtletrash"]),
             ("Pest control", ["pest", "exterminat", "termite"]),
             ("Repairs", ["repair", "inspection", "estimate", "service call", "garage door", "plumb", "hvac", "backflow"]),
             ("Appliance", ["washer", "dryer", "dishwasher", "refrigerator", "appliance"]),
             ("Home warranty", ["home warranty", "home buyers warranty"]),
-            ("Insurance", ["homeowners", "renters insurance", "ho4", "dwelling", "policy documents", "insurance binder"]),
+            ("Insurance", ["homeowners", "home policy", "renters insurance", "ho4", "dwelling", "policy documents", "insurance binder", "flood insurance"]),
             ("Real estate", ["closing", "title company", "escrow officer", "offer for", "sale of", "realty"]),
             ("Energy", ["energy snapshot", "energy report", "sense"]),
         ],
-        .money: [
+        .finance: [
             ("Bank", ["bank", "checking", "savings account", "deposit"]),
             ("Credit card", ["credit card", "card payment", "card account", "apple card", "card ending"]),
             ("Investments", ["brokerage", "trade confirmation", "shareholder", "prospectus", "fidelity", "schwab", "allocation"]),
             ("Retirement", ["401(k)", "401k", "retirement", "pension", "ira", "tsp"]),
             ("Kids' accounts", ["trump account", "529", "custodial"]),
-            ("Insurance", ["life insurance", "premium", "annuity", "policy"]),
-            ("Pay", ["mypay", "dfas", "payroll", "direct deposit", "retired pay"]),
-            ("Car loan", ["auto loan", "car loan", "lexus financial", "vehicle loan"]),
+            ("Loans", ["personal loan", "student loan", "loan statement", "line of credit"]),
             ("Crypto", ["crypto", "bitcoin", "coinbase", "ethereum"]),
         ],
-        .kids: [
+        .auto: [
+            ("Insurance", ["auto insurance", "car insurance", "auto policy", "vehicle policy", "insurance card"]),
+            ("Loan", ["auto loan", "car loan", "lexus financial", "toyota financial", "vehicle loan"]),
+            ("Service", ["oil change", "service appointment", "recall", "tire", "dealership", "inspection"]),
+            ("Registration", ["registration", "dmv", "tag renewal", "title"]),
+            ("Tolls", ["toll bill", "nc quick pass", "e-zpass"]),
+        ],
+        .lifeLegal: [
+            ("Life insurance", ["life insurance", "term life", "whole life", "beneficiary", "annuity"]),
+            ("Legal", ["will", "trust", "estate", "power of attorney", "attorney", "probate", "notar"]),
+        ],
+        .government: [
+            ("VA", ["veterans affairs", "va benefits", "disability compensation", "va.gov"]),
+            ("Pay", ["mypay", "dfas", "retired pay", "retiree account statement"]),
+            ("Benefits", ["gi bill", "benefits", "social security"]),
+            ("Passport", ["passport"]),
+            ("IRS", ["internal revenue service", "irs"]),
+        ],
+        .pets: [
+            ("Vet", ["veterinary", "vet appointment", "animal hospital", "rabies"]),
+            ("Insurance", ["pet insurance", "trupanion"]),
+            ("Supplies", ["chewy", "pet food"]),
+        ],
+        .family: [
             ("School", ["school", "teacher", "classroom", "report card", "student", "principal", "newsletter"]),
             ("Childcare", ["preschool", "daycare", "childcare", "procare"]),
             ("Sports", ["soccer", "lacrosse", "football", "cross country", "hockey", "practice", "game day", "tournament"]),
@@ -107,7 +131,7 @@ enum MailTagger {
             ("Domain", ["domain", "dns", "squarespace domains"]),
             ("Company filing", ["annual report", "registered agent", "llc", "articles of"]),
         ],
-        .orders: [
+        .shopping: [
             ("Shipping", ["shipped", "on the way", "out for delivery", "delivered", "tracking", "arriving"]),
             ("Return", ["return", "refund"]),
             ("Warranty", ["warranty", "protection plan"]),
@@ -115,13 +139,13 @@ enum MailTagger {
         .travel: [
             ("Flight", ["flight", "boarding pass", "check in", "gate"]),
             ("Hotel", ["hotel", "your stay", "folio", "inn", "suites"]),
+            ("Car rental", ["rental car", "car rental", "hertz", "enterprise rent", "avis", "national car"]),
             ("Rideshare", ["uber", "lyft", "your trip with"]),
             ("Rewards", ["rewards", "aadvantage", "points", "miles"]),
         ],
-        .personal: [
+        .community: [
             ("Hockey", ["hockey", "polar ice", "skate"]),
             ("Church", ["church", "umc", "parish", "worship"]),
-            ("Family", ["fwd:", "family"]),
         ],
         .accounts: [
             ("Login code", ["verification code", "one-time", "security code", "passcode", "sign-in code", "your code"]),
@@ -151,6 +175,10 @@ enum MailTagger {
         var out = Set<MailTag>()
         for (name, words) in types where DrawerGuesser.hasAny(hay, words) { out.insert(MailTag(group: .type, name: name)) }
         for (name, words) in topics[m.category] ?? [] where DrawerGuesser.hasAny(hay, words) { out.insert(MailTag(group: .topic, name: name)) }
+        // Subcategories the owner added match on their own name ("Boat" files a Boat topic when the mail says boat).
+        for name in context.extraSubcategories[m.category.id] ?? [] where DrawerGuesser.containsWord(hay, name.lowercased()) {
+            out.insert(MailTag(group: .topic, name: name))
+        }
         // A receipt that is also an order confirmation is a receipt; "Bill" and "Payment" can both be true (paid bill).
         if let p = property(for: m, hay: hay, context: context) { out.insert(MailTag(group: .property, name: p)) }
         for name in people(in: m, hay: hay, context: context) { out.insert(MailTag(group: .person, name: name)) }
@@ -164,7 +192,7 @@ enum MailTagger {
         let active = context.households.filter { !$0.isEnded(on: context.now) && !$0.name.isEmpty && !$0.name.contains("/") }
         let domain = InsightText.domain(of: m.fromAddress.lowercased())
         if let linked = active.first(where: { h in h.payeeDomains.contains { !$0.isEmpty && domain.hasSuffix($0.lowercased()) } }) {
-            return (m.category == .home || m.category == .money) ? linked.name : nil
+            return (m.category == .home || m.category == .finance) ? linked.name : nil
         }
         guard m.category == .home else { return nil }
         let named = active.filter { matches(hay, household: $0.name) }
@@ -181,7 +209,7 @@ enum MailTagger {
     /// The owner's children named in mail about kids, health, money or travel. Names in shopping or account mail are
     /// usually gift names or greetings, so they are left out there.
     static func people(in m: Input, hay: String, context: TagContext) -> [String] {
-        guard [.kids, .health, .money, .travel, .personal].contains(m.category) else { return [] }
+        guard [.family, .health, .finance, .travel, .community].contains(m.category) else { return [] }
         return context.kids.map(\.name).filter { name in
             let n = name.trimmingCharacters(in: .whitespaces)
             return n.count >= 3 && !n.contains("/") && DrawerGuesser.containsWord(hay, n.lowercased())

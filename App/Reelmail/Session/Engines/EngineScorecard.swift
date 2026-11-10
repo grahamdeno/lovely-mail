@@ -48,7 +48,7 @@ enum EngineScorecard {
 
     static let cases: [Case] = [
         Case(id: "q1", said: "file it in money", item: statement, action: "put_away", drawer: "Money", quick: true),
-        Case(id: "q2", said: "kids avery", item: school, action: "put_away", drawer: "Kids/Avery", quick: true),
+        Case(id: "q2", said: "kids avery", item: school, action: "put_away", drawer: "Family/Avery", quick: true),
         Case(id: "q3", said: "archive", item: newsletter, action: "archive", drawer: nil, quick: true),
         Case(id: "q3t", said: "Delete.", item: newsletter, action: "trash", drawer: nil, quick: true),
         Case(id: "q4", said: "later this weekend", item: shipped, action: "later", drawer: nil, quick: true),
@@ -64,14 +64,14 @@ enum EngineScorecard {
         Case(id: "e7", said: "bring this back to me tomorrow morning", item: lease, action: "later", drawer: nil, quick: false),
     ]
 
-    /// Drawer names compare loosely: "Kids" matches "Kids/Avery", since either is a fair answer for a one-child family.
+    /// Category names compare by what they mean, so old names still count ("Kids" is Family, "Orders" is Shopping),
+    /// and loosely: "Family" matches "Family/Avery", since either is a fair answer for a one-child family.
     static func check(_ c: Case, _ command: SessionCommand) -> Result {
         let actionOK = command.action.lowercased() == c.action
         var drawerOK = true
-        if let want = c.drawer?.lowercased() {
-            let got = (command.drawer ?? "").lowercased()
-            let suggested: String = c.item.drawer.map { guess in guess.choice.child.map { name in "kids/" + name.lowercased() } ?? guess.choice.drawer.title.lowercased() } ?? ""
-            drawerOK = got == want || got.hasPrefix(want + "/") || want.hasPrefix(got + "/") || (got.isEmpty && suggested.hasPrefix(want))
+        if let wantName = c.drawer, let want = SessionCommandValidator.drawer(named: wantName, kids: kids) {
+            let got = SessionCommandValidator.drawer(named: command.drawer, kids: kids) ?? c.item.drawer?.choice
+            drawerOK = got?.drawer == want.drawer && (want.child == nil || got?.child == nil || got?.child == want.child)
         }
         return Result(id: c.id, passed: actionOK && drawerOK, got: command.action + (command.drawer.map { " " + $0 } ?? ""))
     }

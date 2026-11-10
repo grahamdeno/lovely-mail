@@ -1,27 +1,7 @@
 import Foundation
 
-/// Home's Today steps and glance cards, from the mail loaded now.
+/// Home's Today steps, from the mail loaded now.
 extension FeedStore {
-    /// The glance cards, most urgent first (Home's "All cards" page).
-    var glanceCards: [GlanceCard] {
-        let d = digest
-        let soon = ComingUp.thisWeek(comingUp, now: Date())
-        let kidProfiles = InsightSettings().load().kids
-        let kidPosts = kidProfiles.flatMap { kid in self.kidMail(for: kid).map { (kid.name, $0.post) } }
-        let latestKid = kidPosts.max { $0.1.email.date < $1.1.email.date }
-        let energy = EnergyInsights.summary(insights.store, household: nil)
-        let money = MoneyInsights.summary(insights.store, households: InsightSettings().load().households)
-        return HomeGlance.cards(
-            next: soon.first.map { HomeGlance.Next(date: $0.date.start, hasTime: $0.date.hasTime,
-                                                   title: $0.post.email.subject.isEmpty ? $0.post.email.from.name : $0.post.email.subject) },
-            thisWeek: soon.count,
-            openBills: money.households.filter { !$0.ended }.flatMap(\.open).map { HomeGlance.DueBill(payee: $0.payee, amount: $0.amount, dueOn: $0.dueOn) },
-            paymentProblem: money.alarms.first?.payee,
-            kidsCount: kidPosts.count, latestKid: latestKid.map { ($0.0, $0.1.email.subject) },
-            energyPerDay: energy.latest?.dollarsPerDay, energyChange: energy.latest?.changePerDay,
-            earlier: d.earlier.count, organizations: d.organizations.map { ($0.name, $0.posts.count) }, now: Date())
-    }
-
     /// Today's steps, remembered for the day so finished ones stay checked.
     func todaySteps(now: Date = Date()) -> [TodayStep] {
         let d = digest

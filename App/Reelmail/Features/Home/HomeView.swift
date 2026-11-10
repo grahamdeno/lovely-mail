@@ -268,10 +268,7 @@ struct HomeView: View {
         }
         // Everything else, as quiet chips.
         // With three or more open steps, the chips trim to three plus More so Home still fits on one screen.
-        let allChips = minuteChips(d, older: older)
-        let chips = openSteps >= 3 && allChips.count > 4
-            ? Array(allChips.prefix(3)) + [MinuteChips.Chip(title: "More", route: .glance)] : allChips
-        MinuteChips(chips: chips)
+        MinuteChips(chips: minuteChips(d, older: older), limit: openSteps >= 3 ? 3 : nil)
             .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
@@ -306,7 +303,6 @@ struct HomeView: View {
         let later = store.laterPosts.count
         if later > 0 { chips.append(.init(title: "Later · \(later)", route: .later)) }
         chips.append(.init(title: "Add events from a photo or file", route: .photoEvents))
-        chips.append(.init(title: "All cards", route: .glance))
         return chips
     }
 
