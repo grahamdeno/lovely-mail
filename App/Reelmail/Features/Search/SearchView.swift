@@ -5,12 +5,25 @@ struct SearchView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var query = ""
+    /// Split pill on: the bottom field types here, so this page shows results only (with Ask Lovely on top).
+    var pill = false
+    private var activeQuery: String { pill ? router.searchText : query }
     @FocusState private var focused: Bool
     /// People and Organizations show their best five so Mail stays in view.
     private static let groupLimit = 5
 
     var body: some View {
         VStack(spacing: 0) {
+            if pill {
+                Button { router.open(.askLovely(router.searchText)); router.searchText = "" } label: {
+                    Label("Ask Lovely about \u{201C}\(router.searchText)\u{201D}", systemImage: "sparkles")
+                        .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.onBlue).lineLimit(2)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.horizontal, 14)
+                        .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain).padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 6)
+                .accessibilityIdentifier("search.askLovely")
+            } else {
             // Pinned: title and search field stay visible while results scroll.
             VStack(alignment: .leading, spacing: 0) {
                 Text("Search").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader).padding(.bottom, 12)
@@ -23,13 +36,14 @@ struct SearchView: View {
             }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 10)
             .background(CalmStyle.background)
+            }
             Rectangle().fill(CalmStyle.divider).frame(height: 1)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    let results = store.search(query)
-                    let people = store.searchPeople(query)
-                    let groups = store.searchOrganizations(query)
-                    if query.isEmpty {
+                    let results = store.search(activeQuery)
+                    let people = store.searchPeople(activeQuery)
+                    let groups = store.searchOrganizations(activeQuery)
+                    if activeQuery.isEmpty {
                         Text("Searches the mail loaded on this phone. Nothing leaves it.")
                             .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 12)
                     } else if results.isEmpty, people.isEmpty, groups.isEmpty {

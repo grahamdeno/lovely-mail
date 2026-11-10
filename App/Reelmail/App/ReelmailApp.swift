@@ -191,4 +191,6 @@ final class Router {
     var nudge: NudgeRequest?
 
     func open(_ route: Route) { path.append(route) }
+    /// What he is typing in the split pill's field (Nov 9); non-empty shows search results in place of Home or People.
+    var searchText = ""
 }
