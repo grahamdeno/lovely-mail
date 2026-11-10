@@ -4,8 +4,11 @@ struct PeopleView: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
     @State private var query = ""
+    @AppStorage(SplitPillBar.settingKey) private var splitPill = true
+    /// With the split pill on, its field filters this list: one search field per screen (owner, Nov 9).
+    private var activeQuery: String { splitPill ? router.searchText : query }
     private var people: [Person] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let q = activeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.contacts(.people).filter {
             q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.email.localizedCaseInsensitiveContains(q)
         }.sorted { left, right in
@@ -23,13 +26,15 @@ struct PeopleView: View {
                     Text(store.mode == .sample ? "Demo" : "Loaded mail")
                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }.padding(.bottom, 12)
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
-                    TextField("Find a person or organization", text: $query)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .accessibilityLabel("Find a person by name or email address")
+                if !splitPill {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+                        TextField("Find a person or organization", text: $query)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .accessibilityLabel("Find a person by name or email address")
+                    }
+                    .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                 }
-                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 10)
             .background(CalmStyle.background)
@@ -38,13 +43,24 @@ struct PeopleView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     let people = self.people
                     let groups = self.groups
-                    let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    let searching = !activeQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    if splitPill, SplitPillBar.isQuestion(activeQuery) {
+                        Button {
+                            let text = activeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+                            AskLovelyUsage().recordAsk(); router.searchText = ""; router.open(.askLovely(text))
+                        } label: {
+                            Label("Ask Lovely: \u{201C}\(activeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}", systemImage: "sparkles")
+                                .font(.subheadline.weight(.medium)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(CalmStyle.blue).padding(.top, 12)
+                    }
                     // Hidden while searching: results already include matching organizations.
                     if !searching, !groups.isEmpty {
                         OrganizationsShortcut(groups: groups).padding(.top, 12)
                     }
                     if people.isEmpty, groups.isEmpty {
-                        Text(query.isEmpty ? "No people or organizations in the loaded mail yet." : "No matches.")
+                        Text(activeQuery.isEmpty ? "No people or organizations in the loaded mail yet." : "No matches.")
                             .font(.body).padding(.vertical, 24)
                     }
                     ForEach(people) { person in
@@ -96,7 +112,7 @@ struct PeopleView: View {
     }
     /// Organizations, grouped by company, for the Organizations and All views.
     private var groups: [HomeDigest.OrganizationGroup] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let q = activeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.organizationGroups.filter { g in
             q.isEmpty || g.matches(q)
         }

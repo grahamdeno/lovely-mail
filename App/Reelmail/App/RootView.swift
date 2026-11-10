@@ -11,7 +11,8 @@ struct RootView: View {
         @Bindable var router = router
         NavigationStack(path: $router.path) {
             ZStack {
-                if splitPill, !router.searchText.isEmpty {
+                // On People the pill's field filters the People list in place; elsewhere it opens search.
+                if splitPill, !router.searchText.isEmpty, router.tab != .people {
                     SearchView(pill: true)
                 } else {
                     switch router.tab {
