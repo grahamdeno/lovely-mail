@@ -407,3 +407,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - Nov 9: the batch-row "Always" chip is now "Every time" (owner preferred it).
 - Nov 9: Kids shows what is next, not a mail count. Home chip "Kids · <kid>, <thing> <day>" (or "nothing coming up"); Kids list rows show each child's next dated item; each card on a child's page shows its date, and "Send this sender to Shoebox" moved into a ··· menu. Logic: KidInsights.next / shortTitle.
 - Nov 9: Home could be pushed up past its end, sliding under the top bar (owner: "feels like a bug"). PullDownOnly holds the bottom edge; pull-down refresh unchanged. Not yet checked on a device.
+- Nov 9: with the split pill on, People no longer has its own search field; the pill field filters People in place (placeholder "Find a person or ask"), with an Ask Lovely row for questions. Switching Home/People clears the field.

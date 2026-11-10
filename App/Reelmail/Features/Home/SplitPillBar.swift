@@ -27,7 +27,7 @@ struct SplitPillBar: View {
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
-                TextField("Ask or search", text: $router.searchText)
+                TextField(router.tab == .people ? "Find a person or ask" : "Ask or search", text: $router.searchText)
                     .focused($focused).submitLabel(.search).autocorrectionDisabled()
                     .onSubmit { submit() }
                     .accessibilityIdentifier("pill.field")
@@ -45,7 +45,7 @@ struct SplitPillBar: View {
 
     private func segment(_ tab: AppTab, symbol: String, label: String) -> some View {
         let on = router.tab == tab
-        return Button { router.tab = tab } label: {
+        return Button { if router.tab != tab { router.searchText = "" }; router.tab = tab } label: {
             Image(systemName: on ? symbol + ".fill" : symbol)
                 .font(.body.weight(.medium))
                 .foregroundStyle(on ? CalmStyle.blue : CalmStyle.secondary)
