@@ -249,7 +249,6 @@ struct HomeView: View {
         // Today: up to three steps, only the first lit (owner chose design D, Nov 9).
         let older = store.sessionCandidates.isEmpty && store.mode == .gmail ? store.backlogCandidates.count : 0
         let steps = store.todaySteps()
-        let openSteps = steps.filter { !$0.done }.count
         TodayStepsCard(steps: steps)
             .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 8, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -267,11 +266,30 @@ struct HomeView: View {
             .buttonStyle(.plain).accessibilityIdentifier("home.shortTermExpired")
             .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
-        // Everything else, as quiet chips.
-        // With three or more open steps, the chips trim to three plus More so Home still fits on one screen.
-        MinuteChips(chips: minuteChips(d, older: older), limit: openSteps >= 3 ? 3 : nil)
+        // Round 5 (owner, Nov 9): no chips. Older mail is an optional step that never counts against the day;
+        // what's worth knowing is one short paragraph; the tools sit in the ask field.
+        if older > 0 {
+            Button { router.open(.backlog) } label: {
+                HStack(spacing: 12) {
+                    Circle().strokeBorder(CalmStyle.secondary.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                        .frame(width: 22, height: 22).padding(.leading, 9)
+                    Text("Optional: clear \(older) older email\(older == 1 ? "" : "s")").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Spacer(minLength: 8)
+                    Text("about \(max(1, Int((Double(older) * 0.08).rounded()))) min").font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
+                .frame(minHeight: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).accessibilityIdentifier("home.optional.older")
+            .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
+        HomeAlsoView(sentences: alsoSentences(d, steps: steps))
             .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
             .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        if !splitPill {
+            ShortcutRow(items: HomeShortcuts.items(hasKids: !InsightSettings().load().kids.isEmpty))
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 4, trailing: 20))
+                .listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+        }
         if store.doneToday > 0, !briefOfferSeen, !briefEnabled {
             BriefOfferCard()
                 .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 8, trailing: 20))
@@ -279,32 +297,28 @@ struct HomeView: View {
         }
     }
 
-    /// The "When you have a minute" chips. A plain function: a view body cannot build an array step by step.
-    private func minuteChips(_ d: HomeDigest, older: Int) -> [MinuteChips.Chip] {
+    /// The "Also" paragraph (round 5). A plain function: a view body cannot build inputs step by step.
+    private func alsoSentences(_ d: HomeDigest, steps: [TodayStep]) -> [[HomeAlso.Part]] {
+        let now = Date()
         let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
-        let bills = money.households.filter { !$0.ended }.reduce(0) { $0 + $1.open.count }
-        let kidProfiles = InsightSettings().load().kids
-        let kidNext = KidInsights.soonest(kidProfiles.compactMap { KidInsights.next(for: $0, mail: store.kidMail(for: $0), now: Date()) })
+        let kids = InsightSettings().load().kids
         let energy = EnergyInsights.summary(store.insights.store, household: nil)
-        let soon = ComingUp.thisWeek(store.comingUp, now: Date())
-        var chips: [MinuteChips.Chip] = []
-        if !d.todo.isEmpty { chips.append(.init(title: "To do · \(d.todo.count)", route: .mailList("todo"))) }
-        if !d.waiting.isEmpty { chips.append(.init(title: "Waiting on you · \(d.waiting.count)", route: .mailList("waiting"))) }
-        if !soon.isEmpty { chips.append(.init(title: "\(soon.count) date\(soon.count == 1 ? "" : "s") this week", route: .comingUp)) }
-        if !d.notes.isEmpty { chips.append(.init(title: "Notes · \(d.notes.count)", route: .notes)) }
-        if bills > 0 || !money.alarms.isEmpty { chips.append(.init(title: money.alarms.isEmpty ? "Bills · \(bills) due" : "Bills · problem", route: .money)) }
-        // What's next, not how many: "Kids · Gunner, Busch Gardens Trip Thu" (Nov 9).
-        if let n = kidNext { chips.append(.init(title: "Kids \u{00B7} \(n.kid), \(n.what) \(n.when)", route: .kids)) }
-        else if !kidProfiles.isEmpty { chips.append(.init(title: "Kids \u{00B7} nothing coming up", route: .kids)) }
-        if let latest = energy.latest { chips.append(.init(title: String(format: "Energy $%.2f/day", latest.dollarsPerDay), route: .energy)) }
-        if !store.promises.isEmpty { chips.append(.init(title: "You said you would · \(store.promises.count)", route: .promises)) }
-        if !store.waitingOnThem.isEmpty { chips.append(.init(title: "Waiting on them · \(store.waitingOnThem.count)", route: .waitingOnThem)) }
-        if !d.earlier.isEmpty { chips.append(.init(title: "\(d.earlier.count) older", route: .mailList("earlier"))) }
-        if older > 0 { chips.append(.init(title: "Clear older mail", route: .backlog)) }
-        let later = store.laterPosts.count
-        if later > 0 { chips.append(.init(title: "Later · \(later)", route: .later)) }
-        chips.append(.init(title: "Add events from a photo or file", route: .photoEvents))
-        return chips
+        let onToday = Set(steps.filter { $0.kind == .bill }.map(\.id))
+        var i = HomeAlso.Inputs()
+        i.hasKids = !kids.isEmpty
+        i.kidNext = KidInsights.soonest(kids.compactMap { KidInsights.next(for: $0, mail: store.kidMail(for: $0), now: now) })
+        i.energy = energy.latest.map { ($0.dollarsPerDay, $0.changePerDay) }
+        let open = money.households.filter { !$0.ended }.flatMap(\.open)
+        i.tracksBills = !open.isEmpty || money.households.contains { !$0.recentPayments.isEmpty }
+        i.otherBills = open.compactMap { b in b.dueOn.map { (b.payee, $0) } }.filter { !onToday.contains("bill-" + $0.0.lowercased()) }
+        i.billProblem = money.alarms.first?.payee
+        i.datesThisWeek = ComingUp.thisWeek(store.comingUp, now: now).count
+        i.todo = d.todo.count
+        i.notes = d.notes.count
+        i.promises = store.promises.count
+        i.waitingOnThem = store.waitingOnThem.count
+        i.later = store.laterPosts.count
+        return HomeAlso.sentences(i, now: now)
     }
 
     /// What you told people you would do, from mail you sent. Up to three; the rest open from the title.
