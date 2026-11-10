@@ -403,3 +403,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - Nov 9: batch row drawer chip (▾) opened its list only on a long press (Menu primaryAction); now a tap opens it.
 - Nov 9: Text about this email sent the original suggestion after the owner edited it. The Messages sheet now gets a copy of the draft taken at the tap (OutgoingText), after the keyboard finishes its last word.
 - Nov 9: email bodies (open and fetched) use SelectableText, a read-only UITextView: select part of the text with handles, tap links (the fetched-mail screen had none), long-press for Copy Link. Links over 45 characters show as "site.com/…" (EmailPresentation.shortLinkTitle). Thread bubbles and Notes still use whole-text selection.
+- Nov 9: the batch-row "Always" chip is now "Every time" (owner preferred it).
