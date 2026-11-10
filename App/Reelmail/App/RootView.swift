@@ -64,7 +64,6 @@ struct RootView: View {
                     case .cleanup: CleanupView()
                     case .shortTermCleanup: CleanupView(kind: .shortTerm)
                     case .notes: NotesThreadView()
-                    case .glance: GlanceView()
                     case .settingsAccount: SettingsAccountView()
                     case .settingsRules: SettingsRulesView()
                     case .settingsCategories: CategoriesView()

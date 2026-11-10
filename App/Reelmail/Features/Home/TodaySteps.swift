@@ -140,18 +140,34 @@ struct MinuteChips: View {
     @Environment(Router.self) private var router
     struct Chip: Identifiable { var title: String; var route: Route; var id: String { title } }
     let chips: [Chip]
+    /// Show this many and a More chip that opens the rest in place. Nil shows all.
+    var limit: Int? = nil
+    @State private var expanded = false
+
+    private var shown: [Chip] {
+        guard let limit, !expanded, chips.count > limit + 1 else { return chips }
+        return Array(chips.prefix(limit))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("WHEN YOU HAVE A MINUTE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             WrapLayout(spacing: 8) {
-                ForEach(chips) { chip in
+                ForEach(shown) { chip in
                     Button { router.open(chip.route) } label: {
                         Text(chip.title).font(.subheadline).foregroundStyle(CalmStyle.ink)
                             .padding(.horizontal, 12).frame(minHeight: 38)
                             .background(CalmStyle.card, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                }
+                if shown.count < chips.count {
+                    Button { expanded = true } label: {
+                        Text("More").font(.subheadline).foregroundStyle(CalmStyle.blue)
+                            .padding(.horizontal, 12).frame(minHeight: 38)
+                            .background(CalmStyle.card, in: Capsule())
+                    }
+                    .buttonStyle(.plain).accessibilityIdentifier("home.chips.more")
                 }
             }
         }
@@ -182,14 +198,3 @@ struct WrapLayout: Layout {
     }
 }
 
-/// All the glance cards on their own page, for browsing.
-struct GlanceView: View {
-    @Environment(FeedStore.self) private var store
-    var body: some View {
-        ScrollView {
-            GlanceGrid(cards: store.glanceCards).padding(20)
-        }
-        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
-        .navigationTitle("At a glance").navigationBarTitleDisplayMode(.inline)
-    }
-}

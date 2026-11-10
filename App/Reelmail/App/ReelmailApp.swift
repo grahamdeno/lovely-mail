@@ -145,7 +145,6 @@ enum Route: Hashable {
     case cleanup
     case shortTermCleanup
     case notes
-    case glance
     // Settings pages (Nov 9 redesign) and the Later list (moved from Settings to a Home chip).
     case settingsAccount, settingsRules, settingsBrief, settingsLook, settingsAI, settingsPrivacy
     /// Settings › Categories, one category by id, and the one-time move of old filed mail (Nov 9).
