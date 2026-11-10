@@ -5,21 +5,29 @@ struct RootView: View {
     @Environment(Router.self) private var router
     @Environment(\.dynamicTypeSize) private var typeSize
     private var inSession: Bool { router.path.last == .session || router.path.last == .backlog }
+    /// Split pill (Nov 9) replaces the tab bar; Settings > Look and feel turns it off to get the tab bar back.
+    @AppStorage(SplitPillBar.settingKey) private var splitPill = true
     var body: some View {
         @Bindable var router = router
         NavigationStack(path: $router.path) {
             ZStack {
-                switch router.tab {
-                case .home: HomeView()
-                case .people: PeopleView()
-                case .search: SearchView()
+                if splitPill, !router.searchText.isEmpty {
+                    SearchView(pill: true)
+                } else {
+                    switch router.tab {
+                    case .home: HomeView()
+                    case .people: PeopleView()
+                    case .search: splitPill ? AnyView(HomeView()) : AnyView(SearchView())
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(CalmStyle.background)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                RollingTabBar(selection: $router.tab)
-                    .padding(.horizontal, 16).padding(.vertical, 8).background(CalmStyle.background)
+                Group {
+                    if splitPill { SplitPillBar() } else { RollingTabBar(selection: $router.tab) }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8).background(CalmStyle.background)
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in

@@ -138,6 +138,7 @@ struct HomeView: View {
     @State private var undo: UndoAction?
     @AppStorage(BriefSettings.offerSeenKey) private var briefOfferSeen = false
     @AppStorage(BriefSettings.enabledKey) private var briefEnabled = false
+    @AppStorage(SplitPillBar.settingKey) private var splitPill = true
 
     private let rowInsets = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
 
@@ -172,7 +173,7 @@ struct HomeView: View {
             .scrollContentBackground(.hidden)
             .refreshable { await store.load(); await store.refreshShortTermExpired(force: true) }
             .safeAreaInset(edge: .bottom) {
-                if store.filter == .all, store.mode == .gmail {
+                if store.filter == .all, store.mode == .gmail, !splitPill {   // with the split pill, its field is the ask field
                     AskLovelyBar(showSuggestions: store.todaySteps().filter { !$0.done }.count <= 2)
                 }
             }

@@ -60,13 +60,13 @@ struct AskLovelyBar: View {
                 HStack(spacing: 8) {
                     TextField("Ask Lovely about your mail", text: $text)
                         .submitLabel(.search).onSubmit { ask(text) }
-                        .padding(.horizontal, 14).frame(minHeight: 40)
-                        .background(CalmStyle.card, in: Capsule())
-                        .overlay(Capsule().strokeBorder(CalmStyle.divider))
+                        .padding(.horizontal, 14).frame(minHeight: 44)
+                        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous).strokeBorder(CalmStyle.divider))
                         .accessibilityIdentifier("home.ask")
                     Button { ask(text) } label: {
                         Image(systemName: "arrow.up").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
-                            .frame(width: 40, height: 40).background(CalmStyle.blue, in: Circle())
+                            .frame(width: 44, height: 44).background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                     }
                     .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
                     .accessibilityLabel("Ask Lovely")
@@ -139,11 +139,11 @@ struct AskLovelyView: View {
             }
             HStack(spacing: 8) {
                 TextField("Ask a follow-up", text: $text).submitLabel(.search).onSubmit { send(text) }
-                    .padding(.horizontal, 14).frame(minHeight: 40)
-                    .background(CalmStyle.card, in: Capsule())
+                    .padding(.horizontal, 14).frame(minHeight: 44)
+                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                 Button { send(text) } label: {
                     Image(systemName: "arrow.up").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
-                        .frame(width: 40, height: 40).background(CalmStyle.blue, in: Circle())
+                        .frame(width: 44, height: 44).background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                 }
                 .disabled(working || text.trimmingCharacters(in: .whitespaces).isEmpty)
             }
