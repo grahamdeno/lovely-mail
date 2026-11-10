@@ -30,9 +30,11 @@ extension FeedStore {
     }
 
     /// A fresh plan from what is loaded now.
-    func makeSessionPlan(modelGuesses: [String: DrawerGuess] = [:], backlog: Bool = false) -> SessionPlan {
+    /// `excluding`: older mail already shown on an earlier page of this sitting (left unread there), so the next
+    /// page moves on instead of showing it again.
+    func makeSessionPlan(modelGuesses: [String: DrawerGuess] = [:], backlog: Bool = false, excluding: Set<String> = []) -> SessionPlan {
         let firstTime = Set(newSenders.map { $0.address.lowercased() })
-        let source = backlog ? Array(backlogCandidates.prefix(Self.backlogPage)) : sessionCandidates
+        let source = backlog ? Array(backlogCandidates.filter { !excluding.contains($0.id) }.prefix(Self.backlogPage)) : sessionCandidates
         let messages = source.map { post in
             SessionMessage(post: post, assessment: assessment(for: post),
                            isFirstTimeSender: firstTime.contains(post.email.from.email.lowercased()))
