@@ -60,6 +60,29 @@ struct GmailActions {
         activity.record(kind: "label", summary: "Filed a message under \(labelIDs.count) Lovely labels" + (removeFromInbox ? " and out of the inbox" : ""))
     }
 
+    /// Moves one message from old Lovely/ labels to new ones (the Nov 9 category re-sort). Both lists must be
+    /// Lovely-owned labels: the owner's own labels, INBOX and system labels are never touched. Approved by the owner
+    /// Nov 9, 2026, each move behind a preview, his tap and the 10-second Undo.
+    func relabel(messageID: String, add: [String], removeLovely: [String], confirmed: ConfirmedAction) async throws {
+        try confirmed.require([.label])
+        for id in add + removeLovely where !labels.isLovely(id: id) { throw ActionError.notALovelyLabel(id) }
+        let lovelyOnlyRemovals = removeLovely.filter { !add.contains($0) }
+        guard !add.isEmpty || !lovelyOnlyRemovals.isEmpty else { return }
+        let body: [String: Any] = ["addLabelIds": add, "removeLabelIds": lovelyOnlyRemovals]
+        let _: Empty = try await call("POST", "/messages/\(encode(messageID))/modify", json: body)
+        activity.record(kind: "label", summary: "Moved a message to a new Lovely category")
+    }
+
+    /// The id of an existing Lovely/ label, or nil when Gmail has no such label. Read-only.
+    func existingLabelID(_ name: String) async throws -> String? {
+        guard name.hasPrefix(LovelyLabels.prefix) else { return nil }
+        if let known = labels.id(for: name) { return known }
+        let list: LabelList = try await call("GET", "/labels")
+        guard let found = list.labels?.first(where: { $0.name == name }) else { return nil }
+        labels.record(name: name, id: found.id)
+        return found.id
+    }
+
     /// Takes one message out of the inbox without a label (a skimmed newsletter in an inbox session). Nothing is deleted;
     /// the message stays in All Mail and in search.
     func archive(messageID: String, confirmed: ConfirmedAction) async throws {

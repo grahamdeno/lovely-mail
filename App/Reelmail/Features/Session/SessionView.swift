@@ -1131,7 +1131,7 @@ extension SessionItemScreen {
 
     static func drawerName(_ a: SessionAction) -> String? {
         switch a {
-        case .reply(_, let d), .putAway(let d), .addDateThenPutAway(let d): return d.child.map { "Kids/\($0)" } ?? d.drawer.title
+        case .reply(_, let d), .putAway(let d), .addDateThenPutAway(let d): return d.engineName
         default: return nil
         }
     }
