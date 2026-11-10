@@ -3,7 +3,9 @@ import SwiftUI
 /// The split pill (owner, Nov 9): a small Home and People pill beside one "Ask or search" field, in place of the tab bar.
 /// Typing shows search results right away with Ask Lovely on top; return on a question asks Lovely. Easy to roll back:
 /// Settings > Look and feel > Split pill off brings back the tab bar and Home's ask field.
+/// Corners match the app's fields and buttons (14, continuous), not capsules.
 struct SplitPillBar: View {
+    static let corner: CGFloat = 14
     @Environment(Router.self) private var router
     @FocusState private var focused: Bool
 
@@ -19,8 +21,8 @@ struct SplitPillBar: View {
                     segment(.people, symbol: "person.2", label: "People")
                 }
                 .padding(3)
-                .background(CalmStyle.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(CalmStyle.divider))
+                .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Self.corner, style: .continuous).strokeBorder(CalmStyle.divider))
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
             HStack(spacing: 8) {
@@ -35,8 +37,8 @@ struct SplitPillBar: View {
                 }
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(CalmStyle.card, in: Capsule())
-            .overlay(Capsule().strokeBorder(CalmStyle.divider))
+            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: Self.corner, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Self.corner, style: .continuous).strokeBorder(CalmStyle.divider))
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: focused)
     }
@@ -48,7 +50,7 @@ struct SplitPillBar: View {
                 .font(.body.weight(.medium))
                 .foregroundStyle(on ? CalmStyle.blue : CalmStyle.secondary)
                 .frame(width: 44, height: 38)
-                .background(on ? CalmStyle.blue.opacity(0.12) : Color.clear, in: Capsule())
+                .background(on ? CalmStyle.blue.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: Self.corner - 3, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label).accessibilityAddTraits(on ? .isSelected : [])

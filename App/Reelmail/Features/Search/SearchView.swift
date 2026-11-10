@@ -19,7 +19,7 @@ struct SearchView: View {
                     Label("Ask Lovely about \u{201C}\(router.searchText)\u{201D}", systemImage: "sparkles")
                         .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.onBlue).lineLimit(2)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.horizontal, 14)
-                        .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 12))
+                        .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                 }
                 .buttonStyle(.plain).padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 6)
                 .accessibilityIdentifier("search.askLovely")
