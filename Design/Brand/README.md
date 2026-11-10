@@ -3,7 +3,7 @@
 **Name:** Lovely (home screen). **App Store name:** Lovely Mail. **Bundle ID stays** `com.grahamdeno.reelmail`
 (the Google OAuth client and App Store Connect record are tied to it; users never see it).
 
-**Subtitle (App Store and under the logo):** Get through your email, calmly. (30 characters; chosen Nov 9, 2026. Replaces "Mail from your people.")
+**Subtitle (App Store and under the logo):** Get through your email. (22 characters; Nov 10, 2026: owner dropped "calmly". Replaces "Mail from your people.")
 
 **Positioning (keep for all marketing, the website and videos; small tweaks are fine):**
 > Lovely turns your Gmail into a short list of next steps, walks you through each decision one at a time, and files everything neatly behind you.
