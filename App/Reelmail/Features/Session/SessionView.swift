@@ -767,9 +767,9 @@ struct SessionFateStrip: View {
                     }
                 } label: {
                     chip((model.batchDrawer(item)?.title ?? "File") + " \u{25BE}", selected: fate == .file)
-                } primaryAction: {
-                    if model.batchDrawer(item) != nil { model.setBatchFate(.file, for: item) }
                 }
+                // No primaryAction: with one, a tap only re-selected the drawer and the list opened on a long press,
+                // so the ▾ looked broken (Nov 9). Now a tap opens the list; picking a drawer also chooses filing.
                 .accessibilityIdentifier("session.batch.drawer")
                 ForEach([BatchFate.keepTwoWeeks, .archive, .trash, .unread], id: \.self) { f in
                     Button { model.setBatchFate(f, for: item) } label: { chip(f.title, selected: fate == f, rose: f == .trash) }
