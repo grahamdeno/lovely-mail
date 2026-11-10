@@ -767,9 +767,9 @@ struct SessionFateStrip: View {
                     }
                 } label: {
                     chip((model.batchDrawer(item)?.title ?? "File") + " \u{25BE}", selected: fate == .file)
-                } primaryAction: {
-                    if model.batchDrawer(item) != nil { model.setBatchFate(.file, for: item) }
                 }
+                // No primaryAction: with one, a tap only re-selected the drawer and the list opened on a long press,
+                // so the ▾ looked broken (Nov 9). Now a tap opens the list; picking a drawer also chooses filing.
                 .accessibilityIdentifier("session.batch.drawer")
                 ForEach([BatchFate.keepTwoWeeks, .archive, .trash, .unread], id: \.self) { f in
                     Button { model.setBatchFate(f, for: item) } label: { chip(f.title, selected: fate == f, rose: f == .trash) }
@@ -940,7 +940,15 @@ extension SessionItemScreen {
                     .accessibilityLabel("You said: " + said)
             }
             if thinking { ProgressView().frame(maxWidth: .infinity) }
-            if let askNote { Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary) }
+            if let askNote {
+                Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary)
+                // Kept on the phone as health mail, but he chose a cloud engine: one tap says it isn't health.
+                if askNote == EngineError.notForCloud.localizedDescription, EngineSettings().engine.isCloud {
+                    Button("Not health mail? Use \(EngineSettings().engine.name) for \(item.message.fromName)") { notHealth(item, post) }
+                        .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
+                        .accessibilityIdentifier("session.notHealth")
+                }
+            }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
             if !proposals.isEmpty, mode == .drawers {
                 Button("Not that, show the drawers") { clearAsk() }
@@ -948,6 +956,16 @@ extension SessionItemScreen {
             }
         }
         .id("session.askResults")
+    }
+
+    /// Marks the sender as not health mail and asks again with what he said before, now with the chosen engine.
+    private func notHealth(_ item: SessionItem, _ post: Post) {
+        HealthOverrides.markNotHealth(item.message.fromAddress)
+        askNote = nil
+        let earlier = askHistory.filter { !["not health", "not health mail"].contains($0.lowercased()) }
+        askHistory = []
+        proposals = []
+        if let last = earlier.last { ask((earlier.dropLast() + [last]).joined(separator: "\n"), item, post) }
     }
 
     func clearAsk() { proposals = []; askNote = nil; askHistory = []; askResetCount += 1 }
@@ -968,6 +986,10 @@ extension SessionItemScreen {
         let earlier = askHistory
         askHistory.append(said)
         askResetCount += 1
+        // "not health": this sender's mail is not health mail, so the chosen cloud engine may read it.
+        if ["not health", "not health mail", "this isn't health", "this is not health", "not medical"].contains(said.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".! "))) {
+            askHistory.removeLast(); notHealth(item, post); return
+        }
         // "text Julia", "text my wife about this": open Messages with a short summary (he taps Send there).
         if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askHistory.removeLast(); return }
         let kids = store.sessionKids

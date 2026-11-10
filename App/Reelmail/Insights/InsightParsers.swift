@@ -2,8 +2,12 @@ import Foundation
 
 /// Health mail is never read for amounts, bodies or insights. Only appointment dates come from the subject.
 enum HealthMail {
-    static let domains = ["mychart", "patient", "health", "clinic", "medical", "dental", "pharmacy", "tricare", "va.gov"]
-    static let subjectWords = ["appointment", "prescription", "lab result", "test result", "patient portal", "refill", "claim", "explanation of benefits"]
+    static let domains = ["mychart", "patient", "health", "clinic", "medical", "dental", "pharmacy", "tricare", "va.gov",
+                          "hospital", "pediatric", "zocdoc", "athena", "kaiser"]
+    /// Words that mean health on their own. "Appointment" and "claim" alone are not here: a car insurance claim or a
+    /// service appointment is not health mail (Nov 9: an adjuster's email about a car accident was kept from Claude).
+    static let subjectWords = ["prescription", "lab result", "test result", "patient portal", "refill", "explanation of benefits",
+                               "medical claim", "dental claim", "doctor appointment", "dentist appointment", "immunization", "vaccine"]
 
     static func isHealth(domain: String, subject: String) -> Bool {
         let d = domain.lowercased()
@@ -175,5 +179,20 @@ enum InsightParsers {
         guard let clock else { return Appointment(id: m.id, start: day, hasTime: false) }
         let secs = clock.timeIntervalSince(f.date(from: "12:00 AM") ?? clock)
         return Appointment(id: m.id, start: day.addingTimeInterval(secs), hasTime: true)
+    }
+}
+
+
+/// Senders he said are not health mail ("Not health" in a session). Their mail may go to Claude or Grok again.
+/// On this phone only.
+enum HealthOverrides {
+    static let key = "lovely.health.notHealthSenders"
+    static func isNotHealth(_ address: String, defaults: UserDefaults = .standard) -> Bool {
+        (defaults.stringArray(forKey: key) ?? []).contains(address.lowercased())
+    }
+    static func markNotHealth(_ address: String, defaults: UserDefaults = .standard) {
+        let a = address.lowercased()
+        var list = defaults.stringArray(forKey: key) ?? []
+        if !list.contains(a) { list.append(a); defaults.set(list, forKey: key) }
     }
 }
