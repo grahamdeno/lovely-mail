@@ -99,17 +99,22 @@ struct AppleMailQuestion {
 /// Questions and answers about his mail: each question becomes a read-only Gmail search, shown as results he can open.
 struct AskLovelyView: View {
     @Environment(FeedStore.self) private var store
-    let firstQuestion: String
+    var firstQuestion: String = ""
+    /// Set when opened from the Money, Energy or Kids bubble: the page's facts go along with every question.
+    var topic: PageFacts.Topic? = nil
     @State private var turns: [Turn] = []
     @State private var text = ""
     @State private var working = false
+    @FocusState private var typing: Bool
 
     struct Turn: Identifiable, Equatable {
         let id = UUID()
         var question: String
+        var answer: String = ""
+        /// The Gmail search behind the answer, shown underneath as sources.
         var query: String?
-        var say: String = ""
         var problem: String?
+        var engine: String = ""
     }
 
     var body: some View {
@@ -117,16 +122,28 @@ struct AskLovelyView: View {
             ScrollViewReader { reader in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
+                        if turns.isEmpty { starter }
                         ForEach(turns) { turn in
                             Text(turn.question).font(.body).foregroundStyle(CalmStyle.onBlue)
                                 .padding(.horizontal, 14).padding(.vertical, 10)
                                 .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18))
                                 .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 48)
-                            VStack(alignment: .leading, spacing: 8) {
-                                if !turn.say.isEmpty { Text(turn.say).font(.callout) }
-                                if let q = turn.query { GmailSearchResults(query: q) }
+                            VStack(alignment: .leading, spacing: 10) {
+                                if !turn.answer.isEmpty {
+                                    SelectableText(text: EmailPresentation.linked(turn.answer))
+                                }
                                 if let p = turn.problem { Text(p).font(.callout).foregroundStyle(CalmStyle.secondary) }
-                                if turn.query == nil, turn.problem == nil { ProgressView() }
+                                if turn.answer.isEmpty, turn.problem == nil {
+                                    HStack(spacing: 8) { ProgressView(); Text("Thinking\u{2026}").font(.callout).foregroundStyle(CalmStyle.secondary) }
+                                }
+                                if let q = turn.query {
+                                    Text("FROM YOUR MAIL").font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                                        .padding(.top, 4)
+                                    GmailSearchResults(query: q)
+                                }
+                                if !turn.engine.isEmpty {
+                                    Text(turn.engine).font(.caption2).foregroundStyle(CalmStyle.secondary)
+                                }
                             }
                             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -135,23 +152,49 @@ struct AskLovelyView: View {
                     }
                     .padding(20)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: turns.count) { _, _ in if let last = turns.last { withAnimation { reader.scrollTo(last.id, anchor: .bottom) } } }
             }
             HStack(spacing: 8) {
-                TextField("Ask a follow-up", text: $text).submitLabel(.search).onSubmit { send(text) }
-                    .padding(.horizontal, 14).frame(minHeight: 44)
+                TextField(turns.isEmpty ? "Ask anything" : "Ask a follow-up", text: $text, axis: .vertical)
+                    .lineLimit(1...4).focused($typing).submitLabel(.send).onSubmit { send(text) }
+                    .padding(.horizontal, 14).padding(.vertical, 11)
                     .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
+                    .accessibilityIdentifier("ask.field")
                 Button { send(text) } label: {
                     Image(systemName: "arrow.up").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
                         .frame(width: 44, height: 44).background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                 }
                 .disabled(working || text.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityLabel("Send")
             }
             .padding(.horizontal, 20).padding(.vertical, 10)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
-        .navigationTitle("Ask Lovely").navigationBarTitleDisplayMode(.inline)
-        .task { if turns.isEmpty { send(firstQuestion, counted: true) } }
+        .navigationTitle(topic.map { "Ask about \($0.title)" } ?? "Ask Lovely").navigationBarTitleDisplayMode(.inline)
+        .task {
+            if turns.isEmpty, !firstQuestion.trimmingCharacters(in: .whitespaces).isEmpty { send(firstQuestion, counted: true) }
+            else if turns.isEmpty { typing = true }
+        }
+    }
+
+    /// Before the first question: a line on what it can do, and the page's suggestions.
+    private var starter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(topic == nil ? "Ask about your mail, or anything else. Answers from your mail show the emails underneath."
+                              : "Ask about what's on your \(topic!.title) page, or anything around it.")
+                .font(.callout).foregroundStyle(CalmStyle.secondary)
+            WrapLayout(spacing: 8) {
+                ForEach(topic?.suggestions ?? ["What did school send this week?", "Who's waiting on me?", "Which bills are due?"], id: \.self) { q in
+                    Button { send(q) } label: {
+                        Text(q).font(.subheadline).foregroundStyle(CalmStyle.blue)
+                            .padding(.horizontal, 12).frame(minHeight: 36)
+                            .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 
     private func send(_ q: String, counted: Bool = false) {
@@ -159,20 +202,62 @@ struct AskLovelyView: View {
         guard !question.isEmpty, !working else { return }
         if !counted { AskLovelyUsage().recordAsk() }
         text = ""
-        // A follow-up carries the earlier question so "and last month?" makes sense.
-        let context = turns.last.map { "Earlier question: \($0.question)\nNow: \(question)" } ?? question
+        let history = turns.filter { !$0.answer.isEmpty }.map { AskChatReader.Turn(question: $0.question, answer: $0.answer) }
         turns.append(Turn(question: question))
         let index = turns.count - 1
         working = true
+        let facts = topic.map { store.pageFacts($0) } ?? []
+        let owner = store.me.name == "You" ? "" : store.me.firstName
+        let topicTitle = topic?.title
         Task {
             do {
-                let (query, say) = try await Self.search(for: context)
-                turns[index].query = query; turns[index].say = say
+                let a = try await Self.answer(question, history: history, topic: topicTitle, facts: facts, owner: owner, store: store)
+                turns[index].answer = a.text; turns[index].query = a.query; turns[index].engine = a.engine
+            } catch EngineError.unavailable {
+                turns[index].problem = "Add a Claude key in Settings, AI, or turn on Apple Intelligence, to get answers here."
             } catch {
-                turns[index].problem = "Lovely could not work out a search for that. Try naming who or what, like \u{201C}mail from Gunner's school this week\u{201D}."
+                turns[index].problem = "Lovely couldn't answer that just now. Check your connection and try again."
             }
             working = false
         }
+    }
+
+    /// Claude when there is a key (it can search his mail); otherwise Apple on the phone, which answers from the
+    /// page facts and general knowledge, plus a mail search for questions about his mail.
+    @MainActor static func answer(_ question: String, history: [AskChatReader.Turn], topic: String?, facts: [String],
+                                  owner: String, store: FeedStore) async throws -> (text: String, query: String?, engine: String) {
+        let today = Date().formatted(date: .complete, time: .omitted)
+        if let key = EngineSettings.key(.claude) {
+            let model = EngineSettings().claudeModel
+            let system = AskChatReader.system(ownerName: owner, engineName: "Claude (\(model)) through Anthropic's API",
+                                              today: today, topic: topic, facts: facts.map { Redactor.redact($0) })
+            let gmail = store.gmail
+            let a = try await AskChatReader.answer(question, history: history, system: system, model: model, key: key,
+                                                   search: { query in await Self.searchLines(query, gmail: gmail) })
+            return (a.text, a.query, "Claude")
+        }
+        guard ModelStatus.current.isAvailable else { throw EngineError.unavailable }
+        let system = AskChatReader.system(ownerName: owner, engineName: "Apple Intelligence on this iPhone", today: today,
+                                          topic: topic, facts: facts)
+            + "\nYou cannot search his mail yourself here; Lovely shows matching emails under your answer when the question is about his mail."
+        let session = LanguageModelSession(instructions: system)
+        let prompt = (history.suffix(3).map { "Earlier he asked: \($0.question)\nYou said: \($0.answer)" } + [question]).joined(separator: "\n\n")
+        let text = try await session.respond(to: prompt).content.trimmingCharacters(in: .whitespacesAndNewlines)
+        var query: String?
+        if topic == nil, let found = try? await search(for: question) { query = found.0 }
+        return (text, query, "Apple Intelligence")
+    }
+
+    /// One line per message for the AI: sender, subject, date. Health mail is left out.
+    nonisolated static func searchLines(_ query: String, gmail: any GmailInboxClient) async -> [String] {
+        guard let list = try? await gmail.listMessageIDs(query: query, limit: 10) else { return [] }
+        var out: [String] = []
+        for id in list.ids {
+            guard let m = try? await gmail.getMetadata(id: id),
+                  !HealthMail.isHealth(address: m.fromAddress, name: m.fromName, subject: m.subject) else { continue }
+            out.append("From \(m.fromName.isEmpty ? m.fromAddress : m.fromName), \(m.date.formatted(date: .abbreviated, time: .shortened)): \(m.subject)")
+        }
+        return out
     }
 
     static func search(for question: String) async throws -> (String, String) {
