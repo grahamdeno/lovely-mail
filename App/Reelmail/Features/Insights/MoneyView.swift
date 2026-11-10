@@ -140,6 +140,7 @@ struct MoneyView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Money").navigationBarTitleDisplayMode(.inline)
+        .askBubble(.money)
     }
 
     private func header(_ text: String) -> some View {

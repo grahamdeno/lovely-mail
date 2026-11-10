@@ -53,6 +53,7 @@ struct KidsView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Kids").navigationBarTitleDisplayMode(.inline)
+        .askBubble(.kids)
     }
 }
 

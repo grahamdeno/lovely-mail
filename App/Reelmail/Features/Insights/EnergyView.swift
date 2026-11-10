@@ -68,6 +68,7 @@ struct EnergyView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
         .navigationTitle("Energy").navigationBarTitleDisplayMode(.inline)
+        .askBubble(.energy)
     }
 }
 
