@@ -96,7 +96,16 @@ final class PersonProfileTests: XCTestCase {
         let links = linked.runs.compactMap(\.link).map(\.absoluteString)
         XCTAssertTrue(links.contains { $0.contains("livestandrewsreserve.com") }, "\(links)")
         XCTAssertTrue(links.contains { $0.hasPrefix("tel:") && $0.contains("9103136100") }, "\(links)")
-        XCTAssertEqual(String(linked.characters), body, "Linking never changes the text")
+        XCTAssertEqual(String(linked.characters), body, "Short links keep their text")
+
+        let tracking = "https://u25623499.ct.sendgrid.net/ls/click?upn=u001.LaZ2mApT71jNBVPgD-2BfkNxj5r-Uwj5zldMQHAzvW3tyCMrls6NvVIlib"
+        let bill = EmailPresentation.linked("View it on the Customer Portal ( \(tracking) ).")
+        XCTAssertEqual(String(bill.characters), "View it on the Customer Portal ( sendgrid.net/\u{2026} ).", "Long links show as site/…")
+        XCTAssertEqual(bill.runs.compactMap(\.link).first?.absoluteString, tracking, "The short label still opens the full link")
+        XCTAssertEqual(EmailPresentation.shortLinkTitle(URL(string: "https://www.bbc.co.uk/news/" + String(repeating: "a", count: 50))!,
+                                                        shown: String(repeating: "x", count: 60)), "bbc.co.uk/\u{2026}")
+        XCTAssertNil(EmailPresentation.shortLinkTitle(URL(string: "mailto:" + String(repeating: "a", count: 50) + "@x.com")!,
+                                                      shown: String(repeating: "x", count: 60)), "Email addresses stay whole")
 
         let solo = Email(id: "a", threadId: "a", from: dana, to: ["Graham <graham.denoyer@gmail.com>"], subject: "S", date: now, body: "Hi")
         XCTAssertFalse(EmailPresentation.showsRecipients(solo, mine: ["grahamdenoyer@gmail.com"]), "Mail only to you needs no To line")

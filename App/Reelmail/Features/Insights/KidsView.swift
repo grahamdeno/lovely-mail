@@ -32,15 +32,16 @@ struct KidsView: View {
                         .font(.subheadline).foregroundStyle(CalmStyle.secondary)
                 }
                 ForEach(kids) { kid in
-                    let mail = store.kidMail(for: kid)
+                    let next = KidInsights.next(for: kid, mail: store.kidMail(for: kid), now: Date())
                     Button { router.open(.kid(kid.id)) } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(kid.name).font(.headline)
-                                Text(kid.school.isEmpty ? "No school entered" : kid.school).font(.caption).foregroundStyle(CalmStyle.secondary)
+                                // What's next instead of a mail count (Nov 9).
+                                Text(next.map { "\($0.what) \u{00B7} \($0.when)" } ?? "Nothing coming up")
+                                    .font(.subheadline).foregroundStyle(next == nil ? CalmStyle.secondary : CalmStyle.ink).lineLimit(1)
                             }
                             Spacer()
-                            Text("\(mail.count)").foregroundStyle(CalmStyle.secondary)
                             Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
                         }
                         .padding(.horizontal, 14).frame(minHeight: 56).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -75,18 +76,34 @@ struct KidView: View {
                     let mail = store.kidMail(for: kid)
                     if mail.isEmpty { Text("No mail about \(kid.name) in your inbox right now.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
                     ForEach(mail) { item in
+                        let date = MailDates.extract(item.post.email, now: Date()).first
                         VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .top) {
                             Button { router.open(.email(item.post.id)) } label: {
                                 VStack(alignment: .leading, spacing: 3) {
+                                    if let date {
+                                        Label(ComingUp.label(date, now: Date()), systemImage: "calendar")
+                                            .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                                    }
                                     Text(item.post.summary.headline).font(.headline).multilineTextAlignment(.leading)
                                     Text(item.post.email.from.name + " · " + item.post.email.date.formatted(date: .abbreviated, time: .omitted))
                                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                                     Text(KidInsights.plainReasons(item.reasons)).font(.caption).foregroundStyle(CalmStyle.secondary)
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }.buttonStyle(.plain)
+                            // Shoebox moved into a ··· menu: as a button on every card it filled the screen (Nov 9).
                             if store.actions != nil {
-                                Button { Task { await prepareShoebox(item.post.email.from.email) } } label: { Label("Send this sender to Shoebox", systemImage: "tray.and.arrow.down") }
-                                    .buttonStyle(CalmActionStyle()).frame(minHeight: 44)
+                                Menu {
+                                    Button { Task { await prepareShoebox(item.post.email.from.email) } } label: {
+                                        Label("Send this sender to Shoebox", systemImage: "tray.and.arrow.down")
+                                    }
+                                } label: {
+                                    Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                                        .frame(width: 44, height: 44).contentShape(Rectangle())
+                                }
+                                .accessibilityLabel("More actions")
+                            }
                             }
                             if item.post.email.body.count > 1_500 {
                                 if let list = summaries[item.id] {

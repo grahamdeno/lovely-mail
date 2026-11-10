@@ -38,4 +38,28 @@ final class KidInsightTests: XCTestCase {
         XCTAssertEqual(merged.count, 5)
         XCTAssertEqual(merged.filter { $0.lowercased().contains("picture day") }.count, 1)
     }
+
+    func testNextShowsSoonestUpcomingDate() {
+        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "America/New_York")!
+        let now = cal.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 19))!
+        func dated(_ id: String, _ subject: String, _ body: String) -> KidMail {
+            let email = Email(id: id, threadId: id, from: Person(id: "o", name: "Office", email: "office@school.example", hue: 0.5),
+                              to: ["me@example.com"], subject: subject, date: now.addingTimeInterval(-3_600), body: body)
+            return KidMail(post: Post(email: email, summary: FallbackSummarizer().summarizeSync(SummaryInput(email: email))), reasons: ["Names Alex"])
+        }
+        let mail = [dated("a", "Band concert", "The concert is on Nov 20 at 7 PM."),
+                    dated("b", "Busch Gardens Trip Reminder", "The trip is on Nov 12. Bring lunch."),
+                    dated("c", "Lunch menu", "Pizza is popular.")]
+        let next = KidInsights.next(for: kid, mail: mail, now: now, calendar: cal)
+        XCTAssertEqual(next?.postID, "b", "The soonest date wins, not the newest mail")
+        XCTAssertEqual(next?.what, "Busch Gardens Trip", "Reminder is dropped from the title")
+        XCTAssertNil(KidInsights.next(for: kid, mail: [mail[2]], now: now, calendar: cal), "No date, nothing coming up")
+    }
+
+    func testShortTitleCutsAtAWord() {
+        XCTAssertEqual(KidInsights.shortTitle("Reminder: Picture day"), "Picture day")
+        let long = KidInsights.shortTitle("High School Specialty Programs Information Night")
+        XCTAssertTrue(long.count <= 29 && long.hasSuffix("\u{2026}"), long)
+        XCTAssertFalse(long.contains("Informat\u{2026}"), "Never cuts mid-word")
+    }
 }

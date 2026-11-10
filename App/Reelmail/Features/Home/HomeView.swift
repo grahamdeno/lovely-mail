@@ -148,7 +148,8 @@ struct HomeView: View {
             TopBar()
             List {
                 StatusNotices()
-                    .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
+                    .listRowInsets(rowInsets).listRowSeparator(.hidden)
+                    .listRowBackground(CalmStyle.background.overlay(PullDownOnly()))   // pull down refreshes; no push up past the end
 
                 if store.filter == .all {
                     digest(store.digest)
@@ -281,7 +282,8 @@ struct HomeView: View {
     private func minuteChips(_ d: HomeDigest, older: Int) -> [MinuteChips.Chip] {
         let money = MoneyInsights.summary(store.insights.store, households: InsightSettings().load().households)
         let bills = money.households.filter { !$0.ended }.reduce(0) { $0 + $1.open.count }
-        let kids = InsightSettings().load().kids.reduce(0) { $0 + store.kidMail(for: $1).count }
+        let kidProfiles = InsightSettings().load().kids
+        let kidNext = KidInsights.soonest(kidProfiles.compactMap { KidInsights.next(for: $0, mail: store.kidMail(for: $0), now: Date()) })
         let energy = EnergyInsights.summary(store.insights.store, household: nil)
         let soon = ComingUp.thisWeek(store.comingUp, now: Date())
         var chips: [MinuteChips.Chip] = []
@@ -290,7 +292,9 @@ struct HomeView: View {
         if !soon.isEmpty { chips.append(.init(title: "\(soon.count) date\(soon.count == 1 ? "" : "s") this week", route: .comingUp)) }
         if !d.notes.isEmpty { chips.append(.init(title: "Notes · \(d.notes.count)", route: .notes)) }
         if bills > 0 || !money.alarms.isEmpty { chips.append(.init(title: money.alarms.isEmpty ? "Bills · \(bills) due" : "Bills · problem", route: .money)) }
-        if kids > 0 { chips.append(.init(title: "Kids · \(kids)", route: .kids)) }
+        // What's next, not how many: "Kids · Gunner, Busch Gardens Trip Thu" (Nov 9).
+        if let n = kidNext { chips.append(.init(title: "Kids \u{00B7} \(n.kid), \(n.what) \(n.when)", route: .kids)) }
+        else if !kidProfiles.isEmpty { chips.append(.init(title: "Kids \u{00B7} nothing coming up", route: .kids)) }
         if let latest = energy.latest { chips.append(.init(title: String(format: "Energy $%.2f/day", latest.dollarsPerDay), route: .energy)) }
         if !store.promises.isEmpty { chips.append(.init(title: "You said you would · \(store.promises.count)", route: .promises)) }
         if !store.waitingOnThem.isEmpty { chips.append(.init(title: "Waiting on them · \(store.waitingOnThem.count)", route: .waitingOnThem)) }

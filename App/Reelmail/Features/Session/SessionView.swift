@@ -618,7 +618,7 @@ struct SessionBatchScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
-                    Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Always to make it a Gmail filter for that sender.")
+                    Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Every time to make it a Gmail filter for that sender.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(page) { item in
@@ -781,7 +781,7 @@ struct SessionFateStrip: View {
                     Button {
                         if on { model.alwaysRows.remove(item.id) } else { model.alwaysRows.insert(item.id) }
                     } label: {
-                        Label(suggested ? "Always?" : "Always", systemImage: on ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                        Label(suggested ? "Every time?" : "Every time", systemImage: on ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
                             .font(.caption.weight(.semibold)).lineLimit(1)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .foregroundStyle(on ? CalmStyle.onBlue : CalmStyle.blue)
@@ -789,7 +789,7 @@ struct SessionFateStrip: View {
                             .overlay(Capsule().strokeBorder(CalmStyle.blue.opacity(on ? 0 : (suggested ? 0.9 : 0.4)), style: StrokeStyle(lineWidth: 1.5, dash: suggested ? [] : [4, 3])))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(on ? "Always for this sender, on" : "Always do this for this sender")
+                    .accessibilityLabel(on ? "Every time for this sender, on" : "Do this every time for this sender")
                     .accessibilityIdentifier("session.fate.always")
                 }
         }
