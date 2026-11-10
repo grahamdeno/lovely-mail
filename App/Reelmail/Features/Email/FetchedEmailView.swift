@@ -18,7 +18,7 @@ struct FetchedEmailView: View {
                         Text(email.subject.isEmpty ? "(no subject)" : email.subject).font(.title3.weight(.bold))
                         Text(email.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(CalmStyle.secondary)
                         Divider()
-                        Text(email.body).font(.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                        SelectableText(text: EmailPresentation.linked(email.body)).frame(maxWidth: .infinity, alignment: .leading)
                         Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app").frame(maxWidth: .infinity) }
                             .buttonStyle(CalmActionStyle()).padding(.top, 8)
                     }

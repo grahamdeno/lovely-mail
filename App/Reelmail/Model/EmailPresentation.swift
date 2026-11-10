@@ -33,19 +33,40 @@ enum EmailPresentation {
 
     /// The body with web addresses, email addresses, phone numbers and street addresses made tappable.
     /// Detection runs on the phone; nothing is fetched.
+    /// Long web addresses (tracking links run to hundreds of characters) show as "site.com/…"; the link still goes to
+    /// the full address, and a long press offers Copy Link.
     static func linked(_ text: String) -> AttributedString {
         var out = AttributedString(text)
         let types: NSTextCheckingResult.CheckingType = [.link, .phoneNumber, .address]
         guard let detector = try? NSDataDetector(types: types.rawValue) else { return out }
         let ns = text as NSString
-        for match in detector.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+        // Back to front, so shortening one link leaves the earlier ranges where they were.
+        for match in detector.matches(in: text, range: NSRange(location: 0, length: ns.length)).reversed() {
             guard let url = url(for: match, in: ns),
                   let range = Range(match.range, in: text),
                   let lower = AttributedString.Index(range.lowerBound, within: out),
                   let upper = AttributedString.Index(range.upperBound, within: out) else { continue }
-            out[lower..<upper].link = url
+            if match.resultType == .link, let short = shortLinkTitle(url, shown: ns.substring(with: match.range)) {
+                var piece = AttributedString(short)
+                piece.link = url
+                out.replaceSubrange(lower..<upper, with: piece)
+            } else {
+                out[lower..<upper].link = url
+            }
         }
         return out
+    }
+
+    static let longLink = 45
+
+    /// "u25623499.ct.sendgrid.net/…" becomes "sendgrid.net/…": the last two parts of the host, so the owner sees whose
+    /// link it is. Nil when the address is short enough to show whole, or is an email address.
+    static func shortLinkTitle(_ url: URL, shown: String) -> String? {
+        guard shown.count > longLink, url.scheme?.lowercased() != "mailto", let host = url.host?.lowercased() else { return nil }
+        var parts = host.split(separator: ".").map(String.init)
+        if parts.first == "www" { parts.removeFirst() }
+        let site = parts.suffix(parts.count >= 3 && parts[parts.count - 2].count <= 3 ? 3 : 2).joined(separator: ".")
+        return site + "/\u{2026}"
     }
 
     private static func url(for match: NSTextCheckingResult, in text: NSString) -> URL? {

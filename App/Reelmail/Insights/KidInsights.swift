@@ -110,3 +110,46 @@ extension KidInsights {
         return terms.isEmpty ? "" : "Mentions " + terms.joined(separator: ", ")
     }
 }
+
+/// What's next for a child: the soonest upcoming date in their mail. A count of school mail says nothing about
+/// whether any of it needs the owner (Nov 9), so Home and the Kids page show this instead.
+struct KidNext: Equatable {
+    let kid: String
+    let postID: String
+    /// Short name of the thing: "Busch Gardens Trip".
+    let what: String
+    /// "Thu", "Tomorrow 7 PM", "Nov 20".
+    let when: String
+    let start: Date
+}
+
+extension KidInsights {
+    /// The soonest date from today on across a child's mail, or nil when nothing is coming up.
+    static func next(for kid: KidProfile, mail: [KidMail], now: Date, calendar: Calendar = .current) -> KidNext? {
+        let found = mail.compactMap { item in
+            MailDates.extract(item.post.email, now: now, calendar: calendar).first.map { (item.post, $0) }
+        }
+        guard let (post, date) = found.min(by: { $0.1.start < $1.1.start }) else { return nil }
+        return KidNext(kid: kid.name, postID: post.id, what: shortTitle(post.email.subject.isEmpty ? post.summary.headline : post.email.subject),
+                       when: ComingUp.label(date, now: now, calendar: calendar), start: date.start)
+    }
+
+    /// The soonest across all children.
+    static func soonest(_ list: [KidNext]) -> KidNext? { list.min { $0.start < $1.start } }
+
+    /// "Busch Gardens Trip Reminder" -> "Busch Gardens Trip"; long subjects cut at a word, 28 characters at most.
+    static func shortTitle(_ subject: String, limit: Int = 28) -> String {
+        var s = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        for noise in ["Reminder:", "REMINDER:", "Reminder -", "Fwd:", "FW:", "Re:"] where s.hasPrefix(noise) {
+            s = String(s.dropFirst(noise.count)).trimmingCharacters(in: .whitespaces)
+        }
+        for noise in [" Reminder", " reminder", " - Reminder"] where s.hasSuffix(noise) { s = String(s.dropLast(noise.count)) }
+        guard s.count > limit else { return s }
+        var out = ""
+        for word in s.split(separator: " ") {
+            if out.count + word.count + (out.isEmpty ? 0 : 1) > limit { break }
+            out += (out.isEmpty ? "" : " ") + word
+        }
+        return (out.isEmpty ? String(s.prefix(limit)) : out) + "\u{2026}"
+    }
+}
