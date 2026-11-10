@@ -54,6 +54,8 @@ enum FixtureMode {
     private static func resetPhoneState() {
         let defaults = UserDefaults.standard
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("lovely.") { defaults.removeObject(forKey: key) }
+        // The UI audit's jobs tap the tab bar; the split pill (Nov 9) is tested by its own job later.
+        defaults.set(false, forKey: "lovely.nav.splitPill")
         if let appearance { defaults.set(appearance, forKey: Appearance.storageKey) }
         InsightSettings().save(InsightSettingsData(
             households: [Household(id: "fx-home", name: "Maple Street house")],

@@ -210,6 +210,7 @@ struct SettingsLookView: View {
             SettingsHeader(text: "Appearance", first: true)
             AppearanceCard()
             OpeningAnimationToggle()
+            SplitPillToggle()
             SettingsHeader(text: "Pictures")
             PicturesCard()
         }
@@ -578,5 +579,21 @@ struct OpeningAnimationToggle: View {
             .padding(.horizontal, 14).frame(minHeight: 50)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
             .accessibilityIdentifier("settings.openingAnimation")
+    }
+}
+
+/// Turns the split pill (Home and People pill plus Ask or search) on or off; off brings back the tab bar.
+struct SplitPillToggle: View {
+    @AppStorage(SplitPillBar.settingKey) private var on = true
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Split pill", isOn: $on).tint(CalmStyle.blue)
+            Text(on ? "Home and People in a small pill, with one Ask or search field. Turn off to get the tab bar back."
+                    : "Tab bar with Home, People and Search.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityIdentifier("settings.splitPill")
     }
 }
