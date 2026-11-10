@@ -184,7 +184,7 @@ struct EngineUsage {
 /// Picks the engines for one request and keeps the privacy rules in one place.
 enum EngineRouter {
     /// Health mail never goes to a cloud engine, whatever the setting.
-    static func allowsCloud(_ item: SessionItem) -> Bool { !item.message.isHealth }
+    static func allowsCloud(_ item: SessionItem) -> Bool { !item.message.isHealth || HealthOverrides.isNotHealth(item.message.fromAddress) }
 
     static func engine(_ kind: EngineKind, settings: EngineSettings = EngineSettings(),
                        transport: @escaping EngineTransport = { try await URLSession.shared.data(for: $0) }) -> SessionEngine {

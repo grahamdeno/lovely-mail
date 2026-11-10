@@ -258,7 +258,7 @@ extension SessionMessage {
             section: assessment.section, category: post.summary.category,
             isPerson: !e.isAutomated && !e.isFromMe && assessment.section != .notes,
             ask: assessment.ask,
-            isHealth: HealthMail.isHealth(address: e.from.email, name: e.from.name, subject: e.subject),
+            isHealth: HealthMail.isHealth(address: e.from.email, name: e.from.name, subject: e.subject) && !HealthOverrides.isNotHealth(e.from.email),
             isFirstTimeSender: isFirstTimeSender,
             asksForAction: Self.detectsAction(subject: e.subject, text: authored),
             hasDates: !MailDates.extract(e, now: Date()).isEmpty)

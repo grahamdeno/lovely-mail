@@ -12,7 +12,11 @@ struct TextAboutSheet: View {
     @State private var chosen: TextRecipient?
     @State private var draft = ""
     @State private var picking = false
-    @State private var composing = false
+    /// What goes to Messages, copied from the editor at the moment of the tap. The old `composing` flag let the
+    /// Messages sheet read `draft` through a closure SwiftUI had built earlier, so an edited draft could go out as
+    /// the original suggestion (Nov 9).
+    @State private var outgoing: OutgoingText?
+    @FocusState private var editing: Bool
 
     var body: some View {
         NavigationStack {
@@ -43,6 +47,7 @@ struct TextAboutSheet: View {
 
                     Text("MESSAGE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
                     TextEditor(text: $draft)
+                        .focused($editing)
                         .frame(minHeight: 140).scrollContentBackground(.hidden)
                         .padding(10).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                         .accessibilityIdentifier("textAbout.draft")
@@ -74,23 +79,28 @@ struct TextAboutSheet: View {
             }
             .ignoresSafeArea()
         }
-        .sheet(isPresented: $composing) {
-            if let chosen {
-                MessageComposer(recipient: chosen.phone, body: draft) { sent in
-                    composing = false
-                    if sent { dismiss() }
-                }
-                .ignoresSafeArea()
+        .sheet(item: $outgoing) { text in
+            MessageComposer(recipient: text.phone, body: text.body) { sent in
+                outgoing = nil
+                if sent { dismiss() }
             }
+            .ignoresSafeArea()
         }
     }
 
     private func open() {
+        guard chosen != nil else { return }
+        editing = false                       // ends the keyboard's pending word so it lands in the draft
+        DispatchQueue.main.async { send() }   // read the draft after that last word is in
+    }
+
+    private func send() {
         guard let chosen else { return }
         TextRecipients().remember(chosen)
+        let body = draft
         if MFMessageComposeViewController.canSendText() {
-            composing = true
-        } else if let url = Self.smsURL(phone: chosen.phone, body: draft) {
+            outgoing = OutgoingText(phone: chosen.phone, body: body)
+        } else if let url = Self.smsURL(phone: chosen.phone, body: body) {
             openURL(url); dismiss()
         }
     }
@@ -100,6 +110,13 @@ struct TextAboutSheet: View {
         c.queryItems = [URLQueryItem(name: "body", value: body)]
         return c.url
     }
+}
+
+/// The text as it was when the owner tapped Text: a fixed copy, so nothing can swap it for an older draft.
+struct OutgoingText: Identifiable, Equatable {
+    let id = UUID()
+    let phone: String
+    let body: String
 }
 
 /// Apple's contact picker, phone numbers only. Needs no Contacts permission: Lovely sees only the number picked.
