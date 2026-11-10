@@ -7,6 +7,9 @@ struct SessionView: View {
     @Environment(Router.self) private var router
     @State private var model: SessionModel?
     var backlog = false
+    /// Bumped by "Clear the next page" to build a fresh plan in place.
+    @State private var page = 0
+    @State private var shown: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,9 +23,10 @@ struct SessionView: View {
         .background(CalmStyle.background)
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .toolbar(.hidden, for: .navigationBar)
-        .task {
+        .task(id: page) {
             guard model == nil else { return }
-            let plan = store.makeSessionPlan(backlog: backlog)
+            let plan = store.makeSessionPlan(backlog: backlog, excluding: shown)
+            shown.formUnion(plan.items.map(\.id))
             let fresh = SessionModel(plan: plan, backlog: backlog)
             fresh.rememberedFates = store.senderFates.fates
             model = fresh
@@ -30,7 +34,7 @@ struct SessionView: View {
             let unplaced = plan.items.filter { $0.drawer == nil && !$0.message.isPerson && $0.group != .reading }.map(\.message)
             guard !unplaced.isEmpty else { return }
             let guesses = await AppleDrawerGuesser.guesses(for: unplaced)
-            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses, backlog: backlog)) }
+            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses, backlog: backlog, excluding: shown.subtracting(plan.items.map(\.id)))) }
         }
     }
 
@@ -49,6 +53,12 @@ struct SessionView: View {
     /// Older mail waiting in the inbox, if any, as a next step from the start or wrap-up screens.
     private var openBacklog: (() -> Void)? {
         guard store.backlogCandidates.count > 0 else { return nil }
+        // Already on older mail: start the next page here. Popping and pushing the same route kept the old screen,
+        // so "Clear the next page" did nothing (Nov 10). Mail just filed is already hidden, so it isn't repeated.
+        if backlog {
+            guard store.backlogCandidates.contains(where: { !shown.contains($0.id) }) else { return nil }
+            return { model = nil; page += 1 }
+        }
         return { close(); router.open(.backlog) }
     }
 }
