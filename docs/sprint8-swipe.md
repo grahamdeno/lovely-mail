@@ -23,13 +23,19 @@ The gesture is the confirmation, so it must say what it will do before it does i
 - Sender remembered for Trash: pull down still puts away; Trash stays behind the left swipe and its tap.
 - Health mail and Ask Lovely rules are unchanged.
 
-## Above the bottom object
-- The ask bar (field plus the blue up button) to talk about this email.
-- The small row and the ⋯ sheet as today.
-- The main button stays for VoiceOver and for anyone who does not swipe; accessibility actions mirror the three moves.
+## The screen (owner picks, Nov 10, 2026; mockup Design/mockups/sprint8-moves.html)
+- Each email is a full white screen (dark: near black), no card, no photo, no colored ground. Lots of white space.
+- Top: sender line. Middle: one big fact (amount, day, time) with a short label. Then one Liquid Glass panel: subject, summary, drawer and tags, Open, and the Ask Lovely field with the blue up button inside it.
+- Beside the dot: Archive (left) and ⋯ (right; Keep 2 weeks moves into ⋯).
+- No main button by default. VoiceOver actions mirror the three moves; a Settings switch can show the button.
 
-## The bottom object
-Open. Not a box. Owner wants something creative the email is pulled down into. Concepts in the PR; pick before building.
+## The dot
+- The logo's blue, a gel ball about 148 pt across, centered at the bottom, about half off screen. Never a perfect circle: an uneven wobble at rest.
+- Grows and leans toward the thumb as the email is pulled toward it. Gulps the email and wobbles like gel as it settles. Tap it and it jiggles. No ripple rings, no color change.
+- The next email rises out of it.
+
+## Choosing a drawer
+- When no drawer is known, letting go past the line springs a glass box up out of the dot: the email's sender, subject and summary on top for reference, then the most likely drawers (with a short reason), then the other drawers. One tap puts it away; Not now puts the email back.
 
 ## Safety (approved by the owner in chat, Nov 10, 2026)
 - Pull down past the line makes the same ConfirmedAction the session's main button makes, in `Features/Session/SessionConfirm.swift`, only after the destination has been shown on screen during the pull. The 10-second Undo applies.
