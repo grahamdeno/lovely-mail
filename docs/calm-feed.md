@@ -1,5 +1,28 @@
 # Reelmail: calm-feed redesign
 
+## Where we left off (Nov 10, 2026)
+Read this first in a new session. The app ships as Lovely Mail; repo grahamdeno/lovely-mail; merges to `testflight` make a TestFlight build (build number = 1000 + the testflight workflow run number).
+
+- **Latest TestFlight build:** 1067. Everything Graham asked to ship through Nov 10 morning is in it: categories and the re-sort, Ask Lovely answering in words plus the Ask bubble on Money, Energy and Kids, Home round 5, one search field (split pill), Neon as dark mode with cool neon accents, selectable email text with tappable links, "Clear the next page".
+- **Open PRs:**
+  - #74 subtitle "Get through your email." (this note rides with it): waiting for Graham's ship.
+  - #64 UI audit: its schema-test fix is already merged elsewhere; the audit scripts still look for the old Home (chips, Next up card) and need updating before the audit is useful.
+- **App Store Connect:** subtitle already changed to "Get through your email." (Nov 10, by Grok, confirmed). Name is Lovely Mail. Graham presses Submit for Review himself.
+- **Not built yet:**
+  - "Sign this form" steps from kid mail (careful: must not nag).
+  - Web search in Ask Lovely (Anthropic web search tool, extra cost per search); Grok as an Ask Lovely engine.
+  - Category setup shown automatically on first use (today: Settings, Categories, Run setup again).
+  - Money page and bills still group the old way; could group by the new categories.
+- **Working rules (also in CLAUDE.md and Graham's memory):**
+  - Feature branches and PRs; merge only when Graham says "ship"; he prefers one big release.
+  - Check each PR's unit tests (`build` workflow) on its head commit before merging, and report the real count; after one PR merges, merge `testflight` into the others and re-test before merging them.
+  - Always `git fetch origin +refs/heads/testflight:refs/remotes/origin/testflight` before branching (the tracking ref goes stale).
+  - GitHub via REST only (`gh api`); merge with `gh api -X PUT repos/grahamdeno/lovely-mail/pulls/N/merge -f merge_method=squash`.
+  - UI audit (`ui-audit` label) artifacts can't be downloaded from the cloud sandbox; read the job log's AUDIT-SUMMARY block instead.
+  - Don't sit waiting on CI: schedule a check and stop. Say which model the next step needs (Sonnet builds, Opus for design and safety).
+  - No em-dashes in app copy or messages.
+
+
 ## Approved product direction
 Personal Gmail first; mobile-first native experience initially. Reduce junk and overload before polishing newsletters. Present worthwhile mail as compact summaries, connections, and one unified chronological timeline per person. Future multi-user support matters, but do not build unnecessary infrastructure before validating the personal experience.
 
