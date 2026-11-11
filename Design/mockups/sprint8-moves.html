@@ -135,6 +135,24 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .dark.pane2 .ask{background:rgba(0,0,0,.25);box-shadow:inset 0 2px 6px rgba(0,0,0,.4),inset 0 -1px 0 rgba(255,255,255,.06)}
 .pane2 .ask .go{box-shadow:0 4px 10px rgba(46,88,200,.35),inset 0 1px 0 rgba(255,255,255,.35)}
 .pane2 .panel{margin-bottom:6px}
+
+/* Version 2 */
+.v2who{position:absolute;left:24px;right:24px;top:calc(62px + env(safe-area-inset-top))}
+.av.big{width:58px;height:58px;font-size:20px;box-shadow:0 8px 20px -8px rgba(37,34,42,.35)}
+.v2who .n{font-size:30px;font-weight:800;letter-spacing:-.6px;margin-top:14px;line-height:1.1}
+.v2who .c{font-size:15px;color:var(--sec);margin-top:4px}
+.v2who .ins{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:600}
+.v2who .ins i{width:8px;height:8px;border-radius:50%}
+.front{z-index:11}
+.front .fact{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.front .fact .k{font-size:13px;font-weight:600;color:var(--sec)}
+.front .fact .v{font-size:44px;font-weight:800;letter-spacing:-1.4px;line-height:1.02;margin-top:2px}
+.front .fact .t{font-size:13px;color:var(--sec)}
+.sliver{height:76px;padding:12px 18px !important;display:flex;align-items:flex-start;gap:10px;font-size:14px;transform:none !important}
+.sliver span{color:var(--sec);font-weight:600;min-width:52px}
+.sliver b{font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sliver em{font-style:normal;color:var(--sec)}
+.pane2 .sliver::after{display:none}
 </style>
 </head>
 <body>
@@ -154,7 +172,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   <div class="top">
     <button class="x" aria-label="Close">×</button>
     <span class="sp"></span>
-    <span class="names">Ball 1 · Card 1 · <button id="tPane">Pane 2</button></span><button class="w" id="tDark">Dark</button>
+    <span class="names">Ball 1 · <button id="tPane">Pane 2</button> · <button id="tVer">Version 2</button></span><button class="w" id="tDark">Dark</button>
     <span id="count">1 of 6</span>
   </div>
   <div id="hintUp">Skip for now</div>
@@ -197,12 +215,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 <script>
 (() => {
 const ITEMS = [
- {from:'Cape Fear Power',addr:'billing@capefearpower.example',time:'8:14 AM',subject:'Your November bill is ready',summary:'About 9% higher than October. Autopay is off.',k:'Due Nov 21',v:'$142.18',s:'Electric bill',drawer:'Money',tags:['bill','electric','house'],act:'put'},
- {from:'Pine Valley Middle',addr:'office@pinevalley.example',time:'7:02 AM',subject:'Band trip permission slip',summary:'Sign and return the form for the Dec 6 trip to Raleigh.',k:'Due',v:'Friday',s:'Permission slip to sign',drawer:'Kids and family',tags:['school','form','band'],act:'put'},
- {from:'Sarah Mills',addr:'sarah.mills@example.com',time:'Yesterday',subject:'Dinner Saturday?',summary:'They finally have a sitter and want to try the new place downtown.',k:'Waiting on you',v:'Sat 7 PM',s:'Dinner with Sarah',drawer:'Personal',tags:['plans'],act:'reply'},
- {from:'Parcel Post',addr:'updates@parcelpost.example',time:'Yesterday',subject:'Delivered: 1 package',summary:'Left at the front door.',k:'Delivered',v:'4:41 PM',s:'Front door',drawer:'Orders',tags:['delivery'],act:'put'},
- {from:'The Morning Edit',addr:'hello@morningedit.example',time:'Mon',subject:'Five things worth reading',summary:'Paper planners, winter coats, a short history of the postcard.',k:'Newsletter',v:'5 reads',s:'You usually archive these',drawer:null,tags:['newsletter'],act:'archive'},
- {from:'Hearth & Co',addr:'quotes@hearthco.example',time:'Mon',subject:'Your chimney quote is ready',summary:'Quote for an inspection and cleaning. Reply to schedule a visit.',k:'New sender',v:'Quote',s:'Chimney inspection',drawer:null,tags:[],act:'choose',
+ {from:'Cape Fear Power',addr:'billing@capefearpower.example',time:'8:14 AM',subject:'Your November bill is ready',summary:'About 9% higher than October. Autopay is off.',k:'Due Nov 21',v:'$142.18',s:'Electric bill',drawer:'Money',tags:['bill','electric','house'],act:'put',count:'12th bill from them this year',insight:'Up 9% from October',hist:[['Oct 21','$130.44','Paid'],['Sep 20','$118.09','Paid'],['Aug 21','$151.72','Paid']]},
+ {from:'Pine Valley Middle',addr:'office@pinevalley.example',time:'7:02 AM',subject:'Band trip permission slip',summary:'Sign and return the form for the Dec 6 trip to Raleigh.',k:'Due',v:'Friday',s:'Permission slip to sign',drawer:'Kids and family',tags:['school','form','band'],act:'put',count:'3rd form this fall',insight:'Last one took you 4 days',hist:[['Nov 3','Picture day form','Signed'],['Oct 18','Band concert','Went']]},
+ {from:'Sarah Mills',addr:'sarah.mills@example.com',time:'Yesterday',subject:'Dinner Saturday?',summary:'They finally have a sitter and want to try the new place downtown.',k:'Waiting on you',v:'Sat 7 PM',s:'Dinner with Sarah',drawer:'Personal',tags:['plans'],act:'reply',count:'You write to each other most weeks',insight:'You usually reply the same day',hist:[['Oct 30','Halloween party?','You replied'],['Oct 12','Soccer carpool','You replied'],['Sep 28','Book club','You replied']]},
+ {from:'Parcel Post',addr:'updates@parcelpost.example',time:'Yesterday',subject:'Delivered: 1 package',summary:'Left at the front door.',k:'Delivered',v:'4:41 PM',s:'Front door',drawer:'Orders',tags:['delivery'],act:'put',count:'Last of 3 updates for this order',insight:'Nothing left to do',hist:[['Nov 8','Out for delivery',''],['Nov 6','Shipped','']]},
+ {from:'The Morning Edit',addr:'hello@morningedit.example',time:'Mon',subject:'Five things worth reading',summary:'Paper planners, winter coats, a short history of the postcard.',k:'Newsletter',v:'5 reads',s:'You usually archive these',drawer:null,tags:['newsletter'],act:'archive',count:'Every Monday',insight:'You opened 1 of the last 8',hist:[['Nov 3','Five things','Archived'],['Oct 27','Five things','Archived'],['Oct 20','Five things','Archived']]},
+ {from:'Hearth & Co',addr:'quotes@hearthco.example',time:'Mon',subject:'Your chimney quote is ready',summary:'Quote for an inspection and cleaning. Reply to schedule a visit.',k:'New sender',v:'Quote',s:'Chimney inspection',drawer:null,tags:[],act:'choose',count:'First email from them',insight:'Nothing like it in your mail yet',hist:[],
   likely:[['Home','chimney, house, quote'],['Money','a price to pay'],['Projects and business','a job to schedule']]}
 ];
 const COLORS={'Money':'#2E8B57','Kids and family':'#C27C0E','Personal':'#D2546E','Orders':'#2E58C8','Home':'#1F8A8A','Work and career':'#6B5CC4','Projects and business':'#8A5A2E','Accounts and security':'#5E5962','Travel':'#2E86C1','Health':'#B5487A','Archive':'#6E6872'};
@@ -212,7 +230,7 @@ const UP=100, DOWN=170, TW=112, R0=74;
 
 const $=id=>document.getElementById(id);
 const phone=$('phone'), page=$('page'), next=$('next'), trash=$('trash');
-let idx=0, stats={put:0,skip:0,trash:0}, history=[], busy=false;
+let version=2, idx=0, stats={put:0,skip:0,trash:0}, history=[], busy=false;
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
 function dest(it,chosen){
@@ -221,7 +239,8 @@ function dest(it,chosen){
   if(it.act==='choose') return {label:'Choose a drawer',color:'var(--blue)',choose:true};
   return {label:'Put away in '+it.drawer,color:COLORS[it.drawer]};
 }
-function html(it,i){
+function html(it,i){ return version===2 ? html2(it,i) : html1(it,i); }
+function html1(it,i){
   const ini=it.from.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
   const c=it.drawer?COLORS[it.drawer]:null;
   return `<div class="who"><div class="av" style="background:${AV[i%AV.length]}">${esc(ini)}</div><div><div class="n">${esc(it.from)}</div><div class="a">${esc(it.addr)}</div></div><div class="t">${esc(it.time)}</div></div>
@@ -232,6 +251,35 @@ function html(it,i){
     <form class="ask"><input placeholder="Ask Lovely about this email" autocomplete="off"><button class="go" aria-label="Ask"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></form>
    </div>`;
 }
+// Version 2: the email in front, the earlier ones from the same sender stacked behind it in glass.
+function html2(it,i){
+  const ini=it.from.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+  const c=it.drawer?COLORS[it.drawer]:null;
+  const hist=(it.hist||[]).map((h,n)=>`<div class="panel glass sliver" data-n="${n+1}"><span>${esc(h[0])}</span><b>${esc(h[1])}</b><em>${esc(h[2])}</em></div>`).reverse().join('');
+  return `<div class="v2who"><div class="av big" style="background:${AV[i%AV.length]}">${esc(ini)}</div>
+      <div class="n">${esc(it.from)}</div><div class="c">${esc(it.count)}</div>
+      <div class="ins"><i style="background:${c||'var(--faint)'}"></i>${esc(it.insight)}</div></div>
+   <div class="aura" style="background:${c||'#8E9BB8'}"></div>
+   ${hist}
+   <div class="panel glass front">
+    <div class="fact"><div><div class="k">${esc(it.k)}</div><div class="v">${esc(it.v)}</div></div><div class="t">${esc(it.time)}</div></div>
+    <div class="subj">${esc(it.subject)}</div><div class="sum">${esc(it.summary)}</div>
+    <div class="chips">${c?`<span class="chip d" style="color:${c};background:${c}18">${esc(it.drawer)}</span>`:''}${it.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}<span class="open">Open ›</span></div>
+    <form class="ask"><input placeholder="Ask Lovely about this email" autocomplete="off"><button class="go" aria-label="Ask"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></form>
+   </div>`;
+}
+// Earlier emails peek out above the one in front, each a step further back.
+function stackUp(el){
+  const front=el.querySelector('.front'); if(!front) return;
+  const h=front.offsetHeight;
+  el.querySelectorAll('.sliver').forEach(sl=>{
+    const n=+sl.dataset.n;
+    sl.style.bottom=(118+h-30+n*40)+'px';
+    sl.style.left=sl.style.right=(12+n*12)+'px';
+    sl.style.opacity=(1-n*.18).toFixed(2);
+    sl.style.zIndex=10-n;
+  });
+}
 function render(){
   const done=idx>=ITEMS.length;
   $('count').textContent=done?'Done':`${idx+1} of ${ITEMS.length}`;
@@ -241,6 +289,7 @@ function render(){
   if(done){ $('stats').innerHTML=`${ITEMS.length} gone through<br>${stats.put} put away · ${stats.skip} skipped · ${stats.trash} in Trash`; return; }
   page.innerHTML=html(ITEMS[idx],idx);
   next.innerHTML=idx+1<ITEMS.length?html(ITEMS[idx+1],idx+1):'';
+  stackUp(page); stackUp(next);
   const f=page.querySelector('.ask');
   f.addEventListener('pointerdown',e=>e.stopPropagation());
   f.addEventListener('submit',e=>{e.preventDefault();const inp=f.querySelector('input');const v=inp.value.trim();inp.value='';inp.blur();toast(v?'Ask Lovely answers here':'Type a question first',false);});
@@ -451,6 +500,7 @@ $('undo').addEventListener('click',()=>{
 /* ---------- controls ---------- */
 document.querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click',()=>toast(b.dataset.t,false)));
 $('again').addEventListener('click',()=>{idx=0;history=[];stats={put:0,skip:0,trash:0};page.style.opacity=1;page.style.transform='none';render();kick(.5);});
+$('tVer').addEventListener('click',()=>{version=version===2?1:2;$('tVer').textContent='Version '+version;render();});
 $('tPane').addEventListener('click',()=>{const on=phone.classList.toggle('pane2');$('tPane').textContent=on?'Pane 2':'Pane 1';});
 $('tDark').addEventListener('click',()=>{const on=phone.classList.toggle('dark');$('tDark').textContent=on?'Light':'Dark';setGelColor();});
 let coachGone=false; function hideCoach(){ if(coachGone) return; coachGone=true; $('coach').style.opacity=0; }
