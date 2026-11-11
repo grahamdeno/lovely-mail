@@ -7,6 +7,9 @@ struct RootView: View {
     private var inSession: Bool { router.path.last == .session || router.path.last == .backlog }
     /// Split pill (Nov 9) replaces the tab bar; Settings > Look and feel turns it off to get the tab bar back.
     @AppStorage(SplitPillBar.settingKey) private var splitPill = true
+    /// Home 2 (Nov 10): the chat Home. Off brings back the classic Home.
+    @AppStorage(LovelyHome.settingKey) private var chatHome = true
+    private var chatHomeShowing: Bool { chatHome && router.tab == .home && router.searchText.isEmpty }
     var body: some View {
         @Bindable var router = router
         NavigationStack(path: $router.path) {
@@ -16,7 +19,7 @@ struct RootView: View {
                     SearchView(pill: true)
                 } else {
                     switch router.tab {
-                    case .home: HomeView()
+                    case .home: if chatHome { LovelyHome() } else { HomeView() }
                     case .people: PeopleView()
                     case .search: splitPill ? AnyView(HomeView()) : AnyView(SearchView())
                     }
@@ -25,10 +28,13 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(CalmStyle.background)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                Group {
-                    if splitPill { SplitPillBar() } else { RollingTabBar(selection: $router.tab) }
+                // The chat Home has its own bottom (People, the ball, ⋯).
+                if !chatHomeShowing {
+                    Group {
+                        if splitPill { SplitPillBar() } else { RollingTabBar(selection: $router.tab) }
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 8).background(CalmStyle.background)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 8).background(CalmStyle.background)
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
@@ -77,6 +83,7 @@ struct RootView: View {
                     case .later: LaterListView()
                     case .photoEvents: PhotoEventsView()
                     case .askLovely(let q): AskLovelyView(firstQuestion: q)
+                    case .overview: HomeView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

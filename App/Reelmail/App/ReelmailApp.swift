@@ -98,6 +98,8 @@ enum Appearance: String, CaseIterable, Identifiable {
 }
 
 enum Route: Hashable {
+    /// The classic Home, from the chat Home's ⋯ ("Everything").
+    case overview
     case email(String)
     case thread(Person)
     case summaryLab
