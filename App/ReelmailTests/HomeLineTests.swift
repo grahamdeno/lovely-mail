@@ -47,3 +47,31 @@ final class HomeLineTests: XCTestCase {
         XCTAssertFalse(HomeLine.isNeedsMe("When is Cape Fear Power due?"))
     }
 }
+
+/// Photos and files added to an Ask on Home.
+final class HomeAttachmentTests: XCTestCase {
+    func testPromptCarriesTheReadWords() {
+        let p = HomeAttachment.prompt(question: "Reply to this", kind: "photo", readText: "Field trip Friday. Bring $5.")
+        XCTAssertTrue(p.hasPrefix("Reply to this\n\nText read on his iPhone from the photo he attached:"))
+        XCTAssertTrue(p.contains("Field trip Friday. Bring $5."))
+    }
+
+    func testNoWordsUsesTheDefaultQuestionAndSaysSo() {
+        let p = HomeAttachment.prompt(question: "  ", kind: "photo", readText: "")
+        XCTAssertTrue(p.hasPrefix(HomeAttachment.defaultQuestion))
+        XCTAssertTrue(p.contains("no words could be read"))
+    }
+
+    func testLongTextIsCut() {
+        let p = HomeAttachment.prompt(question: "Sum up", kind: "file", readText: String(repeating: "a", count: 9000))
+        XCTAssertLessThan(p.count, HomeAttachment.maxCharacters + 200)
+    }
+
+    func testSummaryAndExpansion() {
+        XCTAssertEqual(HomeAttachment.summary(kind: "photo", readText: "one two three"), "Photo · 3 words read")
+        XCTAssertEqual(HomeAttachment.summary(kind: "file", readText: nil), "File · no words found")
+        XCTAssertFalse(HomeAttachment.expands(text: "Short question", hasAttachment: false))
+        XCTAssertTrue(HomeAttachment.expands(text: "A much longer question that will not fit", hasAttachment: false))
+        XCTAssertTrue(HomeAttachment.expands(text: "", hasAttachment: true))
+    }
+}
