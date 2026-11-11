@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Lovely: Home 1</title>
+<style>
+:root{--page:#FFFFFF;--ink:#25222A;--sec:#6E6872;--faint:#A9A3AC;--blue:#2E58C8;--rose:#D2546E;--roseInk:#B8405A;--line:rgba(37,34,42,.08);
+  --bubble:#F3F0EC;--toast:rgba(37,34,42,.9)}
+.dark{--page:#141317;--ink:#F2EFEA;--sec:#A9A3AC;--faint:#6E6872;--blue:#5B7FE8;--rose:#E77A91;--roseInk:#F08DA3;--line:rgba(255,255,255,.08);--bubble:#222027;--toast:rgba(58,56,66,.95)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#E9E4DE;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;overscroll-behavior:none}
+body{display:flex;align-items:center;justify-content:center}
+#phone{position:relative;width:390px;height:844px;border-radius:48px;overflow:hidden;background:var(--page);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.25);touch-action:none}
+@media (max-width:520px){body{display:block}#phone{width:100vw;height:100vh;height:100dvh;border-radius:0;box-shadow:none}}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+/* Top: Lovely's sentence */
+.top{position:absolute;left:0;right:0;top:0;padding:calc(18px + env(safe-area-inset-top)) 24px 0;z-index:3;background:linear-gradient(var(--page) 85%,transparent)}
+.bar{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--sec)}
+.bar .w{color:var(--sec);font-weight:600}
+.mark{font-family:"New York",Georgia,serif;font-style:italic;font-size:22px;color:var(--ink);font-weight:500}
+.lead{font-size:27px;line-height:1.28;font-weight:700;letter-spacing:-.4px;margin:16px 0 14px}
+.lead .t{color:var(--ink);background-image:linear-gradient(var(--c,var(--blue)),var(--c,var(--blue)));background-size:100% 3px;background-repeat:no-repeat;background-position:0 92%;cursor:pointer;border-radius:2px}
+.lead .t.rose{--c:var(--rose)}
+.lead .q{color:var(--faint);font-weight:600}
+
+/* The thread */
+#thread{position:absolute;left:0;right:0;top:0;bottom:0;overflow-y:auto;padding:0 14px 250px;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#thread .spacer{height:var(--topH,250px)}
+.msg{position:relative;margin:10px 0;will-change:transform}
+.lov{background:var(--page);border:1px solid var(--line);border-radius:24px;padding:14px 16px 12px;box-shadow:0 8px 24px -12px rgba(37,34,42,.18);touch-action:pan-y}
+.lov .who{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--sec);font-weight:600;margin-bottom:6px}
+.lov .who i{width:8px;height:8px;border-radius:50%;background:var(--rose)}
+.lov .txt{font-size:16.5px;line-height:1.42}
+.lov .txt b{font-weight:700}
+.lov .fact{font-size:40px;font-weight:800;letter-spacing:-1.2px;line-height:1.05;margin:6px 0 2px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.acts button{font-size:14px;font-weight:600;padding:9px 14px;border-radius:999px;background:var(--bubble);color:var(--blue)}
+.acts button.p{background:var(--blue);color:#fff}
+.me{display:flex;justify-content:flex-end}
+.me span{background:var(--blue);color:#fff;border-radius:20px 20px 6px 20px;padding:10px 14px;font-size:16px;max-width:78%}
+.hintSwipe{font-size:11.5px;color:var(--faint);margin-top:8px}
+.typing{display:inline-flex;gap:4px;padding:12px 16px;border-radius:20px;background:var(--bubble)}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--faint);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.list{margin-top:8px;border-top:1px solid var(--line)}
+.list div{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.list div span:last-child{color:var(--sec)}
+.done{opacity:.0}
+
+/* Composer: Pane 2 glass */
+.composer{position:absolute;left:12px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom)*0);z-index:5;border-radius:26px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;
+  background:linear-gradient(165deg,rgba(255,255,255,.78),rgba(255,255,255,.5));-webkit-backdrop-filter:blur(24px) saturate(210%);backdrop-filter:blur(24px) saturate(210%);
+  box-shadow:0 30px 50px -24px rgba(37,34,42,.35),0 6px 16px -10px rgba(37,34,42,.2),inset 0 1.5px 0 rgba(255,255,255,.95),inset 1.5px 0 0 rgba(140,165,255,.3),inset -1.5px 0 0 rgba(255,140,165,.3);transition:opacity .2s}
+.dark .composer{background:linear-gradient(165deg,rgba(255,255,255,.13),rgba(255,255,255,.05));box-shadow:0 30px 50px -24px rgba(0,0,0,.8),inset 0 1.5px 0 rgba(255,255,255,.15)}
+.composer input{flex:1;height:46px;border:0;background:none;color:var(--ink);font-size:17px;outline:none}
+.composer input::placeholder{color:var(--faint)}
+.composer .go{width:40px;height:40px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 10px rgba(46,88,200,.35)}
+.sugg{position:absolute;left:0;right:0;bottom:calc(158px);z-index:5;display:flex;gap:8px;overflow-x:auto;padding:0 14px;scrollbar-width:none;transition:opacity .2s}
+.sugg::-webkit-scrollbar{display:none}
+.sugg button{flex:none;font-size:13.5px;font-weight:600;padding:8px 13px;border-radius:999px;background:var(--page);border:1px solid var(--line);color:var(--ink);box-shadow:0 4px 12px -8px rgba(37,34,42,.3)}
+
+/* The ball */
+#ballWrap{position:absolute;left:50%;bottom:4px;width:0;height:0;z-index:6}
+#blob{position:absolute;left:-200px;top:-200px;width:400px;height:400px;overflow:visible;pointer-events:none}
+#ballHit{position:absolute;left:-75px;top:-80px;width:150px;height:84px;border-radius:50% 50% 0 0;cursor:grab;touch-action:none}
+#badge{position:absolute;left:-40px;top:-58px;width:80px;text-align:center;color:#fff;font-weight:800;font-size:22px;pointer-events:none;text-shadow:0 1px 6px rgba(120,20,50,.4)}
+#ballLabel{position:absolute;left:50%;transform:translateX(-50%);bottom:206px;z-index:7;font-size:14px;font-weight:600;color:var(--ink);opacity:0;pointer-events:none;transition:opacity .2s;background:var(--page);padding:8px 14px;border-radius:999px;box-shadow:0 6px 18px -8px rgba(37,34,42,.35);white-space:nowrap}
+.fadeB{position:absolute;left:0;right:0;bottom:0;height:230px;z-index:4;pointer-events:none;background:linear-gradient(transparent,var(--page) 38%)}
+.side{position:absolute;bottom:22px;z-index:5;font-size:15px;font-weight:600;color:var(--blue)}
+.side.l{left:24px}.side.r{right:24px}
+
+/* Session sheet that rises out of the ball */
+#session{position:absolute;inset:0;z-index:20;background:var(--page);transform-origin:50% 100%;transform:translateY(0) scale(.04);opacity:0;pointer-events:none;border-radius:400px;
+  transition:transform .55s cubic-bezier(.25,1.15,.5,1),opacity .25s,border-radius .55s;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}
+#session.on{transform:none;opacity:1;pointer-events:auto;border-radius:0}
+#session h2{font-size:30px;margin:0 0 8px}
+#session p{color:var(--sec);margin:0 0 20px;line-height:1.5}
+#session button{color:var(--blue);font-weight:600;margin-top:10px}
+
+/* Listening */
+#listen{position:absolute;inset:0;z-index:15;background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:200px;opacity:0;pointer-events:none;transition:opacity .25s}
+.dark #listen{background:rgba(20,19,23,.6)}
+#listen.on{opacity:1;pointer-events:auto}
+#listen .said{font-size:24px;font-weight:700;max-width:300px;text-align:center;min-height:64px}
+#listen .sub{color:var(--sec);margin-top:8px;font-size:14px}
+
+#toast{position:absolute;left:14px;right:14px;top:calc(14px + env(safe-area-inset-top));background:var(--toast);color:#fff;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:15px;transform:translateY(-10px);opacity:0;pointer-events:none;transition:all .25s;z-index:30}
+#toast.on{transform:none;opacity:1;pointer-events:auto}
+#toast .u{margin-left:auto;font-weight:700;color:#A9BEFF}
+#coach{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:25;transition:opacity .4s}
+#coach div{border-radius:18px;padding:14px 18px;font-size:14px;line-height:1.7;background:var(--toast);color:#fff;max-width:300px}
+</style>
+</head>
+<body>
+<div id="phone">
+  <div id="thread"><div class="spacer"></div><div id="msgs"></div></div>
+
+  <div class="top" id="top">
+    <div class="bar"><span class="mark">lovely</span><span><button class="w" id="tDark">Dark</button></span></div>
+    <div class="lead" id="lead">
+      Evening, Graham. <span class="t rose" data-go="sarah">Sarah</span> is waiting on you,
+      <span class="t" data-go="bill">the power bill</span> is due Friday, and I put away <span class="t" data-go="filed">14 things</span> today.
+    </div>
+  </div>
+
+  <div class="fadeB"></div>
+  <div class="sugg" id="sugg">
+    <button>What's due this week?</button><button>Block all the retail mail</button><button>What did school send?</button><button>Answer Sarah</button><button>Find my car insurance card</button>
+  </div>
+  <form class="composer" id="composer"><input id="ask" placeholder="Ask Lovely anything" autocomplete="off">
+    <button class="go" aria-label="Ask"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </form>
+
+  <button class="side l" id="search">Search</button>
+  <button class="side r" id="more">⋯</button>
+  <div id="ballLabel">Pull up to go through 6</div>
+  <div id="ballWrap">
+    <svg id="blob" viewBox="-200 -200 400 400">
+      <defs>
+        <radialGradient id="gel" cx="38%" cy="30%" r="75%"><stop offset="0" id="g0" stop-color="#F29AAE"/><stop offset=".55" id="g1" stop-color="#D2546E"/><stop offset="1" id="g2" stop-color="#A3384F"/></radialGradient>
+        <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+      </defs>
+      <path id="blobShadow" fill="rgba(163,56,79,.28)" filter="url(#shadow)" transform="translate(0 8)"/>
+      <path id="blobPath" fill="url(#gel)"/>
+      <ellipse id="shine" rx="22" ry="12" fill="rgba(255,255,255,.55)" filter="url(#soft)"/>
+    </svg>
+    <div id="badge">6</div>
+    <div id="ballHit"></div>
+  </div>
+
+  <div id="listen"><div class="said" id="said"></div><div class="sub">Listening. Tap anywhere to stop.</div></div>
+  <div id="session"><h2>6 to go through</h2><p>The card session rises out of the ball:<br>flick up to skip, pull down to put away.<br>(This is where Version 1 opens.)</p><button id="closeSession">Back to Home</button></div>
+  <div id="toast"><span id="toastText"></span><button class="u" id="undo">Undo</button></div>
+  <div id="coach"><div><b>Home 1</b><br>Tap an underlined word<br>Swipe Lovely's cards down into the ball, up for later<br>Pull the ball up: go through your mail<br>Hold the ball: talk<br>Ask anything below</div></div>
+</div>
+
+<script>
+(() => {
+const $=id=>document.getElementById(id);
+const phone=$('phone'), msgs=$('msgs'), thread=$('thread');
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+/* ---------- the gel (Ball 1) ---------- */
+const R0=74, path=$('blobPath'), shadow=$('blobShadow'), shine=$('shine');
+const B={s:1,sv:0,sT:1,reach:0,reachT:0,ang:-Math.PI/2,angT:-Math.PI/2,breathe:0,
+  modes:[2,3,4,5,6,7].map(k=>({k,a:0,v:0,ph:0}))};
+function kick(st,dir){ B.sv+=st*2.4; B.modes.forEach(m=>{ m.v+=(Math.random()*.6+.7)*st*(2/m.k)*1.9; m.ph=dir==null?Math.random()*6.28:-dir*m.k; }); }
+let lastF=performance.now(), t=0;
+function frame(now){
+  const dt=Math.min(.033,(now-lastF)/1000); lastF=now; t+=dt;
+  const w=9.5,z=.32; B.sv+=(-w*w*(B.s-B.sT)-2*z*w*B.sv)*dt; B.s+=B.sv*dt;
+  B.modes.forEach(m=>{ const wk=7+m.k*1.8; m.v+=(-wk*wk*m.a-2*.2*wk*m.v)*dt; m.a+=m.v*dt; });
+  B.reach+=(B.reachT-B.reach)*Math.min(1,dt*10);
+  let da=B.angT-B.ang; while(da>Math.PI)da-=2*Math.PI; while(da<-Math.PI)da+=2*Math.PI; B.ang+=da*Math.min(1,dt*8);
+  // A slow breath when someone is waiting: the only motion at rest.
+  const breath = B.breathe ? 1+Math.sin(t*2.1)*.018 : 1;
+  let d=''; const N=140;
+  for(let i=0;i<=N;i++){ const th=i/N*Math.PI*2; let r=1;
+    B.modes.forEach(m=>{ r+=m.a*Math.cos(m.k*th+m.ph); });
+    const c=Math.max(0,Math.cos(th-B.ang)); r+=B.reach*.26*c*c*c; r-=B.reach*.06*Math.max(0,-Math.cos(th-B.ang));
+    const R=R0*B.s*r*breath; d+=(i?'L':'M')+(Math.cos(th)*R).toFixed(1)+' '+(Math.sin(th)*R).toFixed(1); }
+  path.setAttribute('d',d+'Z'); shadow.setAttribute('d',d+'Z');
+  shine.setAttribute('cx',(-R0*.34*B.s).toFixed(1)); shine.setAttribute('cy',(-R0*.42*B.s+B.modes[0].a*30).toFixed(1));
+  $('badge').style.transform=`translateY(${(1-B.s)*30}px) scale(${B.s})`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+B.breathe=1;
+function ballCenter(){ const r=$('ballWrap').getBoundingClientRect(); return {x:r.left,y:r.top}; }
+const tick=()=>{try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}};
+
+/* ---------- the thread ---------- */
+function lovely(html, acts=[], opts={}){
+  const el=document.createElement('div'); el.className='msg lov';
+  el.innerHTML=`<div class="who"><i></i>Lovely${opts.about?` · ${esc(opts.about)}`:''}</div>${html}${acts.length?`<div class="acts">${acts.map((a,i)=>`<button class="${a.p?'p':''}" data-i="${i}">${esc(a.t)}</button>`).join('')}</div>`:''}${opts.swipe?'<div class="hintSwipe">Swipe down into the ball when it\'s handled</div>':''}`;
+  el.querySelectorAll('.acts button').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation(); acts[+b.dataset.i].do(el);}));
+  if(opts.swipe) swipeable(el, opts);
+  msgs.appendChild(el); return el;
+}
+function me(text){ const el=document.createElement('div'); el.className='msg me'; el.innerHTML=`<span>${esc(text)}</span>`; msgs.appendChild(el); return el; }
+function typing(){ const el=document.createElement('div'); el.className='msg'; el.innerHTML='<div class="typing"><i></i><i></i><i></i></div>'; msgs.appendChild(el); scrollDown(); return el; }
+function scrollDown(){ requestAnimationFrame(()=>thread.scrollTo({top:thread.scrollHeight,behavior:'smooth'})); }
+
+/* Lovely's cards move like session pages: down into the ball = handled, up = later. */
+function swipeable(el, opts){
+  let down=false,y0=0,x0=0,dy=0,dir=null;
+  el.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; down=true;y0=e.clientY;x0=e.clientX;dy=0;dir=null; el.setPointerCapture(e.pointerId); el.style.transition='none'; });
+  el.addEventListener('pointermove',e=>{
+    if(!down) return; const ddy=e.clientY-y0, ddx=e.clientX-x0;
+    if(dir===null && (Math.abs(ddy)>8||Math.abs(ddx)>8)) dir=Math.abs(ddy)>Math.abs(ddx)?'v':'h';
+    if(dir!=='v') return;
+    dy=ddy; const a=Math.abs(dy), r=(dy<0?-1:1)*(a<=40?a:40+(a-40)*.5);
+    el.style.transform=`translateY(${r}px) scale(${1-Math.min(Math.max(dy,0)/600,.12)})`;
+    const c=ballCenter(); B.angT=Math.atan2(e.clientY-c.y,e.clientX-c.x);
+    const p=Math.max(0,dy)/140; B.sT=1+Math.min(p,1.2)*.35; B.reachT=Math.min(p,1)*.8;
+    const lab=$('ballLabel'); lab.style.opacity=Math.min(1,Math.abs(dy)/60);
+    lab.textContent = dy>0 ? (p>=1?'Let go: '+(opts.downLabel||'Done'):(opts.downLabel||'Done')) : (dy<-90?'Let go: back tomorrow':'Later');
+  });
+  const end=()=>{
+    if(!down) return; down=false; $('ballLabel').style.opacity=0; B.reachT=0; B.angT=-Math.PI/2;
+    if(dir==='v' && dy>=140){ intoBall(el, opts.downLabel||'Done', opts.onDone); }
+    else if(dir==='v' && dy<=-90){ el.style.transition='transform .3s ease-in, opacity .3s'; el.style.transform='translateY(-160px)'; el.style.opacity=0; B.sT=1;
+      setTimeout(()=>{ collapse(el); toast('Back tomorrow', ()=>restore(el)); },300); }
+    else { el.style.transition='transform .45s cubic-bezier(.34,1.4,.64,1)'; el.style.transform='none'; B.sT=1; }
+  };
+  el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end);
+}
+function intoBall(el,label,onDone){
+  const r=el.getBoundingClientRect(), c=ballCenter();
+  el.style.transition='transform .38s cubic-bezier(.55,0,.75,.45), opacity .38s, border-radius .38s';
+  el.style.transformOrigin='50% 50%';
+  el.style.transform=`translate(${c.x-(r.left+r.width/2)}px, ${c.y-(r.top+r.height/2)-20}px) scale(.03)`;
+  el.style.opacity=.3; el.style.borderRadius='300px';
+  B.sT=1.4;
+  setTimeout(()=>{ tick(); B.sT=1; kick(1,-Math.PI/2); collapse(el); onDone&&onDone(); toast(label, ()=>restore(el)); },370);
+}
+function collapse(el){ el.dataset.h=el.offsetHeight; el.style.transition='none'; el.style.display='none'; }
+function restore(el){ el.style.display=''; el.style.transition='transform .45s cubic-bezier(.3,1.25,.6,1), opacity .3s'; el.style.transform='none'; el.style.opacity=1; el.style.borderRadius=''; kick(.25); }
+
+/* ---------- seed: what Lovely has for you ---------- */
+const sarah = lovely(`<div class="txt"><b>Sarah</b> asked if you two are free <b>Saturday at 7</b> for dinner downtown.</div>`,
+  [{t:'Say yes',p:1,do:el=>{ reply(el,'Told Sarah yes. Want it on your calendar?',[{t:'Add Sat 7 PM',p:1,do:e=>{intoBall(e,'Added to your calendar');}},{t:'No thanks',do:e=>intoBall(e,'Done')}]); }},
+   {t:'Not this week',do:el=>reply(el,'I drafted: "Can\'t this weekend, how about next Saturday?" Send it?',[{t:'Send',p:1,do:e=>intoBall(e,'Sent to Sarah')},{t:'Edit',do:()=>toast('Opens the draft')}])},
+   {t:'Open',do:()=>toast('Opens the email')}], {about:'waiting on you', swipe:true, downLabel:'Done'});
+const bill = lovely(`<div class="txt">Cape Fear Power</div><div class="fact">$142.18</div><div class="txt" style="color:var(--sec)">Due Friday · 9% higher than October · autopay is off</div>`,
+  [{t:'Remind me Thursday',p:1,do:el=>intoBall(el,'Reminder set for Thursday')},{t:'Pay on their site ›',do:()=>toast('Opens their payment page')},{t:'Why higher?',do:el=>reply(el,'Your Sense data shows the heat pump ran about 30% more during the cold snap Nov 3 to 7.',[])}],
+  {about:'money', swipe:true, downLabel:'Put away in Finance'});
+lovely(`<div class="txt">I put away <b>14 things</b> today: 6 orders, 4 newsletters, 3 receipts and a login code. <span style="color:var(--sec)">Nothing needed you.</span></div>`,
+  [{t:'Show me',do:el=>reply(el,'',[],`<div class="list"><div><span>Parcel Post · Delivered</span><span>Orders</span></div><div><span>The Morning Edit</span><span>Archived</span></div><div><span>Chase · Payment received</span><span>Finance</span></div><div><span>Apple · Sign-in code</span><span>Accounts</span></div></div>`)}],
+  {about:'today'});
+
+function reply(after, text, acts, extra=''){
+  const ty=typing();
+  setTimeout(()=>{ ty.remove(); lovely(`${text?`<div class="txt">${esc(text)}</div>`:''}${extra}`, acts, {swipe:acts.length>0}); scrollDown(); },700);
+}
+
+/* ---------- the living sentence ---------- */
+$('lead').addEventListener('click',e=>{
+  const t=e.target.closest('.t'); if(!t) return;
+  const target={sarah, bill}[t.dataset.go];
+  if(target){ target.scrollIntoView({behavior:'smooth',block:'center'}); target.animate([{transform:'scale(1)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:500,delay:300}); }
+  else { me('What did you put away?'); reply(null,'Here are the 14:',[],`<div class="list"><div><span>Orders</span><span>6</span></div><div><span>Newsletters</span><span>4</span></div><div><span>Receipts</span><span>3</span></div><div><span>Login code</span><span>1</span></div></div>`); }
+});
+
+/* ---------- asking ---------- */
+const ANSWERS=[
+ [/due|this week|bills?/i,'Three things this week:',`<div class="list"><div><span>Cape Fear Power · $142.18</span><span>Fri</span></div><div><span>Band permission slip</span><span>Fri</span></div><div><span>Car registration</span><span>Sun</span></div></div>`,[{t:'Remind me about all three',p:1,do:el=>intoBall(el,'3 reminders set')}]],
+ [/block|retail|unsubscribe|screen/i,'I found 9 retail senders in the last month. Block them all? New mail from them will skip your inbox; nothing is deleted.',`<div class="list"><div><span>Old Navy, Target, Wayfair</span><span>+6 more</span></div></div>`,[{t:'Block all 9',p:1,do:el=>intoBall(el,'Blocked 9 senders')},{t:'Let me pick',do:()=>toast('Shows the 9 with a switch each')}]],
+ [/school|band|kids?/i,'Pine Valley sent two things this week: the band trip permission slip (due Friday) and picture day retakes on the 18th.','',[{t:'Sign the slip',p:1,do:()=>toast('Opens the form inside Lovely')},{t:'Add picture day',do:el=>intoBall(el,'Added Nov 18')}]],
+ [/sarah|answer/i,'Want to say yes to Saturday at 7?','',[{t:'Say yes',p:1,do:el=>intoBall(el,'Told Sarah yes')},{t:'Not this week',do:el=>intoBall(el,'Sent to Sarah')}]],
+ [/insurance|card|find/i,'Your State Farm card came Oct 2. The PDF is attached to that email.','',[{t:'Open the card',p:1,do:()=>toast('Opens the attachment')},{t:'Text it to me',do:()=>toast('Opens Messages')}]],
+];
+function ask(text){
+  if(!text.trim()) return;
+  me(text); scrollDown();
+  const a=ANSWERS.find(x=>x[0].test(text));
+  if(a) reply(null,a[1],a[3],a[2]);
+  else reply(null,'I\'d search your mail for that and come back with what I find, or do it for you if it\'s a step I can take.',[{t:'OK',do:el=>intoBall(el,'Done')}]);
+}
+$('composer').addEventListener('submit',e=>{ e.preventDefault(); const v=$('ask').value; $('ask').value=''; $('ask').blur(); ask(v); });
+$('sugg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b){ ask(b.textContent); } });
+
+// The field suggests what you could ask, one example at a time.
+const EX=['Ask Lovely anything','"What\'s due this week?"','"Unsubscribe me from Target"','"What did school send?"','"Tell Sarah yes"'];
+let ex=0; setInterval(()=>{ if(document.activeElement!==$('ask')){ ex=(ex+1)%EX.length; $('ask').placeholder=EX[ex]; } },2600);
+
+/* ---------- the ball: pull up to go through mail, hold to talk ---------- */
+let bDown=false, by0=0, holdT=null, held=false;
+$('ballHit').addEventListener('pointerdown',e=>{
+  bDown=true; by0=e.clientY; held=false; $('ballHit').setPointerCapture(e.pointerId); hideCoach();
+  kick(.2,-Math.PI/2);
+  holdT=setTimeout(()=>{ if(bDown){ held=true; listen(); } },450);
+});
+$('ballHit').addEventListener('pointermove',e=>{
+  if(!bDown) return; const dy=by0-e.clientY;
+  if(dy>8){ clearTimeout(holdT); }
+  if(dy>0 && !held){ B.sT=1+Math.min(dy/200,1)*.35; B.reachT=Math.min(dy/120,1); B.angT=-Math.PI/2;
+    const lab=$('ballLabel'); lab.style.opacity=Math.min(1,dy/40); lab.textContent= dy>110?'Let go to start':'Pull up to go through 6'; }
+});
+const ballEnd=e=>{
+  if(!bDown) return; bDown=false; clearTimeout(holdT);
+  const dy=by0-e.clientY; $('ballLabel').style.opacity=0; B.reachT=0;
+  if(held){ stopListen(); return; }
+  if(dy>110){ tick(); B.sT=1.5; kick(.9,-Math.PI/2); setTimeout(()=>{ B.sT=1; $('session').classList.add('on'); },120); }
+  else if(Math.abs(dy)<8){ B.sT=1; kick(.55,-Math.PI/2); tick(); $('ballLabel').textContent='Pull up to go through 6 · hold to talk'; $('ballLabel').style.opacity=1; setTimeout(()=>$('ballLabel').style.opacity=0,1600); }
+  else { B.sT=1; }
+};
+$('ballHit').addEventListener('pointerup',ballEnd); $('ballHit').addEventListener('pointercancel',ballEnd);
+$('closeSession').addEventListener('click',()=>{ $('session').classList.remove('on'); setTimeout(()=>kick(.4,-Math.PI/2),300); });
+
+let listenT=null;
+function listen(){
+  $('listen').classList.add('on'); tick(); B.sT=1.25;
+  const words='what did school send this week'.split(' '); let i=0; $('said').textContent='';
+  listenT=setInterval(()=>{ if(i<words.length){ $('said').textContent+=(i?' ':'')+words[i++]; kick(.12); } },260);
+}
+function stopListen(){
+  clearInterval(listenT); B.sT=1; const said=$('said').textContent;
+  $('listen').classList.remove('on'); if(said) ask(said.charAt(0).toUpperCase()+said.slice(1)+'?');
+}
+$('listen').addEventListener('click',stopListen);
+
+/* ---------- small things ---------- */
+let undoFn=null, tt=null;
+function toast(text, undo){ $('toastText').textContent=text; undoFn=undo||null; $('undo').style.display=undo?'':'none'; $('toast').classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>$('toast').classList.remove('on'), undo?6000:1800); }
+$('undo').addEventListener('click',()=>{ undoFn&&undoFn(); $('toast').classList.remove('on'); });
+$('search').addEventListener('click',()=>{ $('ask').focus(); $('ask').placeholder='Search or ask'; });
+$('more').addEventListener('click',()=>toast('People, Notes to self, Bills, Kids, Settings'));
+$('tDark').addEventListener('click',()=>{ const on=phone.classList.toggle('dark'); $('tDark').textContent=on?'Light':'Dark';
+  $('g0').setAttribute('stop-color',on?'#F7B3C2':'#F29AAE'); $('g1').setAttribute('stop-color',on?'#E77A91':'#D2546E'); $('g2').setAttribute('stop-color',on?'#B4506A':'#A3384F'); });
+// keep the thread clear of the top sentence
+function fitTop(){ thread.style.setProperty('--topH', ($('top').offsetHeight+6)+'px'); }
+fitTop(); window.addEventListener('resize',fitTop);
+let coachGone=false; function hideCoach(){ if(coachGone) return; coachGone=true; $('coach').style.opacity=0; }
+setTimeout(hideCoach,5000); thread.addEventListener('pointerdown',hideCoach);
+setTimeout(()=>kick(.5,-Math.PI/2),400);
+})();
+</script>
+</body>
+</html>
