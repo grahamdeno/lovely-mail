@@ -1,73 +1,27 @@
 import SwiftUI
 
-/// Settings > Inbox session > Conversation engine. Apple only by default; Claude or Grok when the owner adds a key.
+/// Settings > AI > Conversation engine. Apple Intelligence on this iPhone is the only engine (owner, Nov 11, 2026):
+/// no keys, no picker, nothing sent to Claude or Grok. Web tasks are offered as Hand to Grok.
 struct EngineSettingsView: View {
     @Environment(Router.self) private var router
-    @State private var engine = EngineSettings().engine
-    @State private var compare = EngineSettings().compare
-    @State private var claudeKey = ""
-    @State private var grokKey = ""
-    @State private var claudeModel = EngineSettings().claudeModel
-    @State private var grokModel = EngineSettings().grokModel
-    @State private var hasClaude = EngineSettings.hasKey(.claude)
-    @State private var hasGrok = EngineSettings.hasKey(.grok)
     @State private var examplesCleared = false
-    @State private var details = OwnerDetails.load()
-    /// Per engine: the key is shown in full while he taps Show.
-    @State private var showing: Set<EngineKind> = []
-    /// Per engine: the result of the last Save and test.
-    @State private var testResult: [EngineKind: (ok: Bool, text: String)] = [:]
-    @State private var testing: Set<EngineKind> = []
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("Who understands what you say in a session. Apple Intelligence does the routine work either way.")
-                    .font(.callout).foregroundStyle(CalmStyle.secondary)
-
-                Picker("Engine", selection: $engine) {
-                    ForEach(EngineKind.allCases) { Text($0.name).tag($0) }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Apple Intelligence").font(.headline)
+                    Text("Understands what you say in a session, answers questions about your mail, and reads calendar photos, all on this iPhone. Health mail never leaves it.")
+                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    Label(ModelStatus.current.isAvailable ? "On" : "Off on this iPhone", systemImage: ModelStatus.current.isAvailable ? "checkmark.circle.fill" : "exclamationmark.circle")
+                        .font(.caption.weight(.semibold)).foregroundStyle(ModelStatus.current.isAvailable ? CalmStyle.green : CalmStyle.roseInk)
+                        .accessibilityIdentifier("engine.apple.status")
                 }
-                .pickerStyle(.segmented)
-                .onChange(of: engine) { _, new in EngineSettings().engine = new }
-                .accessibilityIdentifier("engine.picker")
-
-                Text(explanation).font(.callout)
-                if let last = EngineRoute.last() {
-                    Label("Last answer: " + last, systemImage: "clock.arrow.circlepath").font(.caption).foregroundStyle(CalmStyle.secondary)
-                        .accessibilityIdentifier("engine.lastRoute")
-                }
-
-                keyCard(.claude, key: $claudeKey, model: $claudeModel, has: $hasClaude)
-                keyCard(.grok, key: $grokKey, model: $grokModel, has: $hasGrok)
-
-                Toggle(isOn: $compare) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Compare Claude and Grok").font(.body)
-                        Text("Both answer each request side by side and you pick one. Needs both keys.").font(.caption).foregroundStyle(CalmStyle.secondary)
-                    }
-                }
-                .disabled(!(hasClaude && hasGrok))
-                .onChange(of: compare) { _, new in EngineSettings().compare = new }
-                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-
-                usageCard
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("YOUR DETAILS FOR FORMS").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
-                    Text("Used only when Lovely fills a website form for you. Stays on this iPhone until a form needs it.")
-                        .font(.caption).foregroundStyle(CalmStyle.secondary)
-                    detailField("Full name", $details.fullName, .name)
-                    detailField("Email", $details.email, .emailAddress)
-                    detailField("Phone", $details.phone, .telephoneNumber)
-                    detailField("Address", $details.address, .fullStreetAddress)
-                }
-                .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-                .onChange(of: details) { _, new in new.save() }
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("WHAT IS SENT").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
-                    Text("With Claude or Grok on, Lovely sends the email's own words (no quoted history, codes or account numbers), its sender and subject, what you said, and Lovely's instructions. Health mail is never sent; Apple handles it on this iPhone. Keys stay in this iPhone's Keychain.")
+                    Text("WHAT GOES OUT").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("Nothing goes to Claude or to the Grok API. Anything that needs the web (a form, a sign-up, a search on a site) becomes a Hand to Grok task: you see it first, and one tap sends it to your Grok Bot.")
                         .font(.caption).foregroundStyle(CalmStyle.secondary)
                 }
 
@@ -82,127 +36,10 @@ struct EngineSettingsView: View {
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .navigationTitle("Conversation engine").navigationBarTitleDisplayMode(.inline)
-        .onDisappear { EngineSettings().claudeModel = claudeModel; EngineSettings().grokModel = grokModel }
-    }
-
-    private func detailField(_ title: String, _ value: Binding<String>, _ type: UITextContentType) -> some View {
-        TextField(title, text: value)
-            .textContentType(type).autocorrectionDisabled()
-            .padding(10).background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var explanation: String {
-        switch engine {
-        case .apple: return "Everything stays on this iPhone. Short commands work well; long replies and judgment calls are weaker."
-        case .claude: return hasClaude ? "Claude understands your replies and drafts. Health mail still stays on this iPhone." : "Add a Claude key below to use Claude. Until then, Apple handles it."
-        case .grok: return hasGrok ? "Grok understands your replies and drafts. Health mail still stays on this iPhone." : "Add a Grok key below to use Grok. Until then, Apple handles it."
-        }
-    }
-
-    private func keyCard(_ kind: EngineKind, key: Binding<String>, model: Binding<String>, has: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(kind.name).font(.headline)
-                Spacer()
-                Text(has.wrappedValue ? "Key saved" : "No key").font(.caption.weight(.semibold))
-                    .foregroundStyle(has.wrappedValue ? CalmStyle.green : CalmStyle.secondary)
-            }
-            // A saved key shows as dots with its last four characters, so it is clear one is there; Show reveals it.
-            Group {
-                if showing.contains(kind), let saved = EngineSettings.key(kind), key.wrappedValue.isEmpty {
-                    Text(saved).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
-                } else {
-                    SecureField(has.wrappedValue ? Self.masked(EngineSettings.key(kind)) : (kind == .claude ? "Anthropic API key" : "xAI API key"), text: key)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                }
-            }
-            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-            .background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 10))
-            .accessibilityIdentifier("engine.key.\(kind.rawValue)")
-            HStack {
-                Button(testing.contains(kind) ? "Testing…" : (key.wrappedValue.isEmpty ? "Test key" : "Save and test")) {
-                    if !key.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty {
-                        EngineSettings.setKey(key.wrappedValue, for: kind)
-                        key.wrappedValue = ""
-                        has.wrappedValue = EngineSettings.hasKey(kind)
-                    }
-                    test(kind)
-                }
-                .buttonStyle(CalmActionStyle(prominent: true))
-                .disabled(testing.contains(kind) || (key.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty && !has.wrappedValue))
-                .accessibilityIdentifier("engine.test.\(kind.rawValue)")
-                if has.wrappedValue {
-                    Button(showing.contains(kind) ? "Hide" : "Show") {
-                        if showing.contains(kind) { showing.remove(kind) } else { showing.insert(kind) }
-                    }
-                    .buttonStyle(CalmActionStyle())
-                    Button("Remove", role: .destructive) {
-                        EngineSettings.setKey("", for: kind); has.wrappedValue = false; testResult[kind] = nil; showing.remove(kind)
-                        if kind == engine { engine = .apple }
-                    }
-                    .buttonStyle(CalmActionStyle())
-                }
-            }
-            if let r = testResult[kind] {
-                Label(r.text, systemImage: r.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(.caption).foregroundStyle(r.ok ? CalmStyle.green : CalmStyle.roseInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            TextField("Model", text: model)
-                .textInputAutocapitalization(.never).autocorrectionDisabled().font(.caption)
-                .padding(8).background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 8))
-                .onSubmit {
-                    if kind == .claude { EngineSettings().claudeModel = model.wrappedValue } else { EngineSettings().grokModel = model.wrappedValue }
-                }
-            Text("Model id. Leave it as is unless \(kind.name) renames its models.").font(.caption2).foregroundStyle(CalmStyle.secondary)
-        }
-        .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    static func masked(_ key: String?) -> String {
-        guard let key, key.count > 4 else { return "••••••••" }
-        return "•••••••• " + key.suffix(4)
-    }
-
-    /// Sends one fictional email ("put it away") to the engine with the saved key and model, so a bad key or model id
-    /// shows here instead of in the middle of a session. No real mail is sent.
-    private func test(_ kind: EngineKind) {
-        if kind == .claude { EngineSettings().claudeModel = claudeModel } else { EngineSettings().grokModel = grokModel }
-        testing.insert(kind)
-        Task {
-            let started = Date()
-            do {
-                let request = EngineRouter.request(for: EngineScorecard.statement, said: "put it away", ownerName: "", kids: [], examples: [])
-                _ = try await EngineRouter.engine(kind).interpret(request)
-                testResult[kind] = (true, "Key works. \(kind.name) answered in " + String(format: "%.1f", Date().timeIntervalSince(started)) + " s.")
-            } catch {
-                testResult[kind] = (false, "Saved, but the test failed: \(error.localizedDescription)")
-            }
-            testing.remove(kind)
-        }
-    }
-
-    private var usageCard: some View {
-        let week = EngineUsage().thisWeek()
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("THIS WEEK").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
-            ForEach(EngineKind.allCases) { kind in
-                let calls = week.calls[kind.rawValue] ?? 0
-                let picks = week.picks[kind.rawValue] ?? 0
-                HStack {
-                    Text(kind == .apple ? "Apple" : kind.name)
-                    Spacer()
-                    Text("\(calls) calls" + (kind.isCloud ? String(format: " · about $%.2f", EngineUsage.estimatedCost(week, kind)) : "")
-                         + (picks > 0 ? " · picked \(picks)" : ""))
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
-                }
-            }
-        }
-        .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
-/// Testing tools: every enabled engine against the fictional scorecard sentences. Costs a few cloud calls per run.
+/// Testing tools: Apple Intelligence against the fictional scorecard sentences, on this iPhone.
 struct EngineScorecardView: View {
     @State private var results: [EngineKind: [EngineScorecard.Result]] = [:]
     @State private var running: EngineKind?
@@ -223,7 +60,7 @@ struct EngineScorecardView: View {
                         }
                         Button(running == kind ? "Running…" : "Run") { run(kind) }
                             .buttonStyle(CalmActionStyle(prominent: true))
-                            .disabled(running != nil || !EngineSettings.hasKey(kind))
+                            .disabled(running != nil)
                         if let r = results[kind] {
                             ForEach(r.filter { !$0.passed }) { miss in
                                 let c = EngineScorecard.cases.first { $0.id == miss.id }
@@ -243,7 +80,7 @@ struct EngineScorecardView: View {
 
     private func run(_ kind: EngineKind) {
         running = kind
-        let engine = EngineRouter.engine(kind)
+        let engine = EngineRouter.engine()
         Task {
             var out: [EngineScorecard.Result] = []
             for c in EngineScorecard.cases {
@@ -253,7 +90,6 @@ struct EngineScorecardView: View {
                 let request = EngineRouter.request(for: c.item, said: c.said, ownerName: "Pat", kids: EngineScorecard.kids, examples: [])
                 do {
                     let answer = try await engine.interpret(request)
-                    EngineUsage().recordCall(answer)
                     out.append(EngineScorecard.check(c, answer.command))
                 } catch {
                     out.append(EngineScorecard.Result(id: c.id, passed: false, got: error.localizedDescription))

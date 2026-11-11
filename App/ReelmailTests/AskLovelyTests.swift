@@ -17,6 +17,8 @@ final class AskLovelyTests: XCTestCase {
     }
 
     func testQuestionPromptAsksForOneSearch() {
-        XCTAssertTrue(MailQuestionReader.prompt(today: "2026-11-09").contains("gmail_search"))
+        let p = AskPrompt.mailQuery(today: "2026-11-09")
+        XCTAssertTrue(p.contains("one Gmail search query"))
+        XCTAssertTrue(p.contains("2026-11-09"))
     }
 }

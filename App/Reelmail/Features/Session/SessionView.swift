@@ -1495,9 +1495,6 @@ struct SessionHandoffOffer: Identifiable {
     let id = UUID().uuidString
     let task: String
     let item: SessionItem
-    let reportTo: String?
-    /// Links in the full email, most likely first, for doing the task inside Lovely.
-    var links: [URL] = []
 }
 
 extension SessionItemScreen {
@@ -1517,12 +1514,6 @@ extension SessionItemScreen {
             if thinking { ProgressView().frame(maxWidth: .infinity) }
             if let askNote {
                 Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary)
-                // Kept on the phone as health mail, but he chose a cloud engine: one tap says it isn't health.
-                if askNote == EngineError.notForCloud.localizedDescription, EngineSettings().engine.isCloud {
-                    Button("Not health mail? Use \(EngineSettings().engine.name) for \(item.message.fromName)") { notHealth(item, post) }
-                        .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
-                        .accessibilityIdentifier("session.notHealth")
-                }
             }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
             if !proposals.isEmpty, mode == .drawers {
@@ -1533,22 +1524,11 @@ extension SessionItemScreen {
         .id("session.askResults")
     }
 
-    /// Marks the sender as not health mail and asks again with what he said before, now with the chosen engine.
-    private func notHealth(_ item: SessionItem, _ post: Post) {
-        HealthOverrides.markNotHealth(item.message.fromAddress)
-        askNote = nil
-        let earlier = askHistory.filter { !["not health", "not health mail"].contains($0.lowercased()) }
-        askHistory = []
-        proposals = []
-        if let last = earlier.last { ask((earlier.dropLast() + [last]).joined(separator: "\n"), item, post) }
-    }
-
     func clearAsk() { proposals = []; askNote = nil; askHistory = []; askResetCount += 1 }
 
     private func hint(_ item: SessionItem) -> String {
-        let engine = EngineSettings().engine
         let base = item.message.isPerson ? "Try \u{201C}tell \(item.message.fromName.split(separator: " ").first.map(String.init) ?? "them") Thursday works\u{201D} or \u{201C}file it in People\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D}, \u{201C}archive\u{201D} or \u{201C}delete\u{201D}."
-        return base + " Tap the mic on the keyboard to talk." + (engine == .apple ? "" : " Using \(engine.name).")
+        return base + " Tap the mic on the keyboard to talk."
     }
 
     private func ask(_ text: String, _ item: SessionItem, _ post: Post) {
@@ -1561,10 +1541,6 @@ extension SessionItemScreen {
         let earlier = askHistory
         askHistory.append(said)
         askResetCount += 1
-        // "not health": this sender's mail is not health mail, so the chosen cloud engine may read it.
-        if ["not health", "not health mail", "this isn't health", "this is not health", "not medical"].contains(said.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".! "))) {
-            askHistory.removeLast(); notHealth(item, post); return
-        }
         // "text Julia", "text my wife about this": open Messages with a short summary (he taps Send there).
         if TextAbout.isTextRequest(said) { textAboutFromAsk = post; askHistory.removeLast(); return }
         let kids = store.sessionKids
@@ -1573,37 +1549,21 @@ extension SessionItemScreen {
                                          say: quick.say ?? "", quick: true)]
             return
         }
-        let settings = EngineSettings()
-        let kinds = EngineRouter.plan(for: item, settings: settings)
-        EngineRoute.recordPlan(kinds, settings: settings, item: item)
-        if settings.engine.isCloud, !EngineRouter.allowsCloud(item) { askNote = EngineError.notForCloud.localizedDescription }
-        else if settings.engine.isCloud, !EngineSettings.hasKey(settings.engine) { askNote = EngineError.noKey(settings.engine).localizedDescription }
         // Earlier lines about this email go with the new one, so a follow-up keeps its context.
         let context = earlier.isEmpty ? said : (earlier + [said]).joined(separator: "\n")
         let request = EngineRouter.request(for: item, said: context, ownerName: ownerName, kids: kids, examples: SessionExampleStore().examples)
         thinking = true
         Task {
-            var results: [SessionProposal] = []
-            var problems: [String] = []
-            await withTaskGroup(of: (EngineKind, Result<EngineAnswer, Error>).self) { group in
-                for kind in kinds {
-                    let engine = EngineRouter.engine(kind, settings: settings)
-                    group.addTask { do { return (kind, .success(try await engine.interpret(request))) } catch { return (kind, .failure(error)) } }
-                }
-                for await (kind, result) in group {
-                    switch result {
-                    case .success(let answer):
-                        EngineUsage().recordCall(answer)
-                        EngineRoute.record(kind, reason: kind == .apple ? EngineRoute.appleReason(for: item, settings: settings) : nil)
-                        results.append(SessionProposal(engine: kind, action: SessionCommandValidator.validate(answer.command, item: item, kids: kids),
-                                                       say: answer.command.say ?? ""))
-                    case .failure(let error):
-                        problems.append("\(kind.name): \(error.localizedDescription)")
-                    }
-                }
+            // Apple Intelligence on this iPhone. If it can't, say so; a task that needs the web comes back as a hand-off.
+            do {
+                let answer = try await EngineRouter.engine().interpret(request)
+                proposals = [SessionProposal(engine: .apple, action: SessionCommandValidator.validate(answer.command, item: item, kids: kids),
+                                             say: answer.command.say ?? "")]
+            } catch {
+                // Apple can't do it here: say so, and offer Hand to Grok with his own words rather than dropping it.
+                askNote = error.localizedDescription
+                proposals = [SessionProposal(engine: .apple, action: .handoff(task: said), say: "")]
             }
-            proposals = results.sorted { kinds.firstIndex(of: $0.engine) ?? 0 < kinds.firstIndex(of: $1.engine) ?? 0 }
-            if !problems.isEmpty { askNote = ([askNote].compactMap { $0 } + problems).joined(separator: "\n") }
             thinking = false
         }
     }
@@ -1627,7 +1587,6 @@ extension SessionItemScreen {
     @ViewBuilder private func proposalButton(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
         let said = lastSaid
         let pick: () -> Void = {
-            if comparing { EngineUsage().recordPick(p.engine) }
             SessionExampleStore().record(said: said, action: Self.actionName(p.action), drawer: Self.drawerName(p.action))
             clearAsk()
         }
@@ -1675,10 +1634,9 @@ extension SessionItemScreen {
         case .skip:
             Button(p.action.title) { pick(); model.skip(item.id) }.buttonStyle(SessionButtonStyle())
         case .handoff(let task):
-            Button("Hand off: \(task)") {
+            Button("Hand to Grok: \(task)") {
                 pick()
-                handoff = SessionHandoffOffer(task: task, item: item, reportTo: store.account,
-                                              links: FormScripts.links(in: post.email.body, senderAddress: post.email.from.email))
+                handoff = SessionHandoffOffer(task: task, item: item)
             }.buttonStyle(SessionButtonStyle()).lineLimit(3)
         case .search(let query):
             // Reading, not changing: it runs at once, on the phone, and the results stay here.
@@ -1712,71 +1670,17 @@ extension SessionItemScreen {
     }
 }
 
-/// Hand a task to Grok or Claude: their app opens with the prompt filled in, falling back to the website, then to copy.
-/// The prompt asks the agent to email a report with a [Lovely] subject, which the next session recognizes.
+/// Hand a session task to Grok Bot (owner, Nov 11, 2026): the task in his words, the email's sender and subject as
+/// the only facts, and nothing at all for health mail. His report comes back under Grok reports.
 struct SessionHandoffSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     let offer: SessionHandoffOffer
     let sent: () -> Void
-    @State private var reportID = HandoffPrompt.newReportID()
-    @State private var copied = false
-    @State private var webForm: WebFormModel?
-
-    /// A link to open and a cloud engine to read the page.
-    private var canDoHere: Bool { !offer.links.isEmpty && WebFormModel.filler() != nil }
-
-    private func prompt(_ agent: HandoffAgent) -> String {
-        HandoffPrompt.sessionPrompt(task: offer.task, item: offer.item, agent: agent, reportTo: offer.reportTo, reportID: reportID)
-    }
-
-    private var allowed: Bool {
-        HandoffPrompt.isAllowed(address: offer.item.message.fromAddress, name: offer.item.message.fromName,
-                                subject: offer.item.message.subject, sensitive: offer.item.message.isHealth)
-    }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Hand this off").font(.title2.weight(.bold))
-                Text(offer.task).font(.body)
-                if allowed {
-                    Text(canDoHere ? "Do it here: the site opens in Lovely, the form is filled while you watch, and you press Submit."
-                                   : "The agent stops before anything you cannot undo, like Submit or Pay, and emails you a report when it is done.")
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
-                    Spacer()
-                    let first = HandoffAgent.current
-                    let second: HandoffAgent = first == .grok ? .claude : .grok
-                    if canDoHere, let url = offer.links.first {
-                        Button("Do it here in Lovely") { webForm = WebFormModel(task: offer.task, emailFacts: offer.item.message.subject + "\n" + offer.item.message.text, url: url) }
-                            .buttonStyle(SessionButtonStyle()).accessibilityIdentifier("handoff.here")
-                    }
-                    Button("Send to \(first.name)") { send(first) }.buttonStyle(SessionButtonStyle(prominent: !canDoHere)).accessibilityIdentifier("handoff.first")
-                    Button("Send to \(second.name)") { send(second) }.buttonStyle(SessionButtonStyle(prominent: false)).accessibilityIdentifier("handoff.second")
-                    Button(copied ? "Copied" : "Copy the prompt") { UIPasteboard.general.string = prompt(first); copied = true }
-                        .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
-                } else {
-                    Text("Health mail stays on this iPhone, so Lovely does not write a prompt for it.").foregroundStyle(CalmStyle.secondary)
-                    Spacer()
-                }
-            }
-            .padding(20)
-            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
-            .toolbar { Button("Cancel") { dismiss() } }
-            .fullScreenCover(item: $webForm) { model in WebFormView(model: model) { sent(); dismiss() } }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private func send(_ agent: HandoffAgent) {
-        let text = prompt(agent)
-        UIPasteboard.general.string = text   // the fallback is always ready
-        let web = HandoffLink.webURL(agent, prompt: text)
-        if let app = HandoffLink.appURL(agent, prompt: text) {
-            openURL(app) { accepted in if !accepted, let web { openURL(web) } }
-        } else if let web { openURL(web) }
-        sent()
-        dismiss()
+        let m = offer.item.message
+        let blocked = !HandoffPrompt.isAllowed(address: m.fromAddress, name: m.fromName, subject: m.subject, sensitive: m.isHealth)
+        HandToGrokSheet(task: offer.task, facts: GrokHandoff.facts(from: m.fromName, subject: m.subject, isHealth: blocked),
+                        blocked: blocked, onSent: sent)
     }
 }
 

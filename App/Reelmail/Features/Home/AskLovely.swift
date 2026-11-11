@@ -87,7 +87,7 @@ struct AskLovelyBar: View {
     }
 }
 
-/// Apple Intelligence's version of the search, when there is no Claude key.
+/// Apple Intelligence's Gmail search for a question about his mail.
 @Generable
 struct AppleMailQuestion {
     @Guide(description: "One Gmail search query using operators like from:, to:, subject:, newer_than:30d.")
@@ -202,7 +202,7 @@ struct AskLovelyView: View {
         guard !question.isEmpty, !working else { return }
         if !counted { AskLovelyUsage().recordAsk() }
         text = ""
-        let history = turns.filter { !$0.answer.isEmpty }.map { AskChatReader.Turn(question: $0.question, answer: $0.answer) }
+        let history = turns.filter { !$0.answer.isEmpty }.map { AskPrompt.Turn(question: $0.question, answer: $0.answer) }
         turns.append(Turn(question: question))
         let index = turns.count - 1
         working = true
@@ -214,41 +214,39 @@ struct AskLovelyView: View {
                 let a = try await Self.answer(question, history: history, topic: topicTitle, facts: facts, owner: owner, store: store)
                 turns[index].answer = a.text; turns[index].query = a.query; turns[index].engine = a.engine
             } catch EngineError.unavailable {
-                turns[index].problem = "Add a Claude key in Settings, AI, or turn on Apple Intelligence, to get answers here."
+                turns[index].problem = AskLovelyView.unavailableLine
             } catch {
-                turns[index].problem = "Lovely couldn't answer that just now. Check your connection and try again."
+                turns[index].problem = AskLovelyView.failedLine
             }
             working = false
         }
     }
 
-    /// Claude when there is a key (it can search his mail); otherwise Apple on the phone, which answers from the
-    /// page facts and general knowledge, plus a mail search for questions about his mail.
-    @MainActor static func answer(_ question: String, history: [AskChatReader.Turn], topic: String?, facts: [String],
+    static let unavailableLine = "Apple Intelligence is off on this iPhone, so Lovely can't answer here. Nothing was sent anywhere."
+    static let failedLine = "Lovely couldn't answer that on this iPhone. Nothing was sent anywhere."
+
+    /// Apple Intelligence on the phone, always (owner, Nov 11, 2026). For a question about his mail it first runs one
+    /// read-only Gmail search on the phone and answers from those lines. `rule` is extra instruction (Home's hand-off line).
+    @MainActor static func answer(_ question: String, rule: String? = nil, history: [AskPrompt.Turn], topic: String?, facts: [String],
                                   owner: String, store: FeedStore) async throws -> (text: String, query: String?, engine: String) {
-        let today = Date().formatted(date: .complete, time: .omitted)
-        if let key = EngineSettings.key(.claude) {
-            let model = EngineSettings().claudeModel
-            let system = AskChatReader.system(ownerName: owner, engineName: "Claude (\(model)) through Anthropic's API",
-                                              today: today, topic: topic, facts: facts.map { Redactor.redact($0) })
-            let gmail = store.gmail
-            let a = try await AskChatReader.answer(question, history: history, system: system, model: model, key: key,
-                                                   search: { query in await Self.searchLines(query, gmail: gmail) })
-            return (a.text, a.query, "Claude")
-        }
         guard ModelStatus.current.isAvailable else { throw EngineError.unavailable }
-        let system = AskChatReader.system(ownerName: owner, engineName: "Apple Intelligence on this iPhone", today: today,
-                                          topic: topic, facts: facts)
-            + "\nYou cannot search his mail yourself here; Lovely shows matching emails under your answer when the question is about his mail."
-        let session = LanguageModelSession(instructions: system)
-        let prompt = (history.suffix(3).map { "Earlier he asked: \($0.question)\nYou said: \($0.answer)" } + [question]).joined(separator: "\n\n")
-        let text = try await session.respond(to: prompt).content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let today = Date().formatted(date: .complete, time: .omitted)
         var query: String?
-        if topic == nil, let found = try? await search(for: question) { query = found.0 }
-        return (text, query, "Apple Intelligence")
+        var mail: [String]?
+        if topic == nil, let found = try? await search(for: question) {
+            query = found.0
+            mail = await searchLines(found.0, gmail: store.gmail)
+        }
+        var system = AskPrompt.system(ownerName: owner, today: today, topic: topic, facts: facts, mail: mail)
+        if let rule { system += "\n\n" + rule }
+        let session = LanguageModelSession(instructions: system)
+        let text = try await session.respond(to: AskPrompt.withHistory(question, history: history)).content
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw EngineError.badAnswer }
+        return (text, query, "Apple Intelligence on this iPhone")
     }
 
-    /// One line per message for the AI: sender, subject, date. Health mail is left out.
+    /// One line per message for the on-device model: sender, subject, date. Health mail is left out.
     nonisolated static func searchLines(_ query: String, gmail: any GmailInboxClient) async -> [String] {
         guard let list = try? await gmail.listMessageIDs(query: query, limit: 10) else { return [] }
         var out: [String] = []
@@ -260,16 +258,15 @@ struct AskLovelyView: View {
         return out
     }
 
+    /// The question as one Gmail search, made on the phone.
     static func search(for question: String) async throws -> (String, String) {
-        let today = Date().formatted(.iso8601.year().month().day())
-        if let key = EngineSettings.key(.claude) {
-            return try await MailQuestionReader.query(question, today: today, model: EngineSettings().claudeModel, key: key)
-        }
         guard ModelStatus.current.isAvailable else { throw EngineError.unavailable }
-        let session = LanguageModelSession(instructions: MailQuestionReader.prompt(today: today))
-        let answer = try await session.respond(to: question, generating: AppleMailQuestion.self, options: GenerationOptions(temperature: 0)).content
+        let today = Date().formatted(.iso8601.year().month().day())
+        let session = LanguageModelSession(instructions: AskPrompt.mailQuery(today: today))
+        let answer = try await session.respond(to: String(question.prefix(500)), generating: AppleMailQuestion.self,
+                                               options: GenerationOptions(temperature: 0)).content
         let q = answer.query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { throw EngineError.badAnswer }
-        return (q, answer.say)
+        return (String(q.prefix(200)), answer.say)
     }
 }

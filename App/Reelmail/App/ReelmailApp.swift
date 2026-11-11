@@ -19,6 +19,8 @@ struct ReelmailApp: App {
         store = Self.makeStandardStore()
         #endif
         _store = State(initialValue: store)
+        // Claude and the Grok API were removed (Nov 11, 2026): forget any saved keys and their settings.
+        RetiredCloudEngines.forget()
         MorningBriefScheduler.register(store: store)
         UNUserNotificationCenter.current().delegate = NotificationOpener.shared
     }
@@ -141,7 +143,7 @@ enum Route: Hashable {
     case session
     /// The same session over read mail still in the inbox, a page at a time.
     case backlog
-    /// Apple only, Claude or Grok for the inbox session, keys and compare mode.
+    /// The conversation engine page: Apple Intelligence on this iPhone.
     case engineSettings
     /// Every enabled engine against the fictional scorecard sentences.
     case engineScorecard

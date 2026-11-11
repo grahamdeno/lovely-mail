@@ -63,6 +63,13 @@ enum GrokHandoff {
         return out
     }
 
+    /// What one email adds to a hand-off: its sender and subject, codes and numbers removed. Nothing from health mail.
+    static func facts(from sender: String, subject: String, isHealth: Bool) -> [GrokFact] {
+        guard !isHealth else { return [] }
+        let line = Redactor.redact("Email from \(sender): \(subject)")
+        return [GrokFact(text: line)]
+    }
+
     /// The webhook body Grok Bot's routine receives.
     static func payload(task: String, prompt: String) -> Data {
         (try? JSONSerialization.data(withJSONObject: ["source": "lovely", "task": task, "prompt": prompt], options: [.sortedKeys])) ?? Data()

@@ -568,23 +568,25 @@ struct LovelyHome: View {
             withAnimation { turns.append(Turn(question: question, handoff: task)) }
             return
         }
-        let history = turns.filter { !$0.answer.isEmpty }.map { AskChatReader.Turn(question: $0.question, answer: $0.answer) }
+        let history = turns.filter { !$0.answer.isEmpty }.map { AskPrompt.Turn(question: $0.question, answer: $0.answer) }
         withAnimation { turns.append(Turn(question: question, image: file?.image, fileName: file?.image == nil ? file?.name : nil)) }
         let id = turns.last!.id
         working = true
         let owner = store.me.name == "You" ? "" : store.me.firstName
         Task {
             do {
-                let a = try await AskLovelyView.answer(prompt + "\n\n(" + GrokHandoff.engineRule + ")", history: history, topic: nil, facts: [],
+                let a = try await AskLovelyView.answer(prompt, rule: GrokHandoff.engineRule, history: history, topic: nil, facts: [],
                                                        owner: owner, store: store)
                 let parsed = GrokHandoff.parse(a.text)
                 if let i = turns.firstIndex(where: { $0.id == id }) {
                     turns[i].answer = parsed.rest; turns[i].handoff = parsed.task; turns[i].query = a.query; turns[i].engine = a.engine
                 }
-            } catch EngineError.unavailable {
-                if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Add a Claude key in Settings, AI, or turn on Apple Intelligence, to get answers here." }
             } catch {
-                if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Lovely couldn't answer that just now. Check your connection and try again." }
+                // Apple can't do it on the phone: say so, and offer Hand to Grok with his own words (owner, Nov 11, 2026).
+                if let i = turns.firstIndex(where: { $0.id == id }) {
+                    turns[i].problem = (error as? EngineError) == .unavailable ? AskLovelyView.unavailableLine : AskLovelyView.failedLine
+                    if file == nil { turns[i].handoff = question }
+                }
             }
             working = false
         }

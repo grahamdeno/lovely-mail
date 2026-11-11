@@ -183,7 +183,7 @@ enum InsightParsers {
 }
 
 
-/// Senders he said are not health mail ("Not health" in a session). Their mail may go to Claude or Grok again.
+/// Senders he said are not health mail ("Not health" in a session). Their mail is treated as ordinary mail again.
 /// On this phone only.
 enum HealthOverrides {
     static let key = "lovely.health.notHealthSenders"

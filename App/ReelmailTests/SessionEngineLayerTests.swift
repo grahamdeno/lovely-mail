@@ -158,101 +158,34 @@ final class SessionEngineLayerTests: XCTestCase {
         XCTAssertTrue(text.hasSuffix("THE OWNER SAYS: money"))
     }
 
-    func testHealthMailNeverGoesToTheCloud() {
-        var item = EngineScorecard.statement
-        XCTAssertTrue(EngineRouter.allowsCloud(item))
-        item.message.isHealth = true
-        XCTAssertFalse(EngineRouter.allowsCloud(item))
+    /// Apple Intelligence is the only engine (Nov 11, 2026).
+    func testAppleIsTheOnlyEngine() {
+        XCTAssertEqual(EngineKind.allCases, [.apple])
+        XCTAssertEqual(EngineRouter.engine().kind, .apple)
+        XCTAssertNil(EngineKind(rawValue: "claude"))
+        XCTAssertNil(EngineKind(rawValue: "grok"))
     }
 
-    // MARK: Cloud formats
-
-    private let request = EngineRequest(system: "SYSTEM", compact: "C", user: "USER")
-
-    func testAnthropicRequestAsksForTheToolWithoutForcingIt() throws {
-        let r = try AnthropicEngine.urlRequest(request, model: "claude-test", key: "k-test")
-        XCTAssertEqual(r.url, AnthropicEngine.endpoint)
-        XCTAssertEqual(r.value(forHTTPHeaderField: "x-api-key"), "k-test")
-        XCTAssertEqual(r.value(forHTTPHeaderField: "anthropic-version"), AnthropicEngine.apiVersion)
-        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(r.httpBody)) as? [String: Any])
-        XCTAssertEqual(body["model"] as? String, "claude-test")
-        XCTAssertTrue((body["system"] as? String ?? "").hasPrefix("SYSTEM"))
-        XCTAssertTrue((body["system"] as? String ?? "").contains("calling the \(SessionPlaybook.toolName) tool"))
-        XCTAssertEqual((body["tool_choice"] as? [String: Any])?["type"] as? String, "auto",
-                       "Forced tool_choice returns 400 on Opus 5.5 and later")
-        XCTAssertEqual(((body["tools"] as? [[String: Any]])?.first)?["name"] as? String, SessionPlaybook.toolName)
-    }
-
-    func testAnthropicAnswer() throws {
-        let json = #"{"content":[{"type":"text","text":"ok"},{"type":"tool_use","name":"session_action","input":{"action":"put_away","drawer":"Money","say":"Filing it in Money."}}],"usage":{"input_tokens":900,"output_tokens":40}}"#
-        let a = try AnthropicEngine.parse(Data(json.utf8))
-        XCTAssertEqual(a.command, SessionCommand(action: "put_away", drawer: "Money", say: "Filing it in Money."))
-        XCTAssertEqual(a.inputTokens, 900); XCTAssertEqual(a.outputTokens, 40); XCTAssertEqual(a.engine, .claude)
-        XCTAssertThrowsError(try AnthropicEngine.parse(Data(#"{"content":[{"type":"text","text":"no tool"}]}"#.utf8)))
-        let asText = #"{"content":[{"type":"text","text":"Here it is: {\"action\":\"put_away\",\"drawer\":\"Orders\"}"}]}"#
-        XCTAssertEqual(try AnthropicEngine.parse(Data(asText.utf8)).command, SessionCommand(action: "put_away", drawer: "Orders"),
-                       "A model that writes the JSON as text still works")
-    }
-
-    func testXAIRequestAndAnswers() throws {
-        let r = try XAIEngine.urlRequest(request, model: "grok-test", key: "x-test")
-        XCTAssertEqual(r.value(forHTTPHeaderField: "authorization"), "Bearer x-test")
-        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(r.httpBody)) as? [String: Any])
-        XCTAssertEqual((body["messages"] as? [[String: Any]])?.first?["content"] as? String, "SYSTEM")
-
-        let tool = #"{"choices":[{"message":{"tool_calls":[{"function":{"name":"session_action","arguments":"{\"action\":\"reply\",\"reply\":\"Thursday works.\",\"say\":\"Replying.\"}"}}]}}],"usage":{"prompt_tokens":800,"completion_tokens":30}}"#
-        let a = try XAIEngine.parse(Data(tool.utf8))
-        XCTAssertEqual(a.command.action, "reply"); XCTAssertEqual(a.command.reply, "Thursday works."); XCTAssertEqual(a.inputTokens, 800)
-
-        let text = #"{"choices":[{"message":{"content":"{\"action\":\"archive\",\"say\":\"Archiving.\"}"}}]}"#
-        XCTAssertEqual(try XAIEngine.parse(Data(text.utf8)).command.action, "archive")
-        XCTAssertThrowsError(try XAIEngine.parse(Data(#"{"choices":[{"message":{"content":"Sure!"}}]}"#.utf8)))
-    }
-
-    func testHTTPErrorsAreShortAndNeverEchoTheKey() {
-        let response = HTTPURLResponse(url: AnthropicEngine.endpoint, statusCode: 401, httpVersion: nil, headerFields: nil)!
-        XCTAssertThrowsError(try CloudHTTP.check(Data(#"{"error":{"message":"invalid x-api-key k-secret"}}"#.utf8), response)) { error in
-            XCTAssertEqual(error as? EngineError, .http(401, "Check the key in Settings."))
+    /// The retired cloud engines' settings are forgotten at launch (the Keychain part needs a device).
+    func testRetiredCloudSettingsAreForgotten() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "RetiredCloudEngines"))
+        defaults.removePersistentDomain(forName: "RetiredCloudEngines")
+        defaults.set("claude", forKey: "lovely.engine.kind")
+        defaults.set("claude-sonnet-5-5", forKey: "lovely.engine.claudeModel")
+        defaults.set(true, forKey: "lovely.engine.compare")
+        defaults.set(Data("x".utf8), forKey: "lovely.owner.details")
+        defaults.set("keep", forKey: "lovely.other")
+        RetiredCloudEngines.forget(defaults: defaults, keychain: false)
+        for key in ["lovely.engine.kind", "lovely.engine.claudeModel", "lovely.engine.compare", "lovely.owner.details"] {
+            XCTAssertNil(defaults.object(forKey: key), key)
         }
-        let ok = HTTPURLResponse(url: AnthropicEngine.endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)!
-        XCTAssertNoThrow(try CloudHTTP.check(Data(), ok))
+        XCTAssertEqual(defaults.string(forKey: "lovely.other"), "keep")
+        XCTAssertEqual(RetiredCloudEngines.keychainAccounts, ["claude", "grok"])
     }
 
-    func testEnginesNeedAKey() async {
-        let engine = AnthropicEngine(model: "m", key: nil, transport: { _ in XCTFail("no call without a key"); return (Data(), URLResponse()) })
-        do { _ = try await engine.interpret(request); XCTFail("should throw") }
-        catch { XCTAssertEqual(error as? EngineError, .noKey(.claude)) }
-    }
-
-    // MARK: Handoffs and usage
-
-    func testHandoffPromptPutsIrreversibleStepsFirstAndAsksForAReport() {
-        let prompt = HandoffPrompt.sessionPrompt(task: "Fill out the lease renewal and submit it", item: EngineScorecard.lease,
-                                                 agent: .grok, reportTo: "owner@lovely.example", reportID: "H-AB12")
-        XCTAssertTrue(prompt.hasPrefix("!!! IRREVERSIBLE STEPS"))
-        XCTAssertTrue(prompt.contains("[Lovely] H-AB12"))
-        XCTAssertTrue(prompt.contains("owner@lovely.example"))
+    func testOldAgentReportsAreStillRecognized() {
         XCTAssertTrue(HandoffPrompt.isReport(subject: "[Lovely] H-AB12"))
         XCTAssertFalse(HandoffPrompt.isReport(subject: "Lovely update"))
-    }
-
-    func testHandoffLinks() {
-        XCTAssertEqual(HandoffLink.appURL(.claude, prompt: "a b&c")?.absoluteString, "claude://claude.ai/new?q=a%20b%26c")
-        XCTAssertEqual(HandoffLink.webURL(.grok, prompt: "hi")?.absoluteString, "https://grok.com/?q=hi")
-        XCTAssertNil(HandoffLink.appURL(.claude, prompt: String(repeating: "x", count: HandoffLink.maxPromptLength + 1)), "Too long: copy instead")
-    }
-
-    func testUsageWeeksAndCost() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "SessionEngineLayerTests"))
-        defaults.removePersistentDomain(forName: "SessionEngineLayerTests")
-        let usage = EngineUsage(defaults: defaults)
-        let now = Date(timeIntervalSince1970: 2_000_000_000)
-        usage.recordCall(EngineAnswer(command: SessionCommand(action: "skip"), engine: .claude, inputTokens: 1_000_000, outputTokens: 0), now: now)
-        usage.recordPick(.grok, now: now)
-        let week = usage.thisWeek(now: now)
-        XCTAssertEqual(week.calls["claude"], 1)
-        XCTAssertEqual(week.picks["grok"], 1)
-        XCTAssertEqual(EngineUsage.estimatedCost(week, .claude), 3, accuracy: 0.001)
     }
 
     /// "Can you check my Gmail …": engines answer with a read-only search, never "I can't search your mail".

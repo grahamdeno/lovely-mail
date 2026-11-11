@@ -20,7 +20,7 @@ struct AppleSessionCommand {
     var query: String
 }
 
-/// Apple Intelligence on the iPhone. Never touches the network. Weaker than the cloud engines; when it is unsure it says so.
+/// Apple Intelligence on the iPhone. Never touches the network. When it is unsure it says so.
 struct AppleSessionEngine: SessionEngine {
     var kind: EngineKind { .apple }
     static let maxCharacters = 2_500
