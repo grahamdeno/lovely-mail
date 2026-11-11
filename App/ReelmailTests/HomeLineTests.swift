@@ -70,8 +70,26 @@ final class HomeAttachmentTests: XCTestCase {
     func testSummaryAndExpansion() {
         XCTAssertEqual(HomeAttachment.summary(kind: "photo", readText: "one two three"), "Photo · 3 words read")
         XCTAssertEqual(HomeAttachment.summary(kind: "file", readText: nil), "File · no words found")
-        XCTAssertFalse(HomeAttachment.expands(text: "Short question", hasAttachment: false))
-        XCTAssertTrue(HomeAttachment.expands(text: "A much longer question that will not fit", hasAttachment: false))
-        XCTAssertTrue(HomeAttachment.expands(text: "", hasAttachment: true))
+    }
+}
+
+/// Home's Ask field sends only from the arrow (owner, Nov 11, 2026).
+final class HomeComposerTests: XCTestCase {
+    func testLongTextAloneNeverSends() {
+        let long = "A much longer question that runs well past one line of the field"
+        XCTAssertFalse(HomeComposer.shouldSend(.heightChange, text: long, hasAttachment: false, busy: false, heightChanging: false))
+        XCTAssertTrue(HomeComposer.shouldSend(.arrowTap, text: long, hasAttachment: false, busy: false, heightChanging: false))
+    }
+
+    func testNewlineAndReturnNeverSend() {
+        XCTAssertFalse(HomeComposer.shouldSend(.newlineInText, text: "Line one\nline two", hasAttachment: false, busy: false, heightChanging: false))
+        XCTAssertFalse(HomeComposer.shouldSend(.returnKey, text: "Done?", hasAttachment: false, busy: false, heightChanging: false))
+    }
+
+    func testArrowIgnoredWhileTheFieldChangesHeightOrIsBusy() {
+        XCTAssertFalse(HomeComposer.shouldSend(.arrowTap, text: "Hi", hasAttachment: false, busy: false, heightChanging: true))
+        XCTAssertFalse(HomeComposer.shouldSend(.arrowTap, text: "Hi", hasAttachment: false, busy: true, heightChanging: false))
+        XCTAssertFalse(HomeComposer.shouldSend(.arrowTap, text: "   ", hasAttachment: false, busy: false, heightChanging: false))
+        XCTAssertTrue(HomeComposer.shouldSend(.arrowTap, text: "", hasAttachment: true, busy: false, heightChanging: false))
     }
 }

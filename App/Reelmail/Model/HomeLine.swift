@@ -97,8 +97,15 @@ enum HomeAttachment {
         return words == 0 ? "\(kind.capitalized) · no words found" : "\(kind.capitalized) · \(words) word\(words == 1 ? "" : "s") read"
     }
 
-    /// The field grows into Grok's two-row layout once the words would not fit on one line.
-    static func expands(text: String, hasAttachment: Bool) -> Bool {
-        hasAttachment || text.count > 34 || text.contains("\n")
+}
+
+/// Home's Ask field sends only from the arrow (owner, Nov 11, 2026): never on Return, a typed newline, or the field
+/// growing, and not while the field is changing height.
+enum HomeComposer {
+    enum Trigger: Equatable { case arrowTap, returnKey, newlineInText, heightChange }
+
+    static func shouldSend(_ trigger: Trigger, text: String, hasAttachment: Bool, busy: Bool, heightChanging: Bool) -> Bool {
+        guard trigger == .arrowTap, !busy, !heightChanging else { return false }
+        return hasAttachment || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
