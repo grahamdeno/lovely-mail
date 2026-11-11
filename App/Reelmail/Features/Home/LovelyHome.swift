@@ -1,5 +1,8 @@
+import PDFKit
+import PhotosUI
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// Home 2 (owner, Nov 10, 2026): white space first, and the first thing to do is talk about your mail.
 /// A greeting and one sentence with what matters (tappable), the Ask field in the middle with three questions under it,
@@ -21,6 +24,20 @@ struct LovelyHome: View {
     @State private var swiping: UUID?
     @State private var swipeY: CGFloat = 0
     @State private var ballCenter: CGPoint = .zero
+    /// A photo or file added to the next question; its words are read on the phone.
+    @State private var attachment: Attachment?
+    @State private var showCamera = false
+    @State private var showLibrary = false
+    @State private var showFiles = false
+    @State private var picked: PhotosPickerItem?
+
+    struct Attachment: Equatable {
+        var kind: String           // "photo" or "file"
+        var name: String
+        var image: UIImage?
+        var text: String?
+        var reading = true
+    }
     static let gel = GelPhysics()
     private var gel: GelPhysics { Self.gel }
 
@@ -33,6 +50,9 @@ struct LovelyHome: View {
         var engine = ""
         /// Answered on the phone: today's steps as buttons.
         var steps: [TodayStep]?
+        /// The photo he attached, shown with his words.
+        var image: UIImage?
+        var fileName: String?
         var gone = false
     }
 
@@ -70,6 +90,26 @@ struct LovelyHome: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { gel.kick(0.4, toward: -.pi / 2); settleGel() }
         }
         .onDisappear { gelSleep?.cancel() }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraCapture { image in
+                showCamera = false
+                if let image { Task { await attach(image: image, kind: "photo", name: "Photo") } }
+            }
+            .ignoresSafeArea()
+        }
+        .photosPicker(isPresented: $showLibrary, selection: $picked, matching: .images)
+        .onChange(of: picked) { _, item in
+            guard let item else { return }
+            picked = nil
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+                    await attach(image: image, kind: "photo", name: "Photo")
+                }
+            }
+        }
+        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image, .plainText]) { result in
+            if case .success(let url) = result { Task { await attach(file: url) } }
+        }
     }
 
     // MARK: Pieces
@@ -119,24 +159,114 @@ struct LovelyHome: View {
         return out
     }
 
+    /// Grok's field: one line with + and send; once the words would not fit (or a photo is added) it grows, with the
+    /// attachment on top, the words in the middle and + and send on a row beneath. Return sends.
     private var composer: some View {
-        HStack(spacing: 8) {
-            TextField("Ask about your mail", text: $text)
-                .font(.body).focused($typing).submitLabel(.send)
-                .onSubmit { send(text) }
-                .frame(minHeight: 46)
-                .accessibilityIdentifier("home2.ask")
-            Button { send(text) } label: {
-                Image(systemName: working ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
-                    .frame(width: 40, height: 40).foregroundStyle(CalmStyle.onBlue)
-                    .background(CalmStyle.blue, in: Circle())
+        let expanded = HomeAttachment.expands(text: text, hasAttachment: attachment != nil)
+        let canSend = !working && (attachment.map { !$0.reading } ?? true)
+            && (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || attachment != nil)
+        return VStack(alignment: .leading, spacing: 8) {
+            if let a = attachment { attachmentChip(a) }
+            if expanded {
+                field.padding(.horizontal, 4)
+                HStack { addButton; Spacer(); sendButton(canSend) }
+            } else {
+                HStack(spacing: 8) { addButton; field; sendButton(canSend) }
             }
-            .disabled(working || text.trimmingCharacters(in: .whitespaces).isEmpty)
-            .accessibilityLabel("Ask Lovely").accessibilityIdentifier("home2.ask.go")
         }
-        .padding(.leading, 16).padding(.trailing, 6).padding(.vertical, 5)
+        .padding(.horizontal, 6).padding(.vertical, 6)
+        .padding(.top, expanded ? 6 : 0)
         .glassPane(corner: 26)
         .padding(.horizontal, 16)
+        .animation(.spring(response: 0.3, dampingFraction: 0.86), value: expanded)
+    }
+
+    private var field: some View {
+        TextField("Ask about your mail", text: $text, axis: .vertical)
+            .font(.body).lineLimit(1...8).focused($typing).submitLabel(.send)
+            .frame(minHeight: 40)
+            .padding(.leading, 6)
+            // A multi-line field takes Return as a new line; Lovely treats it as Send.
+            .onChange(of: text) { _, new in
+                if new.contains("\n") { text = new.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces); send(text) }
+            }
+            .accessibilityIdentifier("home2.ask")
+    }
+
+    private var addButton: some View {
+        Menu {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button { showCamera = true } label: { Label("Take Photo", systemImage: "camera") }
+            }
+            Button { showLibrary = true } label: { Label("Photo Library", systemImage: "photo.on.rectangle") }
+            Button { showFiles = true } label: { Label("Choose File", systemImage: "folder") }
+        } label: {
+            Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                .frame(width: 40, height: 40)
+                .background(CalmStyle.secondary.opacity(0.12), in: Circle())
+        }
+        .accessibilityLabel("Add a photo or file").accessibilityIdentifier("home2.add")
+    }
+
+    private func sendButton(_ enabled: Bool) -> some View {
+        Button { send(text) } label: {
+            Image(systemName: working ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
+                .frame(width: 40, height: 40).foregroundStyle(CalmStyle.onBlue)
+                .background(CalmStyle.blue, in: Circle())
+        }
+        .disabled(!enabled).opacity(enabled ? 1 : 0.45)
+        .accessibilityLabel("Ask Lovely").accessibilityIdentifier("home2.ask.go")
+    }
+
+    private func attachmentChip(_ a: Attachment) -> some View {
+        HStack(spacing: 10) {
+            Group {
+                if let image = a.image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Image(systemName: "doc.text").font(.title3).foregroundStyle(CalmStyle.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity).background(CalmStyle.secondary.opacity(0.12))
+                }
+            }
+            .frame(width: 48, height: 48).clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(a.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(a.reading ? "Reading on this iPhone\u{2026}" : HomeAttachment.summary(kind: a.kind, readText: a.text))
+                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+            }
+            Spacer(minLength: 4)
+            Button { attachment = nil } label: {
+                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                    .frame(width: 32, height: 32).contentShape(Rectangle())
+            }
+            .accessibilityLabel("Remove attachment")
+        }
+        .padding(.horizontal, 4).padding(.top, 2)
+    }
+
+    // MARK: Attachments: read on the phone
+
+    private func attach(image: UIImage, kind: String, name: String) async {
+        attachment = Attachment(kind: kind, name: name, image: image)
+        let upright = PhotoEventsView.upright(image)
+        var words = ""
+        if let cg = upright.cgImage { words = await PhotoEventsView.recognize(cg).map(\.text).joined(separator: "\n") }
+        if attachment?.image === image { attachment?.text = words; attachment?.reading = false }
+        typing = true
+    }
+
+    private func attach(file url: URL) async {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let name = url.lastPathComponent
+        if let image = UIImage(data: data) { await attach(image: image, kind: "photo", name: name); return }
+        attachment = Attachment(kind: "file", name: name, image: nil)
+        var words = ""
+        if url.pathExtension.lowercased() == "pdf", let pdf = PDFDocument(data: data) { words = pdf.string ?? "" }
+        else { words = String(data: data, encoding: .utf8) ?? "" }
+        if attachment?.name == name { attachment?.text = words; attachment?.reading = false }
+        typing = true
     }
 
     private func suggestions(_ line: HomeLine, steps: [TodayStep]) -> some View {
@@ -163,10 +293,18 @@ struct LovelyHome: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(turns.filter { !$0.gone }) { turn in
-                        Text(turn.question).font(.body).foregroundStyle(CalmStyle.onBlue)
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 56)
+                        VStack(alignment: .trailing, spacing: 6) {
+                            if let image = turn.image {
+                                Image(uiImage: image).resizable().scaledToFill()
+                                    .frame(width: 140, height: 140).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            } else if let name = turn.fileName {
+                                Label(name, systemImage: "doc.text").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                            }
+                            Text(turn.question).font(.body).foregroundStyle(CalmStyle.onBlue)
+                                .padding(.horizontal, 14).padding(.vertical, 10)
+                                .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 56)
                         answerCard(turn)
                             .offset(y: swiping == turn.id ? swipeOffset : 0)
                             .scaleEffect(swiping == turn.id ? 1 - min(max(swipeY, 0) / 900, 0.12) : 1)
@@ -174,11 +312,20 @@ struct LovelyHome: View {
                     }
                 }
                 .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 16)
+                Color.clear.frame(height: 1).id("home2.end")
             }
+            .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: turns.count) { _, _ in
-                if let last = turns.last { withAnimation { reader.scrollTo(last.id, anchor: .top) } }
-            }
+            // The newest message always sits just above the field (and the keyboard): on a new question, an answer
+            // arriving, or the keyboard coming up.
+            .onChange(of: turns) { _, _ in toEnd(reader) }
+            .onChange(of: typing) { _, now in if now { toEnd(reader, after: 0.3) } }
+        }
+    }
+
+    private func toEnd(_ reader: ScrollViewProxy, after delay: Double = 0.05) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            withAnimation(.easeOut(duration: 0.25)) { reader.scrollTo("home2.end", anchor: .bottom) }
         }
     }
 
@@ -365,28 +512,31 @@ struct LovelyHome: View {
     // MARK: Asking
 
     private func send(_ q: String, steps: [TodayStep]? = nil) {
-        let question = q.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, !working else { return }
+        let typed = q.trimmingCharacters(in: .whitespacesAndNewlines)
+        let file = attachment
+        guard !working, !typed.isEmpty || file != nil, file?.reading != true else { return }
+        let question = typed.isEmpty ? HomeAttachment.defaultQuestion : typed
+        let prompt = file.map { HomeAttachment.prompt(question: typed, kind: $0.kind, readText: $0.text) } ?? question
         let today = steps ?? store.todaySteps()
         text = ""
-        typing = false
+        attachment = nil
         // "Answer Sarah": straight to her email.
-        if question.hasPrefix("Answer "), let step = today.first(where: { $0.kind == .answer && !$0.done }), let id = step.postID {
-            router.open(.email(id)); return
+        if file == nil, question.hasPrefix("Answer "), let step = today.first(where: { $0.kind == .answer && !$0.done }), let id = step.postID {
+            typing = false; router.open(.email(id)); return
         }
         AskLovelyUsage().recordAsk()
-        if HomeLine.isNeedsMe(question) {
+        if file == nil, HomeLine.isNeedsMe(question) {
             withAnimation { turns.append(Turn(question: question, steps: today.filter { !$0.done })) }
             return
         }
         let history = turns.filter { !$0.answer.isEmpty }.map { AskChatReader.Turn(question: $0.question, answer: $0.answer) }
-        withAnimation { turns.append(Turn(question: question)) }
+        withAnimation { turns.append(Turn(question: question, image: file?.image, fileName: file?.image == nil ? file?.name : nil)) }
         let id = turns.last!.id
         working = true
         let owner = store.me.name == "You" ? "" : store.me.firstName
         Task {
             do {
-                let a = try await AskLovelyView.answer(question, history: history, topic: nil, facts: [], owner: owner, store: store)
+                let a = try await AskLovelyView.answer(prompt, history: history, topic: nil, facts: [], owner: owner, store: store)
                 if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].answer = a.text; turns[i].query = a.query; turns[i].engine = a.engine }
             } catch EngineError.unavailable {
                 if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Add a Claude key in Settings, AI, or turn on Apple Intelligence, to get answers here." }

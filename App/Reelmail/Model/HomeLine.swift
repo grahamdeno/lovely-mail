@@ -70,3 +70,35 @@ struct HomeLine: Equatable {
         return ["needs me", "need me", "what's up today", "what should i do", "what's important"].contains { q.contains($0) }
     }
 }
+
+/// A photo or file added to an Ask on Home (owner, Nov 10, 2026: "snap an image of something to draft an email").
+/// Its words are read on this iPhone (Apple's text recognition, or a PDF's own text); only those words go with the
+/// question, like anything else he types. Pure parts here, so they are tested.
+enum HomeAttachment {
+    static let maxCharacters = 4000
+
+    /// What he asks when he sends a picture with no words.
+    static let defaultQuestion = "Draft an email about this."
+
+    /// The question as the engine sees it: his words, then the words read from the attachment.
+    static func prompt(question: String, kind: String, readText: String?) -> String {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        let ask = q.isEmpty ? defaultQuestion : q
+        guard let raw = readText?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return ask + "\n\n(He attached a \(kind), but no words could be read from it.)"
+        }
+        let text = raw.count > maxCharacters ? String(raw.prefix(maxCharacters)) + "\u{2026}" : raw
+        return ask + "\n\nText read on his iPhone from the \(kind) he attached:\n\"\"\"\n" + text + "\n\"\"\""
+    }
+
+    /// "Photo · 214 words" for the chip.
+    static func summary(kind: String, readText: String?) -> String {
+        let words = (readText ?? "").split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        return words == 0 ? "\(kind.capitalized) · no words found" : "\(kind.capitalized) · \(words) word\(words == 1 ? "" : "s") read"
+    }
+
+    /// The field grows into Grok's two-row layout once the words would not fit on one line.
+    static func expands(text: String, hasAttachment: Bool) -> Bool {
+        hasAttachment || text.count > 34 || text.contains("\n")
+    }
+}
