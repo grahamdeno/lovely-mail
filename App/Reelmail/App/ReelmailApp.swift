@@ -100,6 +100,8 @@ enum Appearance: String, CaseIterable, Identifiable {
 enum Route: Hashable {
     /// The classic Home, from the chat Home's ⋯ ("Everything").
     case overview
+    /// Grok's emailed reports (Lovely/Grok reports), from Hand to Grok.
+    case grokReports
     case email(String)
     case thread(Person)
     case summaryLab

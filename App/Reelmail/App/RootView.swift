@@ -84,6 +84,7 @@ struct RootView: View {
                     case .photoEvents: PhotoEventsView()
                     case .askLovely(let q): AskLovelyView(firstQuestion: q)
                     case .overview: HomeView()
+                    case .grokReports: GrokReportsView()
                     }
                 }
                 .toolbarBackground(CalmStyle.background, for: .navigationBar)

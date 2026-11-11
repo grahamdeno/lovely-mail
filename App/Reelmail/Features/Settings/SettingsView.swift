@@ -227,6 +227,7 @@ struct SettingsAIView: View {
             SettingsRow(title: "Conversation engine", value: EngineSettings().engine.name) { router.open(.engineSettings) }
             let status = ModelStatus.current
             ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
+            GrokHandoffSetting()
         }
     }
 }

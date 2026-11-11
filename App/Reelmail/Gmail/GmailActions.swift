@@ -95,7 +95,9 @@ struct GmailActions {
 
     /// A filter for one sender that labels and/or forwards. Forwarding goes only to an address in the allowlist.
     /// `skipInbox` also keeps new mail from that sender out of the inbox (only INBOX is ever removed).
-    func createFilter(sender: String, forwardTo: String?, labelID: String?, skipInbox: Bool = false, confirmed: ConfirmedAction) async throws -> RecordedFilter {
+    /// `subject` narrows it to one subject phrase (Grok reports, owner Nov 10, 2026: only his own mail titled "Grok report").
+    func createFilter(sender: String, forwardTo: String?, labelID: String?, skipInbox: Bool = false, subject: String? = nil,
+                      confirmed: ConfirmedAction) async throws -> RecordedFilter {
         try confirmed.require([.filter, .shoebox])
         guard ForwardAllowlist.isAddress(sender) else { throw ActionError.badAddress(sender) }
         var action: [String: Any] = [:]
@@ -111,7 +113,9 @@ struct GmailActions {
         }
         guard !action.isEmpty else { throw ActionError.wrongPreview }
         let from = sender.lowercased()
-        let made: FilterItem = try await call("POST", "/settings/filters", json: ["criteria": ["from": from], "action": action])
+        var criteria: [String: Any] = ["from": from]
+        if let subject = subject?.trimmingCharacters(in: .whitespaces), !subject.isEmpty { criteria["subject"] = subject }
+        let made: FilterItem = try await call("POST", "/settings/filters", json: ["criteria": criteria, "action": action])
         let record = RecordedFilter(gmailID: made.id, sender: from, forwardTo: forwardTo?.lowercased(), label: labelID, created: Date())
         filters.add(record)
         activity.record(kind: "filter", summary: "Created a filter for \(from)" + (forwardTo != nil ? " that forwards to \(forwardTo!.lowercased())" : ""))

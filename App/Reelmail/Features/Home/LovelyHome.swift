@@ -14,6 +14,8 @@ struct LovelyHome: View {
 
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
+    @State private var shareText: ShareText?
     @State private var text = ""
     @FocusState private var typing: Bool
     @State private var turns: [Turn] = []
@@ -53,6 +55,9 @@ struct LovelyHome: View {
         /// The photo he attached, shown with his words.
         var image: UIImage?
         var fileName: String?
+        /// Lovely's model can't do this (it needs the web): the task for Grok.
+        var handoff: String?
+        var sentToGrok = false
         var gone = false
     }
 
@@ -107,6 +112,7 @@ struct LovelyHome: View {
                 }
             }
         }
+        .sheet(item: $shareText) { item in ActivityView(text: item.text).ignoresSafeArea().presentationDetents([.medium, .large]) }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image, .plainText]) { result in
             if case .success(let url) = result { Task { await attach(file: url) } }
         }
@@ -371,9 +377,10 @@ struct LovelyHome: View {
                     }
                 }
             } else {
+                if let task = turn.handoff { handoffBox(turn, task: task) }
                 if !turn.answer.isEmpty { SelectableText(text: EmailPresentation.linked(turn.answer)) }
                 if let p = turn.problem { Text(p).font(.callout).foregroundStyle(CalmStyle.secondary) }
-                if turn.answer.isEmpty, turn.problem == nil {
+                if turn.answer.isEmpty, turn.problem == nil, turn.handoff == nil {
                     HStack(spacing: 8) { ProgressView(); Text("Looking through your mail\u{2026}").font(.callout).foregroundStyle(CalmStyle.secondary) }
                 }
                 if let q = turn.query {
@@ -472,6 +479,7 @@ struct LovelyHome: View {
             Button { router.open(.comingUp) } label: { Label("Coming up", systemImage: "calendar") }
             Button { router.open(.notes) } label: { Label("Notes to self", systemImage: "note.text") }
             Button { router.open(.later) } label: { Label("Later", systemImage: "clock") }
+            Button { router.open(.grokReports) } label: { Label("Grok reports", systemImage: "sparkles") }
             Divider()
             Button { router.open(.settings) } label: { Label("Settings", systemImage: "gearshape") }
         } label: {
@@ -529,6 +537,11 @@ struct LovelyHome: View {
             withAnimation { turns.append(Turn(question: question, steps: today.filter { !$0.done })) }
             return
         }
+        // "Ask Grok to …": straight to Grok, no engine.
+        if file == nil, let task = GrokHandoff.explicitTask(question) {
+            withAnimation { turns.append(Turn(question: question, handoff: task)) }
+            return
+        }
         let history = turns.filter { !$0.answer.isEmpty }.map { AskChatReader.Turn(question: $0.question, answer: $0.answer) }
         withAnimation { turns.append(Turn(question: question, image: file?.image, fileName: file?.image == nil ? file?.name : nil)) }
         let id = turns.last!.id
@@ -536,14 +549,63 @@ struct LovelyHome: View {
         let owner = store.me.name == "You" ? "" : store.me.firstName
         Task {
             do {
-                let a = try await AskLovelyView.answer(prompt, history: history, topic: nil, facts: [], owner: owner, store: store)
-                if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].answer = a.text; turns[i].query = a.query; turns[i].engine = a.engine }
+                let a = try await AskLovelyView.answer(prompt + "\n\n(" + GrokHandoff.engineRule + ")", history: history, topic: nil, facts: [],
+                                                       owner: owner, store: store)
+                let parsed = GrokHandoff.parse(a.text)
+                if let i = turns.firstIndex(where: { $0.id == id }) {
+                    turns[i].answer = parsed.rest; turns[i].handoff = parsed.task; turns[i].query = a.query; turns[i].engine = a.engine
+                }
             } catch EngineError.unavailable {
                 if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Add a Claude key in Settings, AI, or turn on Apple Intelligence, to get answers here." }
             } catch {
                 if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Lovely couldn't answer that just now. Check your connection and try again." }
             }
             working = false
+        }
+    }
+
+    // MARK: Hand to Grok
+
+    /// The task, and one button. The first time, the button also sets up the Gmail filter that files Grok's reports,
+    /// and the lines above it say so (the button is the preview).
+    @ViewBuilder private func handoffBox(_ turn: Turn, task: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(turn.sentToGrok ? "SENT TO GROK" : "GROK CAN DO THIS").font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            Text(task).font(.body.weight(.semibold))
+            if turn.sentToGrok {
+                Text("Grok will notify you when it's done or needs your OK. Its report goes to Grok reports, out of your inbox.")
+                    .font(.callout).foregroundStyle(CalmStyle.secondary)
+                Button("Grok reports \u{203A}") { router.open(.grokReports) }.font(.subheadline.weight(.semibold))
+            } else if let me = store.grokReportAddress, store.actions != nil, !store.grokReportsFiled {
+                let preview = GrokHandoff.filterPreview(owner: me)
+                ForEach(Array(preview.lines.prefix(1).enumerated()), id: \.offset) { _, line in
+                    Text(line).font(.caption).foregroundStyle(CalmStyle.secondary)
+                }
+                SessionConfirmButton(title: "Hand to Grok", previews: [preview], identifier: "home2.grok") { approvals in
+                    store.setUpGrokReports(confirmed: approvals[0])
+                    deliver(turn, task: task)
+                }
+            } else {
+                Button("Hand to Grok") { deliver(turn, task: task) }
+                    .buttonStyle(SessionButtonStyle()).accessibilityIdentifier("home2.grok")
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// Sends the task to Grok Bot: through his Shortcut when one is set (no taps), else the share sheet (one tap).
+    private func deliver(_ turn: Turn, task: String) {
+        var context = ["He asked Lovely: " + turn.question]
+        if !turn.answer.isEmpty { context.append("Lovely found: " + turn.answer) }
+        let text = GrokHandoff.prompt(task: task, context: context, reportTo: store.grokReportAddress ?? "my email address")
+        if let i = turns.firstIndex(where: { $0.id == turn.id }) { turns[i].sentToGrok = true }
+        UIPasteboard.general.string = text
+        let shortcut = UserDefaults.standard.string(forKey: GrokHandoff.shortcutKey) ?? ""
+        if let url = GrokHandoff.shortcutURL(name: shortcut, text: text) {
+            openURL(url) { accepted in if !accepted { shareText = ShareText(text: text) } }
+        } else {
+            shareText = ShareText(text: text)
         }
     }
 
@@ -598,5 +660,58 @@ struct ChatHomeToggle: View {
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
         .accessibilityIdentifier("settings.chatHome")
+    }
+}
+
+struct ShareText: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+/// The share sheet, for handing a task to Grok Bot (pick Grok Bot, then a chat).
+struct ActivityView: UIViewControllerRepresentable {
+    let text: String
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// Grok's reports, filed under Lovely/Grok reports by the filter Hand to Grok set up.
+struct GrokReportsView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("What Grok did for you. Each report is emailed by Grok, labeled and kept out of your inbox.")
+                    .font(.callout).foregroundStyle(CalmStyle.secondary)
+                GmailSearchResults(query: GrokHandoff.searchQuery)
+            }
+            .padding(20)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Grok reports").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Settings > AI: how Lovely hands tasks to Grok Bot.
+struct GrokHandoffSetting: View {
+    @AppStorage(GrokHandoff.shortcutKey) private var shortcut = ""
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Hand to Grok").font(.headline)
+            Text("When Lovely can't do something (anything on the web), it hands the task to your Grok Bot app with what it knows from your mail. Grok notifies you and emails a report that Lovely files under Grok reports. No xAI key needed.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+            TextField("Shortcut name (optional)", text: $shortcut)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .padding(.horizontal, 12).frame(minHeight: 44)
+                .background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityIdentifier("settings.grokShortcut")
+            Text(shortcut.isEmpty
+                 ? "Without a Shortcut, Lovely opens the share sheet: pick Grok Bot. For no taps, make a Shortcut with Grok Bot's Send Message action that takes Shortcut Input, and type its name here."
+                 : "Lovely runs \"\(shortcut)\" with the task as its input. The task is also copied, in case the Shortcut doesn't run.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
     }
 }
