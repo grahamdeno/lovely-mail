@@ -1135,13 +1135,15 @@ struct SessionBatchScreen: View {
         let moves = model.batchMoves
         let twoWeeks = model.batchKeepTwoWeeksIDs
         let trash = model.batchTrashIDs
+        let blocked = model.ids(page, .block)
+        let blocks = SessionFateStrip.blockRules(page, ids: blocked, store: store)
         let acting = moves.count + twoWeeks.count + trash.count
         let allFiled = moves.count == page.count && moves.allSatisfy { $0.drawer != nil }
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
-                    Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Every time to make it a Gmail filter for that sender.")
+                    Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Every time to make it a Gmail filter for that sender, or Block to screen the sender out.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(page) { item in
@@ -1161,23 +1163,29 @@ struct SessionBatchScreen: View {
                 }
                 // The button is the preview (Sprint 7): it says when it also makes Gmail filters.
                 let base = allFiled ? "Put away all \(acting)" : (acting == page.count ? "Do all \(acting)" : "Do \(acting)")
-                SessionConfirmButton(title: always.isEmpty ? base : base + " + \(always.count) Gmail filter\(always.count == 1 ? "" : "s")",
-                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)] + always.map(\.rule.preview),
-                                     enabled: acting > 0,
+                let withAlways = always.isEmpty ? base : base + " + \(always.count) Gmail filter\(always.count == 1 ? "" : "s")"
+                SessionConfirmButton(title: SessionFateStrip.title(withAlways, acting: acting, blocked: blocks.count),
+                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)] + always.map(\.rule.preview) + blocks.map(\.preview),
+                                     enabled: acting + blocks.count > 0,
                                      identifier: "session.batch.confirm") { approvals in
                     // "Always" rows: one Gmail filter each, confirmed by the same tap (each has its own preview).
                     for (i, a) in always.enumerated() where approvals.count > i + 1 {
                         store.applySenderRule(sender: a.sender, label: a.rule.label, posts: a.rule.posts,
                                               markRead: a.rule.markRead, screenOut: a.rule.screenOut, confirmed: approvals[i + 1])
                     }
+                    // Block rows: one Screen out filter per sender, each with its own preview, after the Always ones.
+                    for (i, b) in blocks.enumerated() where approvals.count > 1 + always.count + i {
+                        store.applySenderRule(sender: b.sender, label: ScreenedOut.label, posts: b.posts, markRead: false, screenOut: true,
+                                              confirmed: approvals[1 + always.count + i])
+                    }
                     model.alwaysRows.subtract(pageIDs)
                     store.rememberFates(model.fatesToRemember(page))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
                     store.sessionTrash(trash.compactMap { store.sessionPost($0) })
-                    model.finishBatchPage(moves, keptTwoWeeks: twoWeeks, trashed: trash)
+                    model.finishBatchPage(moves, keptTwoWeeks: twoWeeks, trashed: trash, blocked: blocked)
                 }
-                Button(acting == 0 ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
+                Button(acting + blocks.count == 0 ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
                     .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                     .accessibilityIdentifier("session.batch.skip")
             }
@@ -1225,13 +1233,15 @@ struct SessionReadingScreen: View {
         let moves = model.readingMoves
         let twoWeeks = model.ids(items, .keepTwoWeeks, reading: true)
         let trash = model.ids(items, .trash, reading: true)
+        let blocked = model.ids(items, .block, reading: true)
+        let blocks = SessionFateStrip.blockRules(items, ids: blocked, store: store)
         let acting = moves.count + twoWeeks.count + trash.count
         let allArchive = moves.count == items.count && moves.allSatisfy { $0.drawer == nil }
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(items.count == 1 ? "One newsletter" : "\(items.count) newsletters").font(.title.weight(.bold))
-                    Text("Archive the ones you won't read. Swipe a row's choices to decide it differently; Lovely remembers each sender.")
+                    Text("Archive the ones you won't read, or Block a sender so their mail skips your inbox from now on. Lovely remembers each sender.")
                         .font(.callout).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(items) { item in
@@ -1254,16 +1264,22 @@ struct SessionReadingScreen: View {
                 .padding(.horizontal, 20).padding(.bottom, 20)
             }
             VStack(spacing: 10) {
-                SessionConfirmButton(title: allArchive ? "Archive all \(acting)" : (acting == items.count ? "Do all \(acting)" : "Do \(acting)"),
-                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)], enabled: acting > 0,
+                let base = allArchive ? "Archive all \(acting)" : (acting == items.count ? "Do all \(acting)" : "Do \(acting)")
+                SessionConfirmButton(title: SessionFateStrip.title(base, acting: acting, blocked: blocks.count),
+                                     previews: [SessionFateStrip.preview(moves, twoWeeks: twoWeeks.count, trash: trash.count)] + blocks.map(\.preview),
+                                     enabled: acting + blocks.count > 0,
                                      identifier: "session.reading.confirm") { approvals in
+                    for (i, b) in blocks.enumerated() where approvals.count > 1 + i {
+                        store.applySenderRule(sender: b.sender, label: ScreenedOut.label, posts: b.posts, markRead: false, screenOut: true,
+                                              confirmed: approvals[1 + i])
+                    }
                     store.rememberFates(model.fatesToRemember(items, reading: true))
                     if !moves.isEmpty { store.putAway(moves, confirmed: approvals[0], onReturn: { [model] ids in model.reopen(ids) }) }
                     store.keepShortTerm(twoWeeks.compactMap { store.sessionPost($0) }, confirmed: approvals[0])
                     store.sessionTrash(trash.compactMap { store.sessionPost($0) })
-                    model.finishReading(moves, keptTwoWeeks: twoWeeks, trashed: trash)
+                    model.finishReading(moves, keptTwoWeeks: twoWeeks, trashed: trash, blocked: blocked)
                 }
-                Button(acting == 0 ? "Continue" : "Leave them unread") { model.finishReading([]) }
+                Button(acting + blocks.count == 0 ? "Continue" : "Leave them unread") { model.finishReading([]) }
                     .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                     .accessibilityIdentifier("session.reading.skip")
             }
@@ -1297,6 +1313,19 @@ struct SessionFateStrip: View {
                 ForEach([BatchFate.keepTwoWeeks, .archive, .trash, .unread], id: \.self) { f in
                     Button { model.setBatchFate(f, for: item) } label: { chip(f.title, selected: fate == f, rose: f == .trash) }
                         .buttonStyle(.plain).accessibilityIdentifier("session.fate.\(f.rawValue)")
+                }
+                // Block: screen the sender out (Gmail filter to Screened Out, skips the inbox). Not for people.
+                if store.actions != nil, !item.message.isPerson {
+                    Button { model.setBatchFate(.block, for: item) } label: {
+                        Label("Block", systemImage: "nosign").labelStyle(.titleAndIcon)
+                            .font(.caption.weight(.semibold)).lineLimit(1)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .foregroundStyle(fate == .block ? CalmStyle.onBlue : CalmStyle.roseInk)
+                            .background(fate == .block ? CalmStyle.roseInk : CalmStyle.roseInk.opacity(0.1), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(fate == .block ? "Block this sender, on" : "Block this sender")
+                    .accessibilityIdentifier("session.fate.block")
                 }
                 if !reading, store.actions != nil, !item.message.isPerson, SessionModel.alwaysAllowed(fate) {
                     let on = model.alwaysRows.contains(item.id)
@@ -1343,6 +1372,29 @@ struct SessionFateStrip: View {
             .padding(.horizontal, 12).frame(minHeight: 34)
             .foregroundStyle(selected ? CalmStyle.onBlue : tint)
             .background(selected ? tint : tint.opacity(0.1), in: Capsule())
+    }
+
+    /// Block rows: one Screen out rule per sender, covering the row and the sender's other inbox mail, with its preview.
+    static func blockRules(_ items: [SessionItem], ids: [String], store: FeedStore) -> [(sender: String, posts: [Post], preview: ActionPreview)] {
+        let blocked = Set(ids)
+        var seen = Set<String>()
+        return items.filter { blocked.contains($0.id) }.compactMap { item in
+            let key = item.message.fromAddress.lowercased()
+            guard seen.insert(key).inserted else { return nil }
+            var posts = store.inboxPosts(from: item.message.fromAddress)
+            for other in items where blocked.contains(other.id) && other.message.fromAddress.lowercased() == key {
+                if let p = store.sessionPost(other.id), !posts.contains(where: { $0.id == p.id }) { posts.append(p) }
+            }
+            let preview = FeedStore.senderRulePreview(sender: item.message.fromAddress, label: ScreenedOut.label, inboxCount: posts.count, screenOut: true)
+            return (item.message.fromAddress, posts, preview)
+        }
+    }
+
+    /// The page button names the blocks too: "Block 1 sender", or "Archive all 3 + block 1".
+    static func title(_ base: String, acting: Int, blocked: Int) -> String {
+        guard blocked > 0 else { return base }
+        let senders = blocked == 1 ? "1 sender" : "\(blocked) senders"
+        return acting == 0 ? "Block \(senders)" : base + " + block \(blocked)"
     }
 
     /// One preview for the whole page, so one tap confirms every row.

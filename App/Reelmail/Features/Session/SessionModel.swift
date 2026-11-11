@@ -135,7 +135,7 @@ final class SessionModel {
     func batchFate(_ item: SessionItem, reading: Bool = false) -> BatchFate {
         if batchLeftOut.contains(item.id) { return .unread }
         if let fate = batchFates[item.id] { return fate }
-        if let fate = rememberedFates[item.message.fromAddress.lowercased()], fate != .unread {
+        if let fate = rememberedFates[item.message.fromAddress.lowercased()], fate != .unread, fate != .block {
             return fate == .file && batchDrawer(item) == nil ? .archive : fate
         }
         return reading || batchDrawer(item) == nil ? .archive : .file
@@ -166,7 +166,7 @@ final class SessionModel {
     /// Each sender's choice on this page, to remember for next time (leaving one unread is not a habit).
     func fatesToRemember(_ items: [SessionItem], reading: Bool = false) -> [String: BatchFate] {
         var out: [String: BatchFate] = [:]
-        for item in items { let f = batchFate(item, reading: reading); if f != .unread { out[item.message.fromAddress.lowercased()] = f } }
+        for item in items { let f = batchFate(item, reading: reading); if f != .unread, f != .block { out[item.message.fromAddress.lowercased()] = f } }
         return out
     }
 
@@ -188,21 +188,23 @@ final class SessionModel {
     }
 
     /// After the batch page is confirmed: rows left out stay unread on purpose.
-    func finishBatchPage(_ moves: [SessionMove], keptTwoWeeks: [String] = [], trashed: [String] = []) {
+    func finishBatchPage(_ moves: [SessionMove], keptTwoWeeks: [String] = [], trashed: [String] = [], blocked: [String] = []) {
         recordMoves(moves)
+        for id in blocked { record(id, .archived) }
         for id in keptTwoWeeks { record(id, .archived) }
         for id in trashed { record(id, .trashed) }
-        let handled = Set(moves.map(\.messageID) + keptTwoWeeks + trashed)
+        let handled = Set(moves.map(\.messageID) + keptTwoWeeks + trashed + blocked)
         for item in batchPage where !handled.contains(item.id) { record(item.id, .leftUnread) }
         batchLeftOut.removeAll(); batchDrawers.removeAll(); batchFates.removeAll()
         advance()
     }
 
-    func finishReading(_ moves: [SessionMove], keptTwoWeeks: [String] = [], trashed: [String] = []) {
+    func finishReading(_ moves: [SessionMove], keptTwoWeeks: [String] = [], trashed: [String] = [], blocked: [String] = []) {
         recordMoves(moves)
+        for id in blocked { record(id, .archived) }
         for id in keptTwoWeeks { record(id, .archived) }
         for id in trashed { record(id, .trashed) }
-        let handled = Set(moves.map(\.messageID) + keptTwoWeeks + trashed)
+        let handled = Set(moves.map(\.messageID) + keptTwoWeeks + trashed + blocked)
         for item in readingItems where !handled.contains(item.id) { record(item.id, .leftUnread) }
         readingKept.removeAll(); batchLeftOut.removeAll(); batchDrawers.removeAll(); batchFates.removeAll()
         advance()
@@ -251,6 +253,9 @@ extension SessionModel {
 /// One batch row's choice.
 enum BatchFate: String, Hashable, CaseIterable, Codable, Sendable {
     case file, keepTwoWeeks, archive, trash, unread
+    /// Screen out the sender: a Gmail filter sends their mail to Lovely/Screened Out, skipping the inbox, and their
+    /// inbox mail goes there now. Nothing is deleted (owner, Nov 10, 2026: block from the batch screens).
+    case block
 
     var title: String {
         switch self {
@@ -259,6 +264,7 @@ enum BatchFate: String, Hashable, CaseIterable, Codable, Sendable {
         case .archive: return "Archive"
         case .trash: return "Trash"
         case .unread: return "Unread"
+        case .block: return "Block"
         }
     }
 }
