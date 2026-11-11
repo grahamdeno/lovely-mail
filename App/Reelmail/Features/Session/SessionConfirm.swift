@@ -74,3 +74,28 @@ struct SessionStartCard: View {
         return waiting > 0 ? base + " · \(waiting) waiting on you" : base
     }
 }
+
+/// A session confirm with its own look: a drawer row in the drawer box, a word beside the ball. Like
+/// SessionConfirmButton, the label and the lines around it are the preview, so one tap confirms it.
+struct SessionConfirmTap<Content: View>: View {
+    let previews: [ActionPreview]
+    var identifier = "session.confirm"
+    let onConfirm: ([ConfirmedAction]) -> Void
+    @ViewBuilder let label: () -> Content
+
+    var body: some View {
+        Button { onConfirm(previews.map { ConfirmedAction(preview: $0) }) } label: { label() }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(identifier)
+    }
+}
+
+/// Pulling a session email down past the line into the ball files it, as if its main button were tapped.
+/// Owner approved Nov 10, 2026 (docs/sprint8-swipe.md, CLAUDE.md): only after the destination ("Put away in Finance")
+/// was shown on screen during the pull, only filing (put away, archive), with the 10-second Undo. Never Trash, send
+/// or rules by gesture.
+enum SessionPull {
+    static func approvals(for previews: [ActionPreview]) -> [ConfirmedAction] {
+        previews.map { ConfirmedAction(preview: $0) }
+    }
+}

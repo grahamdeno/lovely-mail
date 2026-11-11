@@ -4,9 +4,11 @@
 Read this first in a new session. The app ships as Lovely Mail; repo grahamdeno/lovely-mail; merges to `testflight` make a TestFlight build (build number = 1000 + the testflight workflow run number).
 
 - **Latest TestFlight build:** 1067. Everything Graham asked to ship through Nov 10 morning is in it: categories and the re-sort, Ask Lovely answering in words plus the Ask bubble on Money, Energy and Kids, Home round 5, one search field (split pill), Neon as dark mode with cool neon accents, selectable email text with tappable links, "Clear the next page".
+- **Sprint 8 card moves (shipped Nov 10 evening, PR #75, which also carried #74's subtitle and this note):** each one-at-a-time session email is a full white page (Card 1 / Version 1): sender, one big fact (SessionHero: amount, day, who is waiting), white space, then one glass pane (Pane 2) with subject, summary, tags, Reply, Open and Ask Lovely. Ball 1 (the logo's rose dot as a gel ball, half off screen) sits at the bottom with Archive and ⋯ beside it. Flick up = skip for now (unread, Undo brings it back), pull down into the ball = put away (destination named during the pull; owner approved Nov 10), swipe left = Move to Trash on a tap, tap = open. No drawer known: the drawer box springs up with the likeliest drawers (DrawerLikely). No main button; VoiceOver actions mirror the moves. Spec docs/sprint8-swipe.md; mockup Design/mockups/sprint8-moves.html. Reply and the engine's drawer grid still use the classic scrolling screen.
+  - Pending: device check of the gel feel, the glass on white, and the pull into the ball. Tune timings on the phone.
+  - Batch and reading screens are unchanged.
 - **Open PRs:**
-  - #74 subtitle "Get through your email." (this note rides with it): waiting for Graham's ship.
-  - #64 UI audit: its schema-test fix is already merged elsewhere; the audit scripts still look for the old Home (chips, Next up card) and need updating before the audit is useful.
+  - #64 UI audit: the audit scripts still look for the old Home (chips, Next up card) and the old session button (`session.putAway`); update them for the new Home and the card page (`session.card`, `session.archive`, `session.trash`, `session.drawer.*`) before the audit is useful.
 - **App Store Connect:** subtitle already changed to "Get through your email." (Nov 10, by Grok, confirmed). Name is Lovely Mail. Graham presses Submit for Review himself.
 - **Not built yet:**
   - "Sign this form" steps from kid mail (careful: must not nag).

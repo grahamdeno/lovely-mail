@@ -29,7 +29,7 @@
 Dark icon variant: background `#1E1B22`, hand `#86A2F0`, dot `#E77A91`.
 
 ## Rules
-1. Rose means one thing: someone is waiting on you. Nothing else is rose.
+1. Rose means one thing: someone is waiting on you. Nothing else is rose. One exception (owner, Nov 10, 2026): the session's ball is the logo's dot, so it is rose.
 2. Blue is everything you can tap.
 3. The italic wordmark ("lovely", system serif italic) appears at the top of Home only. The rest of the app uses the system font.
 4. The app stays light-only for now.
