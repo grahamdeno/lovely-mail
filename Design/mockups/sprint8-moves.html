@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Lovely: card moves (Dot)</title>
+<style>
+:root{--page:#FFFFFF;--ink:#25222A;--sec:#6E6872;--faint:#A9A3AC;--blue:#2E58C8;--rose:#D2546E;--line:rgba(37,34,42,.08);
+  --glass:rgba(255,255,255,.62);--gborder:rgba(37,34,42,.07);--gshadow:0 14px 44px rgba(37,34,42,.11),0 2px 6px rgba(37,34,42,.05);--toast:rgba(37,34,42,.9)}
+.dark{--page:#141317;--ink:#F2EFEA;--sec:#A9A3AC;--faint:#6E6872;--blue:#5B7FE8;--rose:#E0708A;--line:rgba(255,255,255,.08);
+  --glass:rgba(255,255,255,.07);--gborder:rgba(255,255,255,.12);--gshadow:0 14px 44px rgba(0,0,0,.45);--toast:rgba(58,56,66,.95)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#E9E4DE;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;overscroll-behavior:none}
+body{display:flex;align-items:center;justify-content:center}
+#phone{position:relative;width:390px;height:844px;border-radius:48px;overflow:hidden;background:#ECE8E3;color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.25);touch-action:none}
+.dark#phone{background:#0B0A0D}
+@media (max-width:520px){body{display:block}#phone{width:100vw;height:100vh;height:100dvh;border-radius:0;box-shadow:none}}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);
+  border:1px solid var(--gborder);box-shadow:var(--gshadow),inset 0 1px 0 rgba(255,255,255,.7)}
+.dark .glass{box-shadow:var(--gshadow),inset 0 1px 0 rgba(255,255,255,.08)}
+
+/* One email, full screen, white */
+#stack{position:absolute;inset:0}
+.page{position:absolute;inset:0;overflow:hidden;background:var(--page);will-change:transform;transform-origin:50% 100%;user-select:none;-webkit-user-select:none}
+.page.ghost{transform:scale(.94);opacity:0;pointer-events:none}
+.who{position:absolute;left:24px;right:24px;top:calc(64px + env(safe-area-inset-top));display:flex;align-items:center;gap:11px}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex:none}
+.who .n{font-weight:600;font-size:15px}
+.who .a{font-size:12.5px;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px}
+.who .t{margin-left:auto;font-size:13px;color:var(--sec);align-self:flex-start}
+.hero{position:absolute;left:24px;right:24px;top:calc(150px + env(safe-area-inset-top))}
+.hero .k{font-size:15px;font-weight:600;color:var(--sec)}
+.hero .v{font-size:76px;font-weight:800;letter-spacing:-2.5px;line-height:1;margin-top:8px}
+.hero .s{font-size:18px;color:var(--sec);margin-top:10px}
+.hero .bar{width:36px;height:4px;border-radius:2px;margin-top:22px}
+.panel{position:absolute;left:12px;right:12px;bottom:118px;border-radius:28px;padding:18px 18px 8px}
+.panel .subj{font-size:20px;font-weight:700;line-height:1.22;letter-spacing:-.2px}
+.panel .sum{font-size:16px;line-height:1.42;color:var(--sec);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;align-items:center}
+.chip{font-size:13px;font-weight:600;padding:4px 10px;border-radius:999px;color:var(--sec);border:1px solid var(--line)}
+.chip.d{border:0}
+.chips .open{margin-left:auto;font-size:14px;font-weight:600;color:var(--blue)}
+.ask{display:flex;gap:8px;align-items:center;margin-top:14px;padding-top:8px;border-top:1px solid var(--line)}
+.ask input{flex:1;height:44px;border:0;background:none;color:var(--ink);font-size:16px;outline:none;padding:0 2px}
+.ask input::placeholder{color:var(--faint)}
+.ask .go{width:36px;height:36px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex:none}
+#trash{position:absolute;top:0;bottom:0;right:0;width:112px;background:var(--rose);color:#fff;font-weight:600;font-size:16px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;opacity:0}
+
+/* Top words, plain */
+.top{position:absolute;left:0;right:0;top:0;padding:calc(18px + env(safe-area-inset-top)) 22px 0;display:flex;align-items:center;gap:16px;z-index:5;pointer-events:none;font-size:15px;font-weight:600}
+.top>*{pointer-events:auto}
+.top .x{font-size:22px;color:var(--sec);margin-top:-3px}
+.top .sp{flex:1}
+.top .w{color:var(--sec)}
+.names{font-size:13px;color:var(--faint);font-weight:600}.names button{color:var(--blue);font-weight:700}
+#count{color:var(--sec);font-variant-numeric:tabular-nums}
+#hintUp{position:absolute;left:0;right:0;top:calc(22px + env(safe-area-inset-top));text-align:center;z-index:6;opacity:0;pointer-events:none;font-size:15px;font-weight:600;color:var(--sec)}
+#hintUp.hit{color:var(--blue)}
+
+/* Words beside the dot */
+.side{position:absolute;bottom:24px;font-size:16px;font-weight:600;color:var(--blue);z-index:5;transition:opacity .2s}
+.side.l{left:24px}.side.r{right:24px}
+
+/* The gel */
+#dotWrap{position:absolute;left:50%;bottom:4px;width:0;height:0;z-index:6}
+#blob{position:absolute;left:-200px;top:-200px;width:400px;height:400px;overflow:visible;pointer-events:none}
+#blobHit{position:absolute;left:-70px;top:-70px;width:140px;height:110px;border-radius:50%;cursor:pointer}
+#dest{position:absolute;left:0;right:0;bottom:205px;text-align:center;z-index:6;pointer-events:none;opacity:0;font-size:16px;font-weight:600;color:var(--sec);transition:color .15s}
+
+/* Toast */
+#toast{position:absolute;left:14px;right:14px;top:calc(56px + env(safe-area-inset-top));background:var(--toast);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);color:#fff;border-radius:16px;
+  padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:15px;transform:translateY(-10px);opacity:0;pointer-events:none;transition:all .25s;overflow:hidden;z-index:8}
+#toast.on{transform:none;opacity:1;pointer-events:auto}
+#toast .u{margin-left:auto;font-weight:700;color:#A9BEFF}
+#toast .bar10{position:absolute;left:0;bottom:0;height:3px;background:#A9BEFF;width:100%}
+
+/* The drawer box: springs up out of the gel */
+#box{position:absolute;inset:0;z-index:9;pointer-events:none}
+#box .dim{position:absolute;inset:0;background:rgba(20,16,30,.18);opacity:0;transition:opacity .3s}
+#box.on{pointer-events:auto}
+#box.on .dim{opacity:1}
+#box .pan{position:absolute;left:10px;right:10px;bottom:10px;border-radius:32px;padding:20px 16px 14px;transform-origin:50% 100%;
+  transform:translateY(60%) scale(.25);opacity:0;transition:transform .55s cubic-bezier(.22,1.35,.4,1),opacity .2s}
+#box.on .pan{transform:none;opacity:1}
+#box .ref .from{font-size:13px;color:var(--sec);font-weight:600}
+#box .ref .subj{font-size:19px;font-weight:700;margin-top:4px;line-height:1.2}
+#box .ref .sum{font-size:15px;color:var(--sec);margin-top:4px;line-height:1.4}
+#box h4{margin:18px 2px 8px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--sec);font-weight:600}
+.likely{display:flex;flex-direction:column;gap:8px}
+.likely button{display:flex;align-items:center;gap:12px;padding:14px 14px;border-radius:18px;background:var(--page);border:1px solid var(--line);text-align:left}
+.likely i{width:12px;height:12px;border-radius:50%;flex:none}
+.likely b{font-size:17px;font-weight:600;display:block}
+.likely span{font-size:13px;color:var(--sec)}
+.rest{display:flex;flex-wrap:wrap;gap:6px}
+.rest button{font-size:14px;font-weight:600;padding:8px 12px;border-radius:999px;border:1px solid var(--line);display:flex;align-items:center;gap:6px}
+.rest i{width:8px;height:8px;border-radius:50%}
+#box .cancel{display:block;margin:14px auto 2px;font-weight:600;color:var(--blue)}
+
+#wrap{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;background:var(--page)}
+#wrap.on{display:flex}
+#wrap h2{margin:6px 0 0;font-size:28px}
+#wrap .st{color:var(--sec);font-size:15px;line-height:1.6}
+#wrap button{margin-top:14px;font-weight:600;color:var(--blue)}
+#coach{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:7;transition:opacity .4s}
+#coach div{border-radius:18px;padding:14px 18px;font-size:14px;line-height:1.7;background:var(--toast);color:#fff}
+
+/* Pane 2: a thick lens of glass. Light rim that follows the thumb, a soft color glow behind it to bend,
+   a recessed well for Ask, chips as small beads, and a slight tilt as the email moves. */
+.aura{display:none}
+.pane2 .aura{display:block;position:absolute;width:220px;height:220px;right:-40px;bottom:250px;border-radius:50%;filter:blur(50px);opacity:.28;pointer-events:none}
+.dark.pane2 .aura{opacity:.32}
+.pane2 .panel{--r:34px;border-radius:var(--r);border:0;padding:20px 18px 10px;
+  background:linear-gradient(165deg,rgba(255,255,255,.72),rgba(255,255,255,.38));
+  -webkit-backdrop-filter:blur(24px) saturate(210%) brightness(1.03);backdrop-filter:blur(24px) saturate(210%) brightness(1.03);
+  box-shadow:0 34px 60px -24px rgba(37,34,42,.30),0 10px 24px -12px rgba(37,34,42,.14),
+    inset 0 1.5px 0 rgba(255,255,255,.95),inset 0 -1.5px 0 rgba(37,34,42,.07),
+    inset 1.5px 0 0 rgba(140,165,255,.30),inset -1.5px 0 0 rgba(255,140,165,.30);
+  transform:perspective(900px) rotateX(var(--tilt,0deg));transition:transform .4s cubic-bezier(.3,1.3,.6,1)}
+.pane2 .panel::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:conic-gradient(from 200deg at var(--sx,30%) 0%,rgba(255,255,255,1),rgba(255,255,255,.15) 22%,rgba(255,255,255,.55) 48%,rgba(255,255,255,.12) 74%,rgba(255,255,255,1));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.pane2 .panel::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(60% 40% at var(--sx,30%) 0%,rgba(255,255,255,.65),transparent 70%);mix-blend-mode:soft-light;transition:background .3s}
+.dark.pane2 .panel{background:linear-gradient(165deg,rgba(255,255,255,.13),rgba(255,255,255,.04));
+  box-shadow:0 34px 60px -24px rgba(0,0,0,.7),inset 0 1.5px 0 rgba(255,255,255,.18),inset 0 -1.5px 0 rgba(0,0,0,.4),
+    inset 1.5px 0 0 rgba(140,165,255,.22),inset -1.5px 0 0 rgba(255,140,165,.22)}
+.dark.pane2 .panel::before{opacity:.35}
+.pane2 .chip{border:0;background:rgba(255,255,255,.7);box-shadow:0 1px 3px rgba(37,34,42,.10),inset 0 1px 0 #fff}
+.dark.pane2 .chip{background:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.pane2 .chip.d{box-shadow:none}
+.pane2 .ask{border-top:0;margin-top:16px;padding:4px 4px 4px 14px;border-radius:22px;background:rgba(37,34,42,.045);
+  box-shadow:inset 0 2px 6px rgba(37,34,42,.10),inset 0 -1px 0 rgba(255,255,255,.9)}
+.dark.pane2 .ask{background:rgba(0,0,0,.25);box-shadow:inset 0 2px 6px rgba(0,0,0,.4),inset 0 -1px 0 rgba(255,255,255,.06)}
+.pane2 .ask .go{box-shadow:0 4px 10px rgba(46,88,200,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.pane2 .panel{margin-bottom:6px}
+
+/* Version 2 */
+.v2who{position:absolute;left:24px;right:24px;top:calc(62px + env(safe-area-inset-top))}
+.av.big{width:58px;height:58px;font-size:20px;box-shadow:0 8px 20px -8px rgba(37,34,42,.35)}
+.v2who .n{font-size:30px;font-weight:800;letter-spacing:-.6px;margin-top:14px;line-height:1.1}
+.v2who .c{font-size:15px;color:var(--sec);margin-top:4px}
+.v2who .ins{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:600}
+.v2who .ins i{width:8px;height:8px;border-radius:50%}
+.front{z-index:11}
+.front .fact{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.front .fact .k{font-size:13px;font-weight:600;color:var(--sec)}
+.front .fact .v{font-size:44px;font-weight:800;letter-spacing:-1.4px;line-height:1.02;margin-top:2px}
+.front .fact .t{font-size:13px;color:var(--sec)}
+.sliver{height:76px;padding:12px 18px !important;display:flex;align-items:flex-start;gap:10px;font-size:14px;transform:none !important}
+.sliver span{color:var(--sec);font-weight:600;min-width:52px}
+.sliver b{font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sliver em{font-style:normal;color:var(--sec)}
+.pane2 .sliver::after{display:none}
+
+/* Version 3: quiet by default. One insight line; earlier mail waits behind the pane as bare edges and fans out on a hold. */
+.ins3{font-size:15px;font-weight:600;margin-top:12px;color:var(--ink)}
+.sliver{transition:bottom .42s cubic-bezier(.3,1.3,.6,1),opacity .3s}
+.sliver>*{transition:opacity .2s}
+.page:not(.fan) .sliver[style*="--rest"]>*{opacity:0}
+.page:not(.fan) .sliver[style*="--rest"]{box-shadow:0 6px 18px -10px rgba(37,34,42,.18)}
+.page.fan .sliver{bottom:var(--fan) !important}
+.page.fan .front{transform:perspective(900px) rotateX(-2deg) translateY(6px)}
+</style>
+</head>
+<body>
+<div id="phone" class="pane2">
+  <div id="stack">
+    <div id="trash">Move to<br>Trash</div>
+    <div id="next" class="page ghost"></div>
+    <div id="page" class="page"></div>
+    <div id="wrap">
+      <svg width="72" height="72" viewBox="0 0 100 100"><path d="M27 72C38 70 56 55 59 38C61 26 52 20 46 27C39 35 41 58 46 68C49 75 57 77 66 71" fill="none" stroke="var(--blue)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="74" cy="64" r="4.8" fill="var(--blue)"/></svg>
+      <h2>All clear</h2>
+      <div class="st" id="stats"></div>
+      <button id="again">Go again</button>
+    </div>
+  </div>
+
+  <div class="top">
+    <button class="x" aria-label="Close">×</button>
+    <span class="sp"></span>
+    <span class="names">Ball 1 · <button id="tPane">Pane 2</button> · <button id="tVer">Version 3</button></span><button class="w" id="tDark">Dark</button>
+    <span id="count">1 of 6</span>
+  </div>
+  <div id="hintUp">Skip for now</div>
+  <div id="coach"><div>Flick up: skip for now<br>Hold: earlier mail from them<br>Pull down into the dot: put away<br>Swipe left: Trash<br>Tap: open</div></div>
+
+  <button class="side l" data-t="Archived">Archive</button>
+  <button class="side r" data-t="More: Keep 2 weeks, always put away, screen out, text someone">⋯</button>
+
+  <div id="dest"></div>
+  <div id="dotWrap">
+    <svg id="blob" viewBox="-200 -200 400 400">
+      <defs>
+        <radialGradient id="gel" cx="38%" cy="30%" r="75%">
+          <stop offset="0" id="g0" stop-color="#F29AAE"/>
+          <stop offset=".55" id="g1" stop-color="#D2546E"/>
+          <stop offset="1" id="g2" stop-color="#A3384F"/>
+        </radialGradient>
+        <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+      </defs>
+      <path id="blobShadow" fill="rgba(163,56,79,.28)" filter="url(#shadow)" transform="translate(0 8)"/>
+      <path id="blobPath" fill="url(#gel)"/>
+      <ellipse id="shine" rx="22" ry="12" fill="rgba(255,255,255,.55)" filter="url(#soft)"/>
+    </svg>
+    <div id="blobHit"></div>
+  </div>
+
+  <div id="toast"><span id="toastText"></span><button class="u" id="undo">Undo</button><span class="bar10" id="toastBar"></span></div>
+
+  <div id="box"><div class="dim"></div><div class="pan glass">
+    <div class="ref" id="ref"></div>
+    <h4>Most likely</h4>
+    <div class="likely" id="likely"></div>
+    <h4>Other drawers</h4>
+    <div class="rest" id="rest"></div>
+    <button class="cancel" id="cancelBox">Not now</button>
+  </div></div>
+</div>
+
+<script>
+(() => {
+const ITEMS = [
+ {from:'Cape Fear Power',addr:'billing@capefearpower.example',time:'8:14 AM',subject:'Your November bill is ready',summary:'About 9% higher than October. Autopay is off.',k:'Due Nov 21',v:'$142.18',s:'Electric bill',drawer:'Money',tags:['bill','electric','house'],act:'put',count:'12th bill from them this year',insight:'Up 9% from October',hist:[['Oct 21','$130.44','Paid'],['Sep 20','$118.09','Paid'],['Aug 21','$151.72','Paid']]},
+ {from:'Pine Valley Middle',addr:'office@pinevalley.example',time:'7:02 AM',subject:'Band trip permission slip',summary:'Sign and return the form for the Dec 6 trip to Raleigh.',k:'Due',v:'Friday',s:'Permission slip to sign',drawer:'Kids and family',tags:['school','form','band'],act:'put',count:'3rd form this fall',insight:'Last one took you 4 days',hist:[['Nov 3','Picture day form','Signed'],['Oct 18','Band concert','Went']]},
+ {from:'Sarah Mills',addr:'sarah.mills@example.com',time:'Yesterday',subject:'Dinner Saturday?',summary:'They finally have a sitter and want to try the new place downtown.',k:'Waiting on you',v:'Sat 7 PM',s:'Dinner with Sarah',drawer:'Personal',tags:['plans'],act:'reply',count:'You write to each other most weeks',insight:'You usually reply the same day',hist:[['Oct 30','Halloween party?','You replied'],['Oct 12','Soccer carpool','You replied'],['Sep 28','Book club','You replied']]},
+ {from:'Parcel Post',addr:'updates@parcelpost.example',time:'Yesterday',subject:'Delivered: 1 package',summary:'Left at the front door.',k:'Delivered',v:'4:41 PM',s:'Front door',drawer:'Orders',tags:['delivery'],act:'put',count:'Last of 3 updates for this order',insight:'Nothing left to do',hist:[['Nov 8','Out for delivery',''],['Nov 6','Shipped','']]},
+ {from:'The Morning Edit',addr:'hello@morningedit.example',time:'Mon',subject:'Five things worth reading',summary:'Paper planners, winter coats, a short history of the postcard.',k:'Newsletter',v:'5 reads',s:'You usually archive these',drawer:null,tags:['newsletter'],act:'archive',count:'Every Monday',insight:'You opened 1 of the last 8',hist:[['Nov 3','Five things','Archived'],['Oct 27','Five things','Archived'],['Oct 20','Five things','Archived']]},
+ {from:'Hearth & Co',addr:'quotes@hearthco.example',time:'Mon',subject:'Your chimney quote is ready',summary:'Quote for an inspection and cleaning. Reply to schedule a visit.',k:'New sender',v:'Quote',s:'Chimney inspection',drawer:null,tags:[],act:'choose',count:'First email from them',insight:'Nothing like it in your mail yet',hist:[],
+  likely:[['Home','chimney, house, quote'],['Money','a price to pay'],['Projects and business','a job to schedule']]}
+];
+const COLORS={'Money':'#2E8B57','Kids and family':'#C27C0E','Personal':'#D2546E','Orders':'#2E58C8','Home':'#1F8A8A','Work and career':'#6B5CC4','Projects and business':'#8A5A2E','Accounts and security':'#5E5962','Travel':'#2E86C1','Health':'#B5487A','Archive':'#6E6872'};
+const AV=['#2E58C8','#2E8B57','#C27C0E','#D2546E','#1F8A8A','#6B5CC4'];
+const DRAWERS=['Money','Home','Kids and family','Health','Work and career','Projects and business','Orders','Travel','Personal','Accounts and security'];
+const UP=100, DOWN=170, TW=112, R0=74;
+
+const $=id=>document.getElementById(id);
+const phone=$('phone'), page=$('page'), next=$('next'), trash=$('trash');
+let version=3, idx=0, stats={put:0,skip:0,trash:0}, history=[], busy=false;
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function dest(it,chosen){
+  if(chosen) return {label:'Put away in '+chosen,color:COLORS[chosen]};
+  if(it.act==='archive') return {label:'Archive',color:COLORS.Archive};
+  if(it.act==='choose') return {label:'Choose a drawer',color:'var(--blue)',choose:true};
+  return {label:'Put away in '+it.drawer,color:COLORS[it.drawer]};
+}
+function html(it,i){ return version===2 ? html2(it,i) : html1(it,i,version===3); }
+function html1(it,i,v3){
+  const ini=it.from.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+  const c=it.drawer?COLORS[it.drawer]:null;
+  return `<div class="who"><div class="av" style="background:${AV[i%AV.length]}">${esc(ini)}</div><div><div class="n">${esc(it.from)}</div><div class="a">${esc(it.addr)}</div></div><div class="t">${esc(it.time)}</div></div>
+   <div class="hero"><div class="k">${esc(it.k)}</div><div class="v">${esc(it.v)}</div><div class="s">${esc(it.s)}</div><div class="bar" style="background:${c||'var(--line)'}"></div>${v3?`<div class="ins3">${esc(it.insight)}</div>`:''}</div>
+   <div class="aura" style="background:${c||'#8E9BB8'}"></div>${v3?(it.hist||[]).map((h,n)=>`<div class="panel glass sliver" data-n="${n+1}"><span>${esc(h[0])}</span><b>${esc(h[1])}</b><em>${esc(h[2])}</em></div>`).reverse().join(''):''}<div class="panel glass${v3?' front':''}">
+    <div class="subj">${esc(it.subject)}</div><div class="sum">${esc(it.summary)}</div>
+    <div class="chips">${c?`<span class="chip d" style="color:${c};background:${c}18">${esc(it.drawer)}</span>`:''}${it.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}<span class="open">Open ›</span></div>
+    <form class="ask"><input placeholder="Ask Lovely about this email" autocomplete="off"><button class="go" aria-label="Ask"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></form>
+   </div>`;
+}
+// Version 2: the email in front, the earlier ones from the same sender stacked behind it in glass.
+function html2(it,i){
+  const ini=it.from.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+  const c=it.drawer?COLORS[it.drawer]:null;
+  const hist=(it.hist||[]).map((h,n)=>`<div class="panel glass sliver" data-n="${n+1}"><span>${esc(h[0])}</span><b>${esc(h[1])}</b><em>${esc(h[2])}</em></div>`).reverse().join('');
+  return `<div class="v2who"><div class="av big" style="background:${AV[i%AV.length]}">${esc(ini)}</div>
+      <div class="n">${esc(it.from)}</div><div class="c">${esc(it.count)}</div>
+      <div class="ins"><i style="background:${c||'var(--faint)'}"></i>${esc(it.insight)}</div></div>
+   <div class="aura" style="background:${c||'#8E9BB8'}"></div>
+   ${hist}
+   <div class="panel glass front">
+    <div class="fact"><div><div class="k">${esc(it.k)}</div><div class="v">${esc(it.v)}</div></div><div class="t">${esc(it.time)}</div></div>
+    <div class="subj">${esc(it.subject)}</div><div class="sum">${esc(it.summary)}</div>
+    <div class="chips">${c?`<span class="chip d" style="color:${c};background:${c}18">${esc(it.drawer)}</span>`:''}${it.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}<span class="open">Open ›</span></div>
+    <form class="ask"><input placeholder="Ask Lovely about this email" autocomplete="off"><button class="go" aria-label="Ask"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></form>
+   </div>`;
+}
+// Earlier emails peek out above the one in front, each a step further back.
+function stackUp(el){
+  const front=el.querySelector('.front'); if(!front) return;
+  const h=front.offsetHeight;
+  el.querySelectorAll('.sliver').forEach(sl=>{
+    const n=+sl.dataset.n;
+    const fan=(118+h-30+n*40)+'px', rest=(118+h-76+n*7)+'px';
+    sl.style.setProperty('--fan',fan); sl.style.setProperty('--rest',rest);
+    sl.style.bottom= version===3 ? 'var(--rest)' : fan;
+    sl.style.left=sl.style.right=(12+n*12)+'px';
+    sl.style.opacity=(1-n*.18).toFixed(2);
+    sl.style.zIndex=10-n;
+  });
+}
+function render(){
+  const done=idx>=ITEMS.length;
+  $('count').textContent=done?'Done':`${idx+1} of ${ITEMS.length}`;
+  $('wrap').classList.toggle('on',done);
+  page.style.display=done?'none':'';
+  document.querySelectorAll('.side').forEach(s=>s.style.display=done?'none':'');
+  if(done){ $('stats').innerHTML=`${ITEMS.length} gone through<br>${stats.put} put away · ${stats.skip} skipped · ${stats.trash} in Trash`; return; }
+  page.innerHTML=html(ITEMS[idx],idx);
+  next.innerHTML=idx+1<ITEMS.length?html(ITEMS[idx+1],idx+1):'';
+  stackUp(page); stackUp(next);
+  const f=page.querySelector('.ask');
+  f.addEventListener('pointerdown',e=>e.stopPropagation());
+  f.addEventListener('submit',e=>{e.preventDefault();const inp=f.querySelector('input');const v=inp.value.trim();inp.value='';inp.blur();toast(v?'Ask Lovely answers here':'Type a question first',false);});
+  clearDest();
+}
+
+/* ---------- the gel ---------- */
+// Ball 1: a gel ball. Leans toward the thumb, gulps and jiggles, then settles into a still, perfect sphere.
+const path=$('blobPath'), shadow=$('blobShadow'), shine=$('shine');
+const B={s:1,sv:0,sT:1,reach:0,reachT:0,ang:-Math.PI/2,angT:-Math.PI/2,t:0,
+  modes:[2,3,4,5,6,7].map(k=>({k,a:0,v:0,ph:Math.random()*6.28,drift:.25+Math.random()*.35,idle:.022/(k*.45)}))};
+function kick(strength,dirAngle){
+  B.sv+=strength*2.4;
+  B.modes.forEach(m=>{
+    const aim = dirAngle==null ? Math.random()*6.28 : -dirAngle*m.k; // align the splat with the hit
+    m.v+=(Math.random()*.6+.7)*strength*(2/m.k)*1.9; m.ph=aim;
+  });
+}
+let lastF=performance.now();
+function frame(now){
+  const dt=Math.min(.033,(now-lastF)/1000); lastF=now; B.t+=dt;
+  const w=9.5, z=.32; B.sv+=(-w*w*(B.s-B.sT)-2*z*w*B.sv)*dt; B.s+=B.sv*dt;
+  B.modes.forEach(m=>{ const wk=7+m.k*1.8, zk=.2; m.v+=(-wk*wk*m.a-2*zk*wk*m.v)*dt; m.a+=m.v*dt; });
+  B.reach+=(B.reachT-B.reach)*Math.min(1,dt*10);
+  let da=B.angT-B.ang; while(da>Math.PI) da-=2*Math.PI; while(da<-Math.PI) da+=2*Math.PI; B.ang+=da*Math.min(1,dt*8);
+  const N=140; let d='';
+  for(let i=0;i<=N;i++){
+    const th=i/N*Math.PI*2;
+    let r=1;
+    B.modes.forEach(m=>{
+      r+=m.a*Math.cos(m.k*th+m.ph);
+    });
+    const c=Math.max(0,Math.cos(th-B.ang)); r+=B.reach*.26*c*c*c; // leans toward the thumb
+    r-=B.reach*.06*Math.max(0,-Math.cos(th-B.ang)); // and thins behind
+    const R=R0*B.s*r; d+=(i?'L':'M')+(Math.cos(th)*R).toFixed(1)+' '+(Math.sin(th)*R).toFixed(1);
+  }
+  path.setAttribute('d',d+'Z'); shadow.setAttribute('d',d+'Z');
+  const sx=-R0*.34*B.s, sy=-R0*.42*B.s;
+  shine.setAttribute('cx',(sx+Math.cos(B.ang)*B.reach*10).toFixed(1)); shine.setAttribute('cy',(sy+B.modes[0].a*30).toFixed(1));
+  shine.setAttribute('rx',(22*B.s*(1+B.modes[0].a)).toFixed(1)); shine.setAttribute('ry',(12*B.s*(1-B.modes[0].a)).toFixed(1));
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function setGelColor(){
+  const dark=phone.classList.contains('dark');
+  $('g0').setAttribute('stop-color',dark?'#F7B3C2':'#F29AAE'); $('g1').setAttribute('stop-color',dark?'#E77A91':'#D2546E'); $('g2').setAttribute('stop-color',dark?'#B4506A':'#A3384F');
+}
+$('blobHit').addEventListener('pointerdown',e=>{ e.stopPropagation(); kick(.55,-Math.PI/2); tick(); });
+
+function lightAt(x){ const r=phone.getBoundingClientRect(); phone.style.setProperty('--sx',((x-r.left)/r.width*100).toFixed(1)+'%'); }
+function gelCenter(){ const r=$('dotWrap').getBoundingClientRect(); return {x:r.left,y:r.top}; }
+function aimAt(clientX,clientY){ const c=gelCenter(); B.angT=Math.atan2(clientY-c.y,clientX-c.x); }
+
+function setDest(p){
+  const it=ITEMS[idx]; if(!it) return;
+  const d=dest(it), hit=p>=1;
+  B.sT=1+Math.min(p,1.25)*.42; B.reachT=Math.min(p,1.2)*(hit?1:.75);
+  const el=$('dest'); el.style.opacity=Math.min(1,p*1.8); el.style.color=hit?d.color:'var(--sec)';
+  el.textContent=hit?(d.choose?'Let go to choose a drawer':'Let go: '+d.label):d.label;
+  document.querySelectorAll('.side').forEach(s=>s.style.opacity=Math.max(0,1-p*2));
+}
+function clearDest(){ B.sT=1; B.reachT=0; B.angT=-Math.PI/2; $('dest').style.opacity=0; document.querySelectorAll('.side').forEach(s=>s.style.opacity=1); }
+
+/* ---------- transforms ---------- */
+let drag=0, slide=0;
+const resisted=v=>{const a=Math.abs(v),s=v<0?-1:1;return s*(a<=40?a:40+(a-40)*.5);};
+function place(t){
+  const p=Math.max(0,drag)/DOWN;
+  page.style.transition=t||'none';
+  page.style.transform=`translate(${slide}px,${resisted(drag)}px) scale(${1-Math.min(p,1.3)*.12})`;
+  phone.style.setProperty('--tilt',Math.max(-6,Math.min(6,drag*.03)).toFixed(2)+'deg');
+  page.style.borderRadius=(drag>0?Math.min(44,p*44):(drag<0?Math.min(44,-drag/3):0))+'px';
+  next.style.transition=t||'none'; next.style.opacity=(drag!==0&&slide===0)?1:0;
+  trash.style.opacity=Math.min(1,-slide/TW); trash.style.width=Math.max(TW,-slide)+'px';
+  const up=Math.max(0,-drag)/UP, h=$('hintUp');
+  h.style.opacity=Math.min(1,up); h.textContent=up>=1?'Back next session':'Skip for now'; h.classList.toggle('hit',up>=1);
+  if(drag>=0) setDest(p);
+}
+
+/* ---------- gesture ---------- */
+let holdT=null, fanned=false, down=false,x0=0,y0=0,dir=null,slideStart=0,t0=0,vy=0,vx=0,lastT=0,lastDY=0,lastDX=0,crossed=0;
+const tick=()=>{try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}};
+page.addEventListener('pointerdown',e=>{
+  if(busy) return; page.setPointerCapture(e.pointerId);
+  down=true;x0=e.clientX;y0=e.clientY;dir=null;slideStart=slide;t0=lastT=performance.now();vy=vx=0;lastDY=lastDX=0;hideCoach();
+  clearTimeout(holdT); if(version===3&&page.querySelector('.sliver')) holdT=setTimeout(()=>{ if(down&&dir===null){ fanned=true; page.classList.add('fan'); tick(); kick(.15); } },380);
+});
+page.addEventListener('pointermove',e=>{
+  if(!down||busy) return;
+  const dx=e.clientX-x0, dy=e.clientY-y0, now=performance.now();
+  if(now>lastT){vy=(dy-lastDY)/(now-lastT);vx=(dx-lastDX)/(now-lastT);lastT=now;lastDY=dy;lastDX=dx;}
+  if(Math.abs(dx)<6&&Math.abs(dy)<6) return;
+  clearTimeout(holdT); if(fanned) return;
+  if(dir===null) dir=(Math.abs(dx)>Math.abs(dy)*1.5&&(dx<0||slideStart<0))?'side':'vert';
+  if(dir==='side'){
+    const x=Math.min(0,slideStart+dx), before=slide<=-TW*.6;
+    slide=x>=-TW?x:-TW+(x+TW)*.35; if(slide<=-TW*.6&&!before) tick();
+    place(); return;
+  }
+  if(slideStart<0) return;
+  drag=dy; aimAt(e.clientX,e.clientY); lightAt(e.clientX);
+  const c=-dy>=UP?1:(dy>=DOWN?-1:0); if(c!==crossed){ if(c){tick(); kick(c===-1?.18:.08, B.ang);} crossed=c; }
+  place();
+});
+function end(e){
+  if(!down) return; down=false; crossed=0; clearTimeout(holdT);
+  if(fanned){ fanned=false; page.classList.remove('fan'); return; }
+  if(busy) return;
+  const dx=e.clientX-x0, dy=e.clientY-y0;
+  if(dir==='side'){ const open=slideStart+dx+vx*120<=-TW*.5; slide=open?-TW:0; place('transform .35s cubic-bezier(.3,1.25,.6,1)'); return; }
+  if(slideStart<0||slide<0){ slide=0;drag=0; place('transform .35s cubic-bezier(.3,1.25,.6,1), border-radius .35s'); clearDest(); return; }
+  if(Math.abs(dy)<6&&Math.abs(dx)<6&&performance.now()-t0<350){ toast('Opens the full email',false); return; }
+  if(dy<=-UP||(dy+vy*90<=-UP&&dy<-30)) skip();
+  else if(dy>=DOWN) file();
+  else { drag=0; place('transform .45s cubic-bezier(.34,1.4,.64,1), border-radius .45s'); clearDest(); kick(.12); }
+}
+page.addEventListener('pointerup',end); page.addEventListener('pointercancel',end);
+trash.addEventListener('click',()=>{ if(slide<0&&!busy) doTrash(); });
+
+/* ---------- moves ---------- */
+function skip(){
+  busy=true; const h=phone.getBoundingClientRect().height;
+  page.style.transition='transform .32s ease-in, opacity .32s, border-radius .32s';
+  page.style.transform=`translate(0,${-h*1.05}px) scale(.96)`; page.style.opacity=0; page.style.borderRadius='44px';
+  $('hintUp').style.opacity=0; clearDest();
+  kick(.3,-Math.PI/2);
+  history.push({i:idx,kind:'skip'}); stats.skip++;
+  setTimeout(()=>advance('Skipped. Back next session'),320);
+}
+function file(chosen){
+  const it=ITEMS[idx], d=dest(it,chosen);
+  if(d.choose&&!chosen){ openBox(); return; }
+  busy=true;
+  const pr=page.getBoundingClientRect(), c=gelCenter();
+  const ox=pr.left+pr.width/2, oy=pr.top+pr.height;
+  page.style.transition='transform .36s cubic-bezier(.55,0,.75,.45), opacity .36s, border-radius .36s';
+  page.style.transform=`translate(${c.x-ox+slide}px,${c.y-oy-R0*.4+resisted(drag)}px) scale(.02)`;
+  page.style.opacity=.3; page.style.borderRadius='400px';
+  B.sT=1.45; B.reachT=.4; B.angT=-Math.PI/2;
+  $('dest').style.opacity=1; $('dest').style.color=d.color; $('dest').textContent=d.label;
+  setTimeout(()=>{ tick(); B.sT=1; B.reachT=0; kick(1,-Math.PI/2); $('dest').style.opacity=0; },330);
+  history.push({i:idx,kind:'put'}); stats.put++;
+  setTimeout(()=>advance(d.label),520);
+}
+function doTrash(){
+  busy=true; const w=phone.getBoundingClientRect().width;
+  slide=-w*1.15; place('transform .25s ease-in'); page.style.transition+=', opacity .25s'; page.style.opacity=0;
+  history.push({i:idx,kind:'trash'}); stats.trash++;
+  setTimeout(()=>advance('Moved to Trash'),260);
+}
+function advance(msg){
+  idx++; drag=0; slide=0;
+  page.style.transition='none'; page.style.borderRadius='44px'; page.style.opacity=0;
+  render();
+  if(idx<ITEMS.length){
+    // The next email comes up out of the gel.
+    const c=gelCenter(), pr=phone.getBoundingClientRect();
+    page.style.transform=`translate(${c.x-(pr.left+pr.width/2)}px,${c.y-pr.bottom}px) scale(.04)`;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      page.style.transition='transform .55s cubic-bezier(.25,1.15,.5,1), opacity .25s, border-radius .55s';
+      page.style.transform='none'; page.style.opacity=1; page.style.borderRadius='0px';
+      setTimeout(()=>kick(.22,-Math.PI/2),60);
+    }));
+  }
+  trash.style.opacity=0; next.style.opacity=0;
+  setTimeout(()=>{busy=false;},200);
+  toast(msg,true);
+}
+
+/* ---------- the drawer box ---------- */
+function openBox(){
+  busy=true;
+  const it=ITEMS[idx];
+  // The email settles back a little, the gel pushes the box up.
+  drag=60; place('transform .45s cubic-bezier(.34,1.4,.64,1), border-radius .45s');
+  $('dest').style.opacity=0;
+  B.sT=1.3; kick(.6,-Math.PI/2);
+  $('ref').innerHTML=`<div class="from">${esc(it.from)}</div><div class="subj">${esc(it.subject)}</div><div class="sum">${esc(it.summary)}</div>`;
+  const likely=(it.likely||[]).map(x=>x[0]);
+  $('likely').innerHTML=(it.likely||[]).map(([d,why])=>`<button data-d="${d}"><i style="background:${COLORS[d]}"></i><div><b>${d}</b><span>${esc(why)}</span></div></button>`).join('');
+  $('rest').innerHTML=DRAWERS.filter(d=>!likely.includes(d)).map(d=>`<button data-d="${d}"><i style="background:${COLORS[d]}"></i>${d}</button>`).join('');
+  setTimeout(()=>{ $('box').classList.add('on'); tick(); },120);
+}
+function closeBox(then){
+  $('box').classList.remove('on'); B.sT=1;
+  setTimeout(()=>{ busy=false; then&&then(); },260);
+}
+$('box').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-d]');
+  if(b){ closeBox(()=>file(b.dataset.d)); return; }
+  if(e.target.id==='cancelBox'||e.target.classList.contains('dim')){ closeBox(()=>{ drag=0; place('transform .45s cubic-bezier(.34,1.4,.64,1), border-radius .45s'); clearDest(); kick(.2); }); }
+});
+
+/* ---------- toast and undo ---------- */
+let tt=null;
+function toast(msg,undoable){
+  $('toastText').textContent=msg; $('undo').style.display=undoable?'':'none';
+  const b=$('toastBar'); b.style.transition='none'; b.style.width='100%'; b.style.display=undoable?'':'none';
+  $('toast').classList.add('on');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{b.style.transition=`width ${undoable?10:2}s linear`;b.style.width='0%';}));
+  clearTimeout(tt); tt=setTimeout(()=>$('toast').classList.remove('on'),undoable?10000:1800);
+}
+$('undo').addEventListener('click',()=>{
+  const h=history.pop(); if(!h||busy) return;
+  stats[h.kind]--; idx=h.i; drag=0; slide=0;
+  page.style.transition='none'; page.style.opacity=0; page.style.transform='scale(.92)';
+  render(); kick(.3);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{page.style.transition='transform .45s cubic-bezier(.3,1.25,.6,1), opacity .3s';page.style.transform='none';page.style.opacity=1;page.style.borderRadius='0px';}));
+  $('toast').classList.remove('on');
+});
+
+/* ---------- controls ---------- */
+document.querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click',()=>toast(b.dataset.t,false)));
+$('again').addEventListener('click',()=>{idx=0;history=[];stats={put:0,skip:0,trash:0};page.style.opacity=1;page.style.transform='none';render();kick(.5);});
+$('tVer').addEventListener('click',()=>{version=version===3?1:version+1;$('tVer').textContent='Version '+version;render();});
+$('tPane').addEventListener('click',()=>{const on=phone.classList.toggle('pane2');$('tPane').textContent=on?'Pane 2':'Pane 1';});
+$('tDark').addEventListener('click',()=>{const on=phone.classList.toggle('dark');$('tDark').textContent=on?'Light':'Dark';setGelColor();});
+let coachGone=false; function hideCoach(){ if(coachGone) return; coachGone=true; $('coach').style.opacity=0; }
+setTimeout(hideCoach,4500);
+
+render(); setGelColor();
+setTimeout(()=>kick(.5,-Math.PI/2),400);
+})();
+</script>
+</body>
+</html>

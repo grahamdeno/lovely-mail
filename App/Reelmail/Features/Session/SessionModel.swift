@@ -210,6 +210,14 @@ final class SessionModel {
 
     func skip(_ id: String) { progress.markSkipped(id); advance(skipping: id) }
 
+    /// Undo of a flick up (skip for now): the email is open again and back on screen.
+    func returnTo(_ id: String) {
+        guard item(id) != nil else { return }
+        outcomes[id] = nil
+        progress.undo(id)
+        phase = .item(id)
+    }
+
     func addedDate() { datesAdded += 1 }
 
     /// Undo or a Gmail refusal brought these back: they are open again, and the session returns to them if it had finished.

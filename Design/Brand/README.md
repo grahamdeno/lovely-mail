@@ -3,7 +3,7 @@
 **Name:** Lovely (home screen). **App Store name:** Lovely Mail. **Bundle ID stays** `com.grahamdeno.reelmail`
 (the Google OAuth client and App Store Connect record are tied to it; users never see it).
 
-**Subtitle (App Store and under the logo):** Get through your email, calmly. (30 characters; chosen Nov 9, 2026. Replaces "Mail from your people.")
+**Subtitle (App Store and under the logo):** Get through your email. (22 characters; Nov 10, 2026: owner dropped "calmly". Replaces "Mail from your people.")
 
 **Positioning (keep for all marketing, the website and videos; small tweaks are fine):**
 > Lovely turns your Gmail into a short list of next steps, walks you through each decision one at a time, and files everything neatly behind you.
@@ -29,7 +29,7 @@
 Dark icon variant: background `#1E1B22`, hand `#86A2F0`, dot `#E77A91`.
 
 ## Rules
-1. Rose means one thing: someone is waiting on you. Nothing else is rose.
+1. Rose means one thing: someone is waiting on you. Nothing else is rose. One exception (owner, Nov 10, 2026): the session's ball is the logo's dot, so it is rose.
 2. Blue is everything you can tap.
 3. The italic wordmark ("lovely", system serif italic) appears at the top of Home only. The rest of the app uses the system font.
 4. The app stays light-only for now.

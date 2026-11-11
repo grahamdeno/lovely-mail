@@ -1,5 +1,30 @@
 # Reelmail: calm-feed redesign
 
+## Where we left off (Nov 10, 2026)
+Read this first in a new session. The app ships as Lovely Mail; repo grahamdeno/lovely-mail; merges to `testflight` make a TestFlight build (build number = 1000 + the testflight workflow run number).
+
+- **Latest TestFlight build:** 1067. Everything Graham asked to ship through Nov 10 morning is in it: categories and the re-sort, Ask Lovely answering in words plus the Ask bubble on Money, Energy and Kids, Home round 5, one search field (split pill), Neon as dark mode with cool neon accents, selectable email text with tappable links, "Clear the next page".
+- **Sprint 8 card moves (shipped Nov 10 evening, PR #75, which also carried #74's subtitle and this note):** each one-at-a-time session email is a full white page (Card 1 / Version 1): sender, one big fact (SessionHero: amount, day, who is waiting), white space, then one glass pane (Pane 2) with subject, summary, tags, Reply, Open and Ask Lovely. Ball 1 (the logo's rose dot as a gel ball, half off screen) sits at the bottom with Archive and ⋯ beside it. Flick up = skip for now (unread, Undo brings it back), pull down into the ball = put away (destination named during the pull; owner approved Nov 10), swipe left = Move to Trash on a tap, tap = open. No drawer known: the drawer box springs up with the likeliest drawers (DrawerLikely). No main button; VoiceOver actions mirror the moves. Spec docs/sprint8-swipe.md; mockup Design/mockups/sprint8-moves.html. Reply and the engine's drawer grid still use the classic scrolling screen.
+  - Pending: device check of the gel feel, the glass on white, and the pull into the ball. Tune timings on the phone.
+  - Batch and reading screens are unchanged.
+- **Open PRs:**
+  - #64 UI audit: the audit scripts still look for the old Home (chips, Next up card) and the old session button (`session.putAway`); update them for the new Home and the card page (`session.card`, `session.archive`, `session.trash`, `session.drawer.*`) before the audit is useful.
+- **App Store Connect:** subtitle already changed to "Get through your email." (Nov 10, by Grok, confirmed). Name is Lovely Mail. Graham presses Submit for Review himself.
+- **Not built yet:**
+  - "Sign this form" steps from kid mail (careful: must not nag).
+  - Web search in Ask Lovely (Anthropic web search tool, extra cost per search); Grok as an Ask Lovely engine.
+  - Category setup shown automatically on first use (today: Settings, Categories, Run setup again).
+  - Money page and bills still group the old way; could group by the new categories.
+- **Working rules (also in CLAUDE.md and Graham's memory):**
+  - Feature branches and PRs; merge only when Graham says "ship"; he prefers one big release.
+  - Check each PR's unit tests (`build` workflow) on its head commit before merging, and report the real count; after one PR merges, merge `testflight` into the others and re-test before merging them.
+  - Always `git fetch origin +refs/heads/testflight:refs/remotes/origin/testflight` before branching (the tracking ref goes stale).
+  - GitHub via REST only (`gh api`); merge with `gh api -X PUT repos/grahamdeno/lovely-mail/pulls/N/merge -f merge_method=squash`.
+  - UI audit (`ui-audit` label) artifacts can't be downloaded from the cloud sandbox; read the job log's AUDIT-SUMMARY block instead.
+  - Don't sit waiting on CI: schedule a check and stop. Say which model the next step needs (Sonnet builds, Opus for design and safety).
+  - No em-dashes in app copy or messages.
+
+
 ## Approved product direction
 Personal Gmail first; mobile-first native experience initially. Reduce junk and overload before polishing newsletters. Present worthwhile mail as compact summaries, connections, and one unified chronological timeline per person. Future multi-user support matters, but do not build unnecessary infrastructure before validating the personal experience.
 
@@ -415,3 +440,4 @@ Design: docs/sprint7-design.md. The owner works through unread mail in conversat
 - Nov 9: ask field: Cancel removed from the right end (he kept hitting it expecting Search). Close is a chevron on the left; a blue arrow on the right always asks Lovely; Return asks when it is a question, otherwise just closes the keyboard and keeps the results.
 - Nov 9: Ask Lovely is a conversation. With a Claude key, AskChatReader answers in words: it may call gmail_search once (run read-only on the phone; Claude gets sender, subject and date only, health mail left out, redacted) and answers from that, or from general knowledge marked "Generally,". Follow-ups keep the last six turns. Without a key, Apple Intelligence answers on the phone and Lovely shows a mail search underneath. A sparkle bubble on Money, Energy and Kids opens Ask about that page with its facts (PageFacts). No web search yet.
 - Nov 10: "Clear the next page" in Older mail did nothing: it popped and pushed the same route, so the old wrap screen stayed. It now builds the next page in place, skipping mail already shown in this sitting (left unread there); the button hides when nothing new is left.
+- Nov 10: subtitle is now "Get through your email." (owner dropped "calmly"): launch splash, launch animation, VoiceOver labels, Brand README. App Store Connect subtitle is set there, not in the repo.
