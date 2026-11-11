@@ -33,20 +33,4 @@ final class PhotoEventsTests: XCTestCase {
         XCTAssertFalse(PhotoEvents.isDuplicate(e, of: [("Sprint Review", at(11, 10), at(11, 11))]), "Another day is not a duplicate")
         XCTAssertFalse(PhotoEvents.isDuplicate(e, of: [("Lunch", at(10, 10), at(10, 11))]), "Another title is not a duplicate")
     }
-
-    /// Claude answers with the calendar_events tool; Lovely reads it into events.
-    func testClaudeCalendarAnswerParses() throws {
-        let json = """
-        {"content":[{"type":"tool_use","name":"calendar_events","input":{"events":[
-          {"title":"Sprint Review","day":"2026-11-10","start":"10:00","end":"11:00","all_day":false},
-          {"title":"Offsite","day":"2026-11-12","start":"","end":"","all_day":true,"unsure":true}]}}]}
-        """
-        let events = try CalendarPhotoReader.parse(Data(json.utf8))
-        XCTAssertEqual(events.count, 2)
-        XCTAssertEqual(events[0].title, "Sprint Review")
-        XCTAssertTrue(events[1].allDay)
-        XCTAssertTrue(events[1].unsure)
-        XCTAssertFalse(events[0].unsure)
-        XCTAssertTrue(CalendarPhotoReader.prompt(today: "2026-11-09", timeZone: "America/New_York").contains("calendar_events"))
-    }
 }

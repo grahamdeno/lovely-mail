@@ -1,53 +1,99 @@
 import SwiftUI
 
-/// Turns one email into a prompt for an outside agent, for tasks Lovely cannot do inside Gmail.
-/// Secrets and identifiers are removed first; irreversible steps are listed first and marked.
-struct HandoffSheet: View {
+/// Hand to Grok from one email (owner, Nov 11, 2026: "The only Grok path left is Hand to Grok"). The task is his to
+/// edit; the prompt carries the stop line, the task and at most three facts (never from health mail), and one tap POSTs
+/// it to his Grok Bot routine. Only a 200 counts as sent; otherwise the share sheet opens and the sheet says why.
+/// Replaces the old copy-for-Claude-or-Grok sheet and the in-app form filler.
+struct HandToGrokSheet: View {
+    @Environment(FeedStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    let post: Post
-    @AppStorage(HandoffAgent.key) private var agentRaw = HandoffAgent.grok.rawValue
-    @State private var goal = ""
-    @State private var facts = ""
-    @State private var irreversible = ""
-    @State private var copied: HandoffAgent?
+    @State var task: String
+    let facts: [GrokFact]
+    /// Health mail: no prompt is written for it at all.
+    var blocked = false
+    var onSent: () -> Void = {}
+    @State private var sending = false
+    @State private var note: String?
+    @State private var shareText: ShareText?
 
-    private var task: HandoffTask {
-        func lines(_ s: String) -> [String] { s.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
-        return HandoffTask(goal: goal, facts: lines(facts), steps: [], irreversible: lines(irreversible))
+    init(task: String, facts: [GrokFact], blocked: Bool = false, onSent: @escaping () -> Void = {}) {
+        _task = State(initialValue: task)
+        self.facts = facts
+        self.blocked = blocked
+        self.onSent = onSent
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-            Group {
-                Section("Goal") { TextField("What should the agent do?", text: $goal, axis: .vertical) }
-                Section("Irreversible steps (the agent stops before these)") { TextField("One per line", text: $irreversible, axis: .vertical) }
-                Section("What it needs to know") { TextField("One per line", text: $facts, axis: .vertical) }
-                Section {
-                    Picker("Usual agent", selection: $agentRaw) { ForEach(HandoffAgent.allCases) { Text($0.name).tag($0.rawValue) } }.pickerStyle(.segmented)
-                    ForEach(orderedAgents) { agent in
-                        Button(copied == agent ? "Copied for \(agent.name)" : "Copy for \(agent.name)") {
-                            UIPasteboard.general.string = HandoffPrompt.build(task, agent: agent, keepEmails: [])
-                            copied = agent
-                        }
-                    }
-                } footer: { Text("Codes, passwords, account numbers and other people's email addresses are removed. Check the text before you send it.") }
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Hand to Grok").font(.title2.weight(.bold))
+                if blocked {
+                    Text("Health mail stays on this iPhone, so Lovely does not write a prompt for it.").foregroundStyle(CalmStyle.secondary)
+                    Spacer()
+                } else {
+                    TextField("What should Grok do?", text: $task, axis: .vertical)
+                        .lineLimit(2...6)
+                        .padding(12).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
+                        .accessibilityIdentifier("handToGrok.task")
+                    Text("Grok Bot stops and asks you before it submits, pays, signs, sends, deletes anything, or uploads an ID or personal document. Its report comes back under Grok reports.")
+                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    if let note { Text(note).font(.callout).foregroundStyle(CalmStyle.roseInk) }
+                    Spacer()
+                    sendButton
+                }
             }
-            .listRowBackground(CalmStyle.card)
+            .padding(20)
+            .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+            .toolbar { Button("Cancel") { dismiss() } }
+            .sheet(item: $shareText) { item in ActivityView(text: item.text).ignoresSafeArea().presentationDetents([.medium, .large]) }
         }
-        .calmForm()
-            .navigationTitle("Hand off").navigationBarTitleDisplayMode(.inline)
-            .toolbar { Button("Done") { dismiss() } }
-            .task {
-                goal = "Do what this email from \(post.email.from.name) asks: \(post.email.subject)"
-                facts = Redactor.redact(String(post.email.body.prefix(600)), keepEmails: [])
-                irreversible = HandoffPrompt.detectIrreversible(in: post.email.body).joined(separator: "\n")
+        .presentationDetents([.medium, .large])
+    }
+
+    private var cleanTask: String { task.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    @ViewBuilder private var sendButton: some View {
+        let title = sending ? "Sending\u{2026}" : "Send to Grok"
+        if let me = store.grokReportAddress, store.actions != nil, !store.grokReportsFiled {
+            let preview = GrokHandoff.filterPreview(owner: me)
+            Text(preview.lines.first ?? "").font(.caption).foregroundStyle(CalmStyle.secondary)
+            SessionConfirmButton(title: title, previews: [preview], enabled: !sending && !cleanTask.isEmpty, identifier: "handToGrok.send") { approvals in
+                store.setUpGrokReports(confirmed: approvals[0])
+                deliver()
             }
+        } else {
+            Button(title) { deliver() }
+                .buttonStyle(SessionButtonStyle()).disabled(sending || cleanTask.isEmpty).accessibilityIdentifier("handToGrok.send")
         }
     }
 
-    private var orderedAgents: [HandoffAgent] {
-        let first = HandoffAgent(rawValue: agentRaw) ?? .grok
-        return [first] + HandoffAgent.allCases.filter { $0 != first }
+    private func deliver() {
+        let t = cleanTask
+        guard !t.isEmpty, !sending, !blocked else { return }
+        sending = true
+        let prompt = GrokHandoff.prompt(task: t, facts: facts, reportTo: store.grokReportAddress ?? "my email address")
+        Task {
+            let result = await GrokWebhook.send(task: t, prompt: prompt)
+            sending = false
+            if result.accepted {
+                GrokHandoffLog().add(.init(id: UUID(), question: t, task: t, title: GrokHandoff.shortTitle(t), sentAt: Date(), report: nil))
+                onSent()
+                dismiss()
+            } else {
+                note = result.note
+                UIPasteboard.general.string = prompt
+                shareText = ShareText(text: prompt)
+            }
+        }
+    }
+}
+
+extension HandToGrokSheet {
+    /// From an open email or a note: the task names the email; the facts are its sender and subject (redacted).
+    init(post: Post) {
+        let health = HealthMail.isHealth(address: post.email.from.email, name: post.email.from.name, subject: post.email.subject)
+        self.init(task: "Do what this email from \(post.email.from.name) asks: \(post.email.subject)",
+                  facts: GrokHandoff.facts(from: post.email.from.name, subject: post.email.subject, isHealth: health),
+                  blocked: health || post.summary.sensitive)
     }
 }

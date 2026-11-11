@@ -7,7 +7,10 @@ each behind a ConfirmedAction made by the preview sheet. Forwarding addresses ar
 works only for Workspace service accounts, and the owner adds addresses in Gmail's own Settings.
 Approved 2026-11-08 (Sprint 7, inbox session): the session's own action button is the preview. It shows exactly
 what will happen (which messages, which drawer) and makes the ConfirmedAction in SessionConfirm.swift, so putting
-mail away is one tap. Cloud language models (Anthropic, xAI) may be called only from Session/Engines/CloudEngines.swift.
+mail away is one tap.
+Removed 2026-11-11 (owner): Lovely calls no cloud language model. api.anthropic.com and api.x.ai may not appear anywhere,
+nor an Anthropic key header, nor a link that opens Claude or a Grok chat. The only Grok path is Hand to Grok (the owner's
+Grok Bot webhook, GrokHandoff.swift). Apple Intelligence on the phone does everything else.
 Never allowed: permanent delete, the full-access scope, other Gmail settings.
 
   check     Scan App/Reelmail and fail on any violation.
@@ -25,7 +28,6 @@ CONFIG = "Gmail/GmailConfig.swift"
 SHEET = "Features/Actions/ActionPreviewSheet.swift"
 GUARDS = "Gmail/ActionGuards.swift"
 SESSION_CONFIRM = "Features/Session/SessionConfirm.swift"
-CLOUD = "Session/Engines/CloudEngines.swift"
 # UI audit fixtures: a fake Gmail for simulator tests. Debug builds only; release builds must neither contain nor reach it.
 FIXTURES = "Fixtures/UITestFixtures.swift"
 FIXTURE_SYMBOLS = r"\b(FixtureMode|FixtureGmailClient|FixtureLog|FixtureRequestsOverlay|FixtureData|FixtureRecorder)\b|uiTestFixtures|uiTest(Expired|NoPermission|Offline|Empty|SignedOut|Appearance)"
@@ -99,7 +101,9 @@ def check(files):
         hit(r"/modify\b", "The modify endpoint may be used only in GmailService.swift and GmailActions.swift.", allowed=(SERVICE, ACTIONS))
         hit(r"gmail\.(modify|send|settings\.basic|settings\.sharing|compose|readonly)", "Gmail scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
         hit(r"ConfirmedAction\(|ConfirmedAction\.init|\.init\(preview:", "ConfirmedAction may be made only by the preview sheet or the session's action button.", allowed=(SHEET, GUARDS, SESSION_CONFIRM))
-        hit(r"api\.anthropic\.com|api\.x\.ai", "Cloud language models may be called only from CloudEngines.swift.", allowed=(CLOUD,))
+        hit(r"api\.anthropic\.com|api\.x\.ai", "Lovely calls no cloud language model (removed Nov 11, 2026): only Hand to Grok.")
+        hit(r"(?i)x-api-key|anthropic-version", "No Anthropic API key or header anywhere (removed Nov 11, 2026).")
+        hit(r"claude://|claude\.ai/|grok\.com/\?q=", "No link that opens Claude or a Grok chat (removed Nov 11, 2026): only Hand to Grok.")
         hit(r"googleapis\.com/auth/", "OAuth scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
         hit(r"(?<![\w.])gmail\.(labels|metadata|insert|addons|settings)", "Gmail scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
         hit(r"gmail\.googleapis\.com", "The Gmail API may be called only from GmailService.swift and GmailActions.swift.", allowed=(SERVICE, ACTIONS))
@@ -174,8 +178,13 @@ struct GmailActions {
         "delete message in actions": {ACTIONS: good_actions.replace("/settings/filters/x", "/messages/x")},
         "confirmed via init": {"Model/X.swift": "let c: ConfirmedAction = .init(preview: p)"},
         "confirmed in another session file": {"Features/Session/SessionView.swift": "let c = ConfirmedAction(preview: p)"},
-        "cloud model from elsewhere": {"Model/X.swift": 'let u = "https://api.anthropic.com/v1/messages"'},
-        "grok from elsewhere": {"Session/Engines/Other.swift": 'let u = "https://api.x.ai/v1/chat/completions"'},
+        "anthropic api anywhere": {"Model/X.swift": 'let u = "https://api.anthropic.com/v1/messages"'},
+        "anthropic api back in the old file": {"Session/Engines/CloudEngines.swift": 'let u = "https://api.anthropic.com/v1/messages"'},
+        "grok api anywhere": {"Session/Engines/Other.swift": 'let u = "https://api.x.ai/v1/chat/completions"'},
+        "grok api back in the old file": {"Session/Engines/CloudEngines.swift": 'let u = "https://api.x.ai/v1/chat/completions"'},
+        "anthropic key header": {"Model/X.swift": 'r.setValue(key, forHTTPHeaderField: "x-api-key")'},
+        "claude app link": {"Model/X.swift": 'let u = URL(string: "claude://claude.ai/new?q=" + q)'},
+        "grok chat link": {"Model/X.swift": 'let u = URL(string: "https://grok.com/?q=" + q)'},
         "other scope": {"Model/X.swift": 'let s = "https://www.googleapis.com/auth/gmail.labels"'},
         "api from elsewhere": {"Model/X.swift": 'let u = "https://gmail.googleapis.com/gmail/v1/users/me/messages"'},
         "insert message": {"Model/X.swift": 'let u = base + "/messages/insert"'},
@@ -199,8 +208,10 @@ struct GmailActions {
     # Fixture mode is allowed inside #if DEBUG, in other files and in its own file.
     assert check({"Model/X.swift": "#if DEBUG\nlet s = FixtureMode.makeStoreIfRequested()\n#endif\nlet t = 1", FIXTURES: "#if DEBUG\nenum FixtureData { let a = \"labels\" }\n#endif"}) == []
     assert check({"Model/X.swift": "#if !DEBUG\nlet t = 1\n#else\nlet s = FixtureMode.isRequested\n#endif"}) == []
-    # The session's action button and the cloud engine file are allowed their one exception each.
-    assert check({SESSION_CONFIRM: "let c = ConfirmedAction(preview: p)", CLOUD: 'let u = "https://api.anthropic.com/v1/messages"'}) == []
+    # The session's action button keeps its one exception.
+    assert check({SESSION_CONFIRM: "let c = ConfirmedAction(preview: p)"}) == []
+    # Hand to Grok posts to the owner's own webhook from the Keychain; that is not a cloud model call.
+    assert check({"Model/GrokHandoff.swift": 'var req = URLRequest(url: url); req.httpMethod = "POST"'}) == []
     # Comments never trip the guard.
     assert check({"Model/X.swift": "// we never call /messages/send here"}) == []
     print("privacy_guard selftest: ok")

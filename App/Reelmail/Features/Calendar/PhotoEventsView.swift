@@ -26,8 +26,7 @@ struct PhotoCalendarReading {
 }
 
 /// "Add events from a photo": take or pick a photo of a calendar, check what Lovely read, and add the new ones to the
-/// Work calendar (the Google calendar synced to this iPhone). With a Claude key the photo is read by Claude (the owner
-/// said his work calendar is not sensitive); otherwise on this iPhone.
+/// Work calendar (the Google calendar synced to this iPhone). The photo is read on this iPhone; nothing is sent out.
 /// Events already there (same title, overlapping time) start unchecked. Adding waits 10 seconds for Undo.
 struct PhotoEventsView: View {
     @Environment(FeedStore.self) private var store
@@ -101,9 +100,7 @@ struct PhotoEventsView: View {
             }
             .buttonStyle(SessionButtonStyle())
             .accessibilityIdentifier("photoEvents.add.source")
-            Text(EngineSettings.hasKey(.claude) && EngineSettings.key(.claude) != nil
-                 ? "Claude reads the photo with your key (only the photo is sent). Events already on your calendar at the same time with the same title start unchecked."
-                 : "Read on this iPhone. Add a Claude key in Settings > AI for much better reading. Events already on your calendar at the same time with the same title start unchecked.")
+            Text("Read on this iPhone. Check each event. Events already on your calendar at the same time with the same title start unchecked.")
                 .font(.caption).foregroundStyle(CalmStyle.secondary)
         }
     }
@@ -173,7 +170,7 @@ struct PhotoEventsView: View {
         await read(image)
     }
 
-    /// A PDF goes to Claude as a document; without a key its text is read on the phone. An image file reads like a photo.
+    /// A PDF's text is read on the phone. An image file reads like a photo.
     private func read(file url: URL) async {
         phase = .reading; note = nil
         let scoped = url.startAccessingSecurityScopedResource()
@@ -184,11 +181,7 @@ struct PhotoEventsView: View {
             await read(image); return
         }
         var events: [PhotoEvent] = []
-        if let key = EngineSettings.key(.claude) {
-            do { events = try await Self.withClaude(.pdf(data), key: key); readBy = "Read by Claude" }
-            catch { note = "Claude could not read it (\(error.localizedDescription)), so this iPhone read it instead. Check each one." }
-        }
-        if events.isEmpty, let pdf = PDFDocument(data: data) {
+        if let pdf = PDFDocument(data: data) {
             let text = (0..<min(pdf.pageCount, 10)).compactMap { pdf.page(at: $0)?.string }.joined(separator: "\n")
             let lines = text.components(separatedBy: .newlines).enumerated().map { PhotoTextLine(text: $0.element, x: 0, y: Double($0.offset) / 1_000) }
             events = await Self.interpret(lines)
@@ -201,22 +194,10 @@ struct PhotoEventsView: View {
     private func read(_ image: UIImage) async {
         phase = .reading; note = nil
         guard let cg = Self.upright(image).cgImage else { note = "That picture could not be opened."; phase = .start; return }
-        var events: [PhotoEvent] = []
-        // Claude reads calendar grids far better than on-device text recognition; used whenever there is a Claude key.
-        if let key = EngineSettings.key(.claude), let jpeg = Self.jpeg(for: image) {
-            do {
-                events = try await Self.withClaude(.jpeg(jpeg), key: key)
-                readBy = "Read by Claude"
-            } catch {
-                note = "Claude could not read it (\(error.localizedDescription)), so this iPhone read it instead. Check each one."
-            }
-        }
-        if events.isEmpty {
-            let lines = await Self.recognize(cg)
-            events = await Self.interpret(lines)
-            if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
-            if readBy == nil { readBy = "Read on this iPhone" }
-        }
+        let lines = await Self.recognize(cg)
+        var events = await Self.interpret(lines)
+        if events.isEmpty { events = PhotoEvents.parse(lines, now: Date()) }
+        if readBy == nil { readBy = "Read on this iPhone" }
         await finish(events)
     }
 
@@ -228,32 +209,6 @@ struct PhotoEventsView: View {
             return Row(event: e, include: !dup, duplicate: dup)
         }
         phase = .review
-    }
-
-    /// The photo, at most 1,568 pixels on its long side (Claude's sweet spot), as JPEG.
-    static func jpeg(for image: UIImage) -> Data? {
-        let up = upright(image)
-        let longSide = max(up.size.width, up.size.height)
-        let scale = min(1, 1_568 / max(longSide, 1))
-        let size = CGSize(width: up.size.width * scale, height: up.size.height * scale)
-        let format = UIGraphicsImageRendererFormat(); format.scale = 1
-        return UIGraphicsImageRenderer(size: size, format: format).image { _ in up.draw(in: CGRect(origin: .zero, size: size)) }
-            .jpegData(compressionQuality: 0.8)
-    }
-
-    static func withClaude(_ source: CalendarPhotoReader.Source, key: String) async throws -> [PhotoEvent] {
-        let today = Date().formatted(.iso8601.year().month().day())
-        let found = try await CalendarPhotoReader.read(source, today: today, timeZone: TimeZone.current.identifier,
-                                                       model: EngineSettings().claudeModel, key: key)
-        return found.compactMap { e in
-            let allDay = e.allDay || e.start.isEmpty
-            guard let start = PhotoEvents.date(e.day, allDay ? "" : e.start) else { return nil }
-            let end = (allDay || e.end.isEmpty ? nil : PhotoEvents.date(e.day, e.end)).flatMap { $0 > start ? $0 : nil }
-                ?? start.addingTimeInterval(allDay ? 86_400 : 1_800)
-            let title = e.title.trimmingCharacters(in: .whitespaces)
-            return PhotoEvent(title: title.isEmpty ? "Untitled" : title, start: start, end: end, allDay: allDay,
-                              unsure: e.unsure || title.isEmpty || (!allDay && e.end.isEmpty))
-        }
     }
 
     /// Camera photos carry a rotation flag; text recognition needs the pixels upright.

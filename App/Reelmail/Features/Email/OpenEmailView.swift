@@ -47,7 +47,7 @@ struct OpenEmailView: View {
             }
             .navigationTitle(organization ? HomeDigest.organizationName(email.from) : email.from.name)
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(item: $handoffPost) { HandoffSheet(post: $0) }
+            .sheet(item: $handoffPost) { HandToGrokSheet(post: $0) }
             .sheet(item: $textAboutPost) { TextAboutSheet(post: $0) }
             .sheet(item: $shoeboxPreview) { p in
                 ActionPreviewSheet(preview: p, confirmTitle: "Send") { confirmed in
@@ -111,7 +111,7 @@ struct OpenEmailView: View {
                     }
                 }
                 if HandoffPrompt.isAllowed(address: post.email.from.email, name: post.email.from.name, subject: post.email.subject, sensitive: post.summary.sensitive) {
-                    Button { handoffPost = post } label: { Label("Share with an AI assistant", systemImage: "square.and.arrow.up.on.square") }
+                    Button { handoffPost = post } label: { Label("Hand to Grok", systemImage: "paperplane") }
                 }
                 if post.email.bulk, store.mode == .gmail {
                     Button { Task { await prepareUnsubscribe(post) } } label: { Label("Unsubscribe", systemImage: "hand.raised") }

@@ -14,6 +14,8 @@ struct LovelyHome: View {
 
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
+    @Environment(\.openURL) private var openURL
+    @State private var shareText: ShareText?
     @State private var text = ""
     @FocusState private var typing: Bool
     @State private var turns: [Turn] = []
@@ -30,6 +32,8 @@ struct LovelyHome: View {
     @State private var showLibrary = false
     @State private var showFiles = false
     @State private var picked: PhotosPickerItem?
+    /// The field's height changed in this run loop: a tap arriving now is ignored (owner, Nov 11: no early sends).
+    @State private var heightChanging = false
 
     struct Attachment: Equatable {
         var kind: String           // "photo" or "file"
@@ -42,7 +46,7 @@ struct LovelyHome: View {
     private var gel: GelPhysics { Self.gel }
 
     struct Turn: Identifiable, Equatable {
-        let id = UUID()
+        var id = UUID()
         var question: String
         var answer = ""
         var query: String?
@@ -53,6 +57,15 @@ struct LovelyHome: View {
         /// The photo he attached, shown with his words.
         var image: UIImage?
         var fileName: String?
+        /// Lovely's model can't do this (it needs the web): the task for Grok.
+        var handoff: String?
+        /// True only after Grok Bot's webhook answered 200.
+        var sentToGrok = false
+        /// The one line under Send to Grok after a try (accepted, or why the share sheet opened).
+        var grokNote: String?
+        var sending = false
+        /// Grok's emailed report, shown under the question it answers.
+        var report: String?
         var gone = false
     }
 
@@ -90,6 +103,12 @@ struct LovelyHome: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { gel.kick(0.4, toward: -.pi / 2); settleGel() }
         }
         .onDisappear { gelSleep?.cancel() }
+        .task {
+            while !Task.isCancelled {
+                await checkGrokReports()
+                try? await Task.sleep(for: .seconds(60))
+            }
+        }
         .fullScreenCover(isPresented: $showCamera) {
             CameraCapture { image in
                 showCamera = false
@@ -107,6 +126,7 @@ struct LovelyHome: View {
                 }
             }
         }
+        .sheet(item: $shareText) { item in ActivityView(text: item.text).ignoresSafeArea().presentationDetents([.medium, .large]) }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image, .plainText]) { result in
             if case .success(let url) = result { Task { await attach(file: url) } }
         }
@@ -159,36 +179,35 @@ struct LovelyHome: View {
         return out
     }
 
-    /// Grok's field: one line with + and send; once the words would not fit (or a photo is added) it grows, with the
-    /// attachment on top, the words in the middle and + and send on a row beneath. Return sends.
+    /// Grok's field, steady (owner, Nov 11, 2026): + and send sit on one fixed row and never move while he types; the
+    /// words grow upward above it, photo or not. No layout switch, no animation that moves Send, and only the arrow sends.
     private var composer: some View {
-        let expanded = HomeAttachment.expands(text: text, hasAttachment: attachment != nil)
-        let canSend = !working && (attachment.map { !$0.reading } ?? true)
-            && (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || attachment != nil)
+        let canSend = HomeComposer.shouldSend(.arrowTap, text: text, hasAttachment: attachment != nil,
+                                              busy: working || attachment?.reading == true, heightChanging: false)
         return VStack(alignment: .leading, spacing: 8) {
             if let a = attachment { attachmentChip(a) }
-            if expanded {
-                field.padding(.horizontal, 4)
-                HStack { addButton; Spacer(); sendButton(canSend) }
-            } else {
-                HStack(spacing: 8) { addButton; field; sendButton(canSend) }
+            HStack(alignment: .bottom, spacing: 8) {
+                addButton
+                field
+                sendButton(canSend)
             }
         }
         .padding(.horizontal, 6).padding(.vertical, 6)
-        .padding(.top, expanded ? 6 : 0)
         .glassPane(corner: 26)
         .padding(.horizontal, 16)
-        .animation(.spring(response: 0.3, dampingFraction: 0.86), value: expanded)
+        .transaction { $0.animation = nil }
     }
 
+    /// Return makes a new line; it never sends.
     private var field: some View {
         TextField("Ask about your mail", text: $text, axis: .vertical)
-            .font(.body).lineLimit(1...8).focused($typing).submitLabel(.send)
+            .font(.body).lineLimit(1...8).focused($typing)
+            .padding(.vertical, 9)
             .frame(minHeight: 40)
             .padding(.leading, 6)
-            // A multi-line field takes Return as a new line; Lovely treats it as Send.
-            .onChange(of: text) { _, new in
-                if new.contains("\n") { text = new.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces); send(text) }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
+                heightChanging = true
+                DispatchQueue.main.async { heightChanging = false }
             }
             .accessibilityIdentifier("home2.ask")
     }
@@ -209,7 +228,11 @@ struct LovelyHome: View {
     }
 
     private func sendButton(_ enabled: Bool) -> some View {
-        Button { send(text) } label: {
+        Button {
+            guard HomeComposer.shouldSend(.arrowTap, text: text, hasAttachment: attachment != nil,
+                                          busy: working || attachment?.reading == true, heightChanging: heightChanging) else { return }
+            send(text)
+        } label: {
             Image(systemName: working ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
                 .frame(width: 40, height: 40).foregroundStyle(CalmStyle.onBlue)
                 .background(CalmStyle.blue, in: Circle())
@@ -318,9 +341,14 @@ struct LovelyHome: View {
             .scrollDismissesKeyboard(.interactively)
             // The newest message always sits just above the field (and the keyboard): on a new question, an answer
             // arriving, or the keyboard coming up.
-            .onChange(of: turns) { _, _ in toEnd(reader) }
+            .onChange(of: threadShape) { _, _ in toEnd(reader) }
             .onChange(of: typing) { _, now in if now { toEnd(reader, after: 0.3) } }
         }
+    }
+
+    /// Changes when a turn is added or an answer or report arrives; never on a keystroke.
+    private var threadShape: [String] {
+        turns.filter { !$0.gone }.map { "\($0.id)|\($0.answer.count)|\($0.problem != nil)|\($0.report != nil)|\($0.sentToGrok)|\($0.steps?.count ?? -1)" }
     }
 
     private func toEnd(_ reader: ScrollViewProxy, after delay: Double = 0.05) {
@@ -371,9 +399,14 @@ struct LovelyHome: View {
                     }
                 }
             } else {
+                if let task = turn.handoff { handoffBox(turn, task: task) }
+                if let report = turn.report {
+                    Text("GROK'S REPORT").font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 2)
+                    SelectableText(text: EmailPresentation.linked(report))
+                }
                 if !turn.answer.isEmpty { SelectableText(text: EmailPresentation.linked(turn.answer)) }
                 if let p = turn.problem { Text(p).font(.callout).foregroundStyle(CalmStyle.secondary) }
-                if turn.answer.isEmpty, turn.problem == nil {
+                if turn.answer.isEmpty, turn.problem == nil, turn.handoff == nil {
                     HStack(spacing: 8) { ProgressView(); Text("Looking through your mail\u{2026}").font(.callout).foregroundStyle(CalmStyle.secondary) }
                 }
                 if let q = turn.query {
@@ -472,6 +505,7 @@ struct LovelyHome: View {
             Button { router.open(.comingUp) } label: { Label("Coming up", systemImage: "calendar") }
             Button { router.open(.notes) } label: { Label("Notes to self", systemImage: "note.text") }
             Button { router.open(.later) } label: { Label("Later", systemImage: "clock") }
+            Button { router.open(.grokReports) } label: { Label("Grok reports", systemImage: "sparkles") }
             Divider()
             Button { router.open(.settings) } label: { Label("Settings", systemImage: "gearshape") }
         } label: {
@@ -529,21 +563,112 @@ struct LovelyHome: View {
             withAnimation { turns.append(Turn(question: question, steps: today.filter { !$0.done })) }
             return
         }
-        let history = turns.filter { !$0.answer.isEmpty }.map { AskChatReader.Turn(question: $0.question, answer: $0.answer) }
+        // "Ask Grok to …": straight to Grok, no engine.
+        if file == nil, let task = GrokHandoff.explicitTask(question) {
+            withAnimation { turns.append(Turn(question: question, handoff: task)) }
+            return
+        }
+        let history = turns.filter { !$0.answer.isEmpty }.map { AskPrompt.Turn(question: $0.question, answer: $0.answer) }
         withAnimation { turns.append(Turn(question: question, image: file?.image, fileName: file?.image == nil ? file?.name : nil)) }
         let id = turns.last!.id
         working = true
         let owner = store.me.name == "You" ? "" : store.me.firstName
         Task {
             do {
-                let a = try await AskLovelyView.answer(prompt, history: history, topic: nil, facts: [], owner: owner, store: store)
-                if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].answer = a.text; turns[i].query = a.query; turns[i].engine = a.engine }
-            } catch EngineError.unavailable {
-                if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Add a Claude key in Settings, AI, or turn on Apple Intelligence, to get answers here." }
+                let a = try await AskLovelyView.answer(prompt, rule: GrokHandoff.engineRule, history: history, topic: nil, facts: [],
+                                                       owner: owner, store: store)
+                let parsed = GrokHandoff.parse(a.text)
+                if let i = turns.firstIndex(where: { $0.id == id }) {
+                    turns[i].answer = parsed.rest; turns[i].handoff = parsed.task; turns[i].query = a.query; turns[i].engine = a.engine
+                }
             } catch {
-                if let i = turns.firstIndex(where: { $0.id == id }) { turns[i].problem = "Lovely couldn't answer that just now. Check your connection and try again." }
+                // Apple can't do it on the phone: say so, and offer Hand to Grok with his own words (owner, Nov 11, 2026).
+                if let i = turns.firstIndex(where: { $0.id == id }) {
+                    turns[i].problem = (error as? EngineError) == .unavailable ? AskLovelyView.unavailableLine : AskLovelyView.failedLine
+                    if file == nil { turns[i].handoff = question }
+                }
             }
             working = false
+        }
+    }
+
+    // MARK: Hand to Grok
+
+    /// Three states, in order (owner, Nov 11, 2026): Send to Grok; Grok Bot has it (only after a 200); the report.
+    /// The first Send also sets up the Gmail filter that files Grok's reports; its line is shown above the button.
+    @ViewBuilder private func handoffBox(_ turn: Turn, task: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(task).font(.body.weight(.semibold))
+            if turn.report != nil {
+                EmptyView()
+            } else if turn.sentToGrok {
+                Text(GrokSendResult.accepted.note).font(.callout).foregroundStyle(CalmStyle.secondary)
+            } else {
+                if let note = turn.grokNote { Text(note).font(.callout).foregroundStyle(CalmStyle.roseInk) }
+                if let me = store.grokReportAddress, store.actions != nil, !store.grokReportsFiled {
+                    let preview = GrokHandoff.filterPreview(owner: me)
+                    Text(preview.lines.first ?? "").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    SessionConfirmButton(title: turn.sending ? "Sending\u{2026}" : "Send to Grok", previews: [preview], enabled: !turn.sending,
+                                         identifier: "home2.grok") { approvals in
+                        store.setUpGrokReports(confirmed: approvals[0])
+                        deliver(turn, task: task)
+                    }
+                } else {
+                    Button(turn.sending ? "Sending\u{2026}" : "Send to Grok") { deliver(turn, task: task) }
+                        .buttonStyle(SessionButtonStyle()).disabled(turn.sending).accessibilityIdentifier("home2.grok")
+                }
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.blue.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// One tap: POST to the Grok Bot routine's webhook. Only a 200 counts as sent. Otherwise the share sheet opens
+    /// (and only then is the prompt copied), and the card says why.
+    private func deliver(_ turn: Turn, task: String) {
+        guard let i = turns.firstIndex(where: { $0.id == turn.id }), !turns[i].sending else { return }
+        turns[i].sending = true
+        // A question asked on Home isn't one email, so Lovely adds no mail facts; health mail never goes either way.
+        let prompt = GrokHandoff.prompt(task: task, facts: [], reportTo: store.grokReportAddress ?? "my email address")
+        let id = turn.id, question = turn.question
+        Task {
+            let result = await GrokWebhook.send(task: task, prompt: prompt)
+            guard let j = turns.firstIndex(where: { $0.id == id }) else { return }
+            turns[j].sending = false
+            if result.accepted {
+                turns[j].sentToGrok = true
+                turns[j].grokNote = nil
+                GrokHandoffLog().add(.init(id: id, question: question, task: task, title: GrokHandoff.shortTitle(task), sentAt: Date(), report: nil))
+            } else {
+                turns[j].grokNote = result.note
+                UIPasteboard.general.string = prompt
+                shareText = ShareText(text: prompt)
+            }
+        }
+    }
+
+    /// Looks for Grok's emailed reports and puts each under the question it answers. Runs when Home opens and every
+    /// minute while it stays open and something is waiting.
+    private func checkGrokReports() async {
+        let log = GrokHandoffLog()
+        let waiting = log.waiting
+        // Reports that came back for questions no longer on screen come back with their question.
+        for item in log.items where item.report != nil && !turns.contains(where: { $0.id == item.id }) && item.sentAt > Date().addingTimeInterval(-86_400) {
+            turns.append(Turn(id: item.id, question: item.question, handoff: item.task, sentToGrok: true, report: item.report))
+        }
+        guard !waiting.isEmpty, store.mode == .gmail else { return }
+        guard let list = try? await store.gmail.listMessageIDs(query: GrokHandoff.searchQuery + " newer_than:14d", limit: 20) else { return }
+        for id in list.ids.prefix(20) {
+            guard let meta = try? await store.gmail.getMetadata(id: id),
+                  let item = waiting.first(where: { GrokHandoff.isReport(subject: meta.subject, title: $0.title) }),
+                  let mail = try? await store.gmail.getMessage(id: id, account: store.account) else { continue }
+            let body = mail.body.trimmingCharacters(in: .whitespacesAndNewlines)
+            log.setReport(item.id, body)
+            if let k = turns.firstIndex(where: { $0.id == item.id }) {
+                turns[k].report = body
+            } else {
+                turns.append(Turn(id: item.id, question: item.question, handoff: item.task, sentToGrok: true, report: body))
+            }
         }
     }
 
@@ -598,5 +723,71 @@ struct ChatHomeToggle: View {
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
         .accessibilityIdentifier("settings.chatHome")
+    }
+}
+
+struct ShareText: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+/// The share sheet, for handing a task to Grok Bot (pick Grok Bot, then a chat).
+struct ActivityView: UIViewControllerRepresentable {
+    let text: String
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// Grok's reports, filed under Lovely/Grok reports by the filter Hand to Grok set up.
+struct GrokReportsView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("What Grok did for you. Each report is emailed by Grok, labeled and kept out of your inbox.")
+                    .font(.callout).foregroundStyle(CalmStyle.secondary)
+                GmailSearchResults(query: GrokHandoff.searchQuery)
+            }
+            .padding(20)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
+        .navigationTitle("Grok reports").navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Settings > AI: Grok Bot's webhook, copied once from the bot's routine. Both values live in the Keychain.
+struct GrokHandoffSetting: View {
+    @State private var url = ""
+    @State private var auth = ""
+    @State private var saved = GrokWebhook.isSaved
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Send to Grok").font(.headline)
+            Text("When Lovely can't do something (anything on the web), one tap sends the task to your Grok Bot routine. Its report comes back by email, filed under Grok reports and shown under your question. No xAI key.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+            SecureField(saved ? "Webhook URL (saved)" : "Webhook URL", text: $url)
+                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                .padding(.horizontal, 12).frame(minHeight: 44)
+                .background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityIdentifier("settings.grokWebhook")
+            SecureField(saved ? "Authorization header (saved)" : "Authorization header", text: $auth)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .padding(.horizontal, 12).frame(minHeight: 44)
+                .background(CalmStyle.background, in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityIdentifier("settings.grokAuth")
+            HStack {
+                Button("Save") { GrokWebhook.save(url: url, authorization: auth); url = ""; auth = ""; saved = GrokWebhook.isSaved }
+                    .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty)
+                Spacer()
+                if saved { Button("Remove", role: .destructive) { GrokWebhook.save(url: "", authorization: ""); saved = false } }
+            }
+            .font(.subheadline.weight(.semibold))
+            Text(saved ? "Saved on this iPhone. Send to Grok posts to it; only a 200 from Grok Bot counts as sent."
+                       : "Copy both from your Grok Bot routine's webhook trigger. Until then, Send to Grok opens the share sheet instead.")
+                .font(.caption).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
     }
 }

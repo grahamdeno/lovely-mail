@@ -84,7 +84,7 @@ struct NotesThreadView: View {
             }
             VStack(spacing: 8) {
                 if let note = focused { noteActions(note) }
-                SessionAskField(hint: "Ask about \(focused.map { "\u{201C}\(shortTitle($0))\u{201D}" } ?? "your notes"). Lovely uses \(EngineSettings().engine.name).",
+                SessionAskField(hint: "Ask about \(focused.map { "\u{201C}\(shortTitle($0))\u{201D}" } ?? "your notes"). Lovely answers on this iPhone.",
                                 thinking: thinking, onFocus: { _ in }, onAsk: { send($0) })
                     .id(resetCount)
             }
@@ -94,7 +94,7 @@ struct NotesThreadView: View {
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .navigationTitle("Notes").navigationBarTitleDisplayMode(.inline)
         .onAppear { thread = NoteThreadStore(account: account).messages }
-        .sheet(item: $handoffPost) { HandoffSheet(post: $0) }
+        .sheet(item: $handoffPost) { HandToGrokSheet(post: $0) }
     }
 
     // MARK: Bubbles
@@ -157,7 +157,7 @@ struct NotesThreadView: View {
             if let option { chip("Bring back \(option.title.lowercased())") { store.putOff(post, until: option.date) } }
         case "put_away", "archive": doneButton(post, compact: true)
         case "trash": chip("Move to Trash", rose: true) { store.sessionTrash(post) }
-        case "handoff": chip("Share with an AI assistant") { handoffPost = post }
+        case "handoff": chip("Hand to Grok") { handoffPost = post }
         default: EmptyView()
         }
     }
@@ -221,11 +221,7 @@ struct NotesThreadView: View {
         resetCount += 1
         problem = nil
 
-        let settings = EngineSettings()
-        let health = note.map { SessionMessage(post: $0, assessment: store.assessment(for: $0), isFirstTimeSender: false).isHealth } ?? false
-        var kind: EngineKind = .apple
-        if settings.engine.isCloud, EngineSettings.hasKey(settings.engine), !health { kind = settings.engine }
-        else if settings.engine.isCloud, health { problem = EngineError.notForCloud.localizedDescription }
+        let kind: EngineKind = .apple
         let me = store.me.firstName == "You" ? "" : store.me.firstName
         let request = EngineRequest(system: NotesPlaybook.system(ownerName: me), compact: NotesPlaybook.compact(ownerName: me),
                                     user: NotesPlaybook.userMessage(notes: notes.map { ($0.id, $0.email.date, $0.email.subject, $0.email.body) },
@@ -233,8 +229,7 @@ struct NotesThreadView: View {
         thinking = true
         Task {
             do {
-                let answer = try await EngineRouter.engine(kind, settings: settings).interpret(request)
-                EngineUsage().recordCall(answer)
+                let answer = try await EngineRouter.engine().interpret(request)
                 let c = answer.command
                 let text = (c.reply ?? "").isEmpty ? (c.say ?? "") : (c.reply ?? "")
                 let action = ["later", "put_away", "archive", "trash", "handoff"].contains(c.action) ? c.action : nil

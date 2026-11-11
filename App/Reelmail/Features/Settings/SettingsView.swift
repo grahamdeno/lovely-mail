@@ -25,7 +25,7 @@ struct SettingsView: View {
                     if store.mode == .gmail { SettingsRow(title: "Clean up", value: "Old login emails") { router.open(.cleanup) } }
                     SettingsRow(title: "Households and kids", value: Self.householdsValue()) { router.open(.insightSettings) }
                     SettingsRow(title: "Look and feel", value: appearance.title) { router.open(.settingsLook) }
-                    SettingsRow(title: "AI", value: EngineSettings().engine.name) { router.open(.settingsAI) }
+                    SettingsRow(title: "AI", value: "On this iPhone") { router.open(.settingsAI) }
                     SettingsRow(title: "Privacy and activity") { router.open(.settingsPrivacy) }
                     if showTesting { SettingsRow(title: "Testing tools") { router.open(.testingTools) } }
                 }
@@ -224,9 +224,10 @@ struct SettingsAIView: View {
     @Environment(Router.self) private var router
     var body: some View {
         SettingsPage(title: "AI") {
-            SettingsRow(title: "Conversation engine", value: EngineSettings().engine.name) { router.open(.engineSettings) }
+            SettingsRow(title: "Conversation engine", value: "Apple Intelligence") { router.open(.engineSettings) }
             let status = ModelStatus.current
             ProfileCard(title: "On-device AI", value: status.title, detail: status.detail)
+            GrokHandoffSetting()
         }
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Lovely's tuning for every engine, in one model-neutral place. Each engine gets the same content in its own format:
-/// a system prompt plus a tool schema for Claude and Grok, a compact prompt plus @Generable types for Apple.
+/// a full system prompt (the scorecard and tests), a compact prompt plus @Generable types for Apple on the phone.
 /// Version it when it changes; the engine scorecard catches regressions. Pure, so it is tested.
 enum SessionPlaybook {
     static let version = 4   // v4 (Nov 9): owner-editable categories; insurance goes with what it covers
@@ -78,7 +78,7 @@ enum SessionPlaybook {
         return lines.joined(separator: "\n")
     }
 
-    /// The full instructions for Claude and Grok.
+    /// The full instructions, with examples (kept for the scorecard and tests).
     static func system(ownerName: String, kids: [KidProfile], examples: [Example]) -> String {
         [role, ownerName.isEmpty ? "" : "His name is \(ownerName).", actionsText, drawersText(kids: kids), standingCalls,
          styleText, neverText, examplesText(examples)]

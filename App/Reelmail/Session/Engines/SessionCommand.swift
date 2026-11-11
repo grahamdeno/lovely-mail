@@ -1,6 +1,6 @@
 import Foundation
 
-// The one action schema every engine answers in (Apple, Claude, Grok). Lovely validates each answer against it and
+// The one action schema the engine answers in (Apple Intelligence). Lovely validates each answer against it and
 // refuses anything outside it, so no engine can make Lovely do something the owner did not see. Pure, so it is tested.
 // See docs/sprint7-design.md section 10.
 
