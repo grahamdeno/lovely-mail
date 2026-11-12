@@ -1129,6 +1129,7 @@ struct SessionBatchScreen: View {
     @Environment(FeedStore.self) private var store
     @Bindable var model: SessionModel
     @State private var calendar: SessionCalendarBox?
+    @State private var peek: SessionItem?
 
     var body: some View {
         let page = model.batchPage
@@ -1192,6 +1193,7 @@ struct SessionBatchScreen: View {
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
         .sheet(item: $calendar) { box in CalendarEventSheet(draft: box.draft).ignoresSafeArea() }
+        .sheet(item: $peek) { SessionPeek(item: $0) }
     }
 
     private func row(_ item: SessionItem) -> some View {
@@ -1200,8 +1202,7 @@ struct SessionBatchScreen: View {
         let date = post.flatMap { MailDates.extract($0.email, now: Date()).first }
         return VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                SessionRowHeader(item: item) { peek = item }
                 if let post { SenderWarning(verdict: store.senderVerdict(post.email), compact: true).padding(.top, 4) }
                 let tags = model.batchTags(item)
                 if !tags.isEmpty {
@@ -1227,6 +1228,7 @@ struct SessionBatchScreen: View {
 struct SessionReadingScreen: View {
     @Environment(FeedStore.self) private var store
     @Bindable var model: SessionModel
+    @State private var peek: SessionItem?
 
     var body: some View {
         let items = model.readingItems
@@ -1247,11 +1249,8 @@ struct SessionReadingScreen: View {
                         ForEach(items) { item in
                             let unread = model.batchFate(item, reading: true) == .unread
                             VStack(alignment: .leading, spacing: 8) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                    Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
-                                }
-                                .opacity(unread ? 0.45 : 1)
+                                SessionRowHeader(item: item) { peek = item }
+                                    .opacity(unread ? 0.45 : 1)
                                 SessionFateStrip(model: model, item: item, reading: true)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1285,6 +1284,91 @@ struct SessionReadingScreen: View {
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
+        .sheet(item: $peek) { SessionPeek(item: $0) }
+    }
+}
+
+/// A batch row's sender, when it arrived, and subject. Tap it, or press and hold, for a quick look at the email
+/// without leaving the page (owner, Nov 12, 2026).
+struct SessionRowHeader: View {
+    @Environment(FeedStore.self) private var store
+    let item: SessionItem
+    let peek: () -> Void
+
+    var body: some View {
+        Button(action: peek) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(ReceivedDate.label(item.message.date, now: Date()))
+                        .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).layoutPriority(1)
+                }
+                Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button { peek() } label: { Label("Quick look", systemImage: "eye") }
+        } preview: {
+            SessionPeekBody(item: item, post: store.sessionPost(item.id)).frame(width: 340, height: 460)
+        }
+        .accessibilityHint("Shows a quick look at the email")
+        .accessibilityIdentifier("session.row.peek")
+    }
+}
+
+/// The quick look: who, when, the subject and the email's text. Read only; Open shows the full email.
+struct SessionPeek: View {
+    @Environment(FeedStore.self) private var store
+    @Environment(Router.self) private var router
+    @Environment(\.dismiss) private var dismiss
+    let item: SessionItem
+
+    var body: some View {
+        let post = store.sessionPost(item.id)
+        NavigationStack {
+            SessionPeekBody(item: item, post: post)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                    if let post {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("Open") { dismiss(); router.open(.email(post.id)) }.accessibilityIdentifier("session.peek.open")
+                        }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+struct SessionPeekBody: View {
+    let item: SessionItem
+    let post: Post?
+
+    var body: some View {
+        let full = post?.email.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = full.isEmpty ? item.message.text : full
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(item.message.fromName).font(.headline)
+                Text(item.message.fromAddress).font(.caption).foregroundStyle(CalmStyle.secondary).textSelection(.enabled)
+                Text(ReceivedDate.full(item.message.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                if !item.message.subject.isEmpty {
+                    Text(item.message.subject).font(.title3.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                }
+                Divider().overlay(CalmStyle.divider)
+                Text(text.isEmpty ? "Open the email to read it." : String(text.prefix(4_000)))
+                    .font(.body).foregroundStyle(text.isEmpty ? CalmStyle.secondary : CalmStyle.ink)
+                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
     }
 }
 
