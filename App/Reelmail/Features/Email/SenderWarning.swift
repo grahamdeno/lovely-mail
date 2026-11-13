@@ -21,14 +21,14 @@ struct SenderWarning: View {
             let strong = verdict.level == .warning
             VStack(alignment: .leading, spacing: 6) {
                 Label(verdict.title, systemImage: strong ? "exclamationmark.shield.fill" : "questionmark.circle.fill")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.lovely(.subheadline, .semibold))
                 ForEach(Array((compact ? Array(verdict.reasons.prefix(1)) : verdict.reasons).enumerated()), id: \.offset) { _, reason in
-                    Text(reason).font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Text(reason).font(.lovely(.caption)).fixedSize(horizontal: false, vertical: true)
                 }
                 if !compact {
                     Text(strong ? "Don't tap links, open attachments or reply until you are sure. You can move it to Trash."
                                 : "If you weren't expecting it, check before you tap any links.")
-                        .font(.caption)
+                        .font(.lovely(.caption))
                 }
             }
             .foregroundStyle(strong ? CalmStyle.roseInk : CalmStyle.warningInk)

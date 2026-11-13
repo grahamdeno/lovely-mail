@@ -27,13 +27,13 @@ struct CategoryResortView: View {
                     ForEach(groups) { g in
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(g.title).font(.body.weight(.medium))
+                                Text(g.title).font(.lovely(.body, .medium))
                                 Text((g.examples.first.map { $0 + " \u{00B7} " } ?? "") + "\(g.messageIDs.count) email\(g.messageIDs.count == 1 ? "" : "s")")
-                                    .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                             }
                             Spacer(minLength: 8)
                             if moved.contains(g.id) {
-                                Label("Moved", systemImage: "checkmark").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                                Label("Moved", systemImage: "checkmark").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                             } else {
                                 Button("Move") { pending = g; preview = CategoryResort.preview(g) }
                                     .buttonStyle(.borderedProminent).accessibilityIdentifier("resort.move.\(g.id)")

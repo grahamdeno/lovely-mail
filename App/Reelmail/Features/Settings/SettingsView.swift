@@ -31,7 +31,7 @@ struct SettingsView: View {
                 }
                 .padding(.top, 8)
                 Text(Self.versionLabel)
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
                     .onTapGesture {
                         // Five taps show Testing tools (and five more hide them): not an everyday setting.
@@ -84,11 +84,11 @@ struct AccountHeaderCard: View {
                     .foregroundStyle(CalmStyle.onBlue).frame(width: 44, height: 44)
                     .background(CalmStyle.blue, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(store.mode == .gmail ? (store.account ?? "Gmail") : "Demo mail").font(.headline).lineLimit(1).truncationMode(.middle)
-                    Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                    Text(store.mode == .gmail ? (store.account ?? "Gmail") : "Demo mail").font(.lovely(.headline)).lineLimit(1).truncationMode(.middle)
+                    Text(detail).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).contentShape(Rectangle())
@@ -110,7 +110,7 @@ struct AccountAttention: View {
             Text(store.needsMailAccess
                  ? "Google didn't give Lovely access to your mail. Tap Reconnect, and on Google's screen tick the Gmail box (or Select all) before Continue."
                  : "Google signed you out. While Lovely is in testing this happens every 7 days. Your loaded mail is still here.")
-                .font(.subheadline).padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .font(.lovely(.subheadline)).padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
         }
         if store.gmailConfigured, !(store.mode == .gmail && !store.needsReconnect) {
@@ -119,7 +119,7 @@ struct AccountAttention: View {
             }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("settings.connect")
         }
         if let error = store.errorMessage, !store.needsReconnect {
-            Text(error).font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(error).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
     }
 }
@@ -153,7 +153,7 @@ struct SettingsAccountView: View {
                 // Quiet on purpose, and last: it clears the mail kept on this phone.
                 Button(role: .destructive) { confirmDisconnect = true } label: {
                     Label("Disconnect Gmail", systemImage: "envelope.badge.shield.half.filled")
-                        .font(.subheadline).foregroundStyle(CalmStyle.roseInk)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.roseInk)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                 }.buttonStyle(.plain).padding(.top, 18).accessibilityIdentifier("settings.disconnect")
                 .confirmationDialog("Disconnect Gmail?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
@@ -253,18 +253,18 @@ struct LaterListView: View {
         SettingsPage(title: "Later") {
             let later = store.laterPosts
             if later.isEmpty {
-                Text("Nothing put off.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                Text("Nothing put off.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
             }
             ForEach(later, id: \.post.id) { item in
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(item.post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                        Text(item.post.email.subject).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
-                        Text("Back " + LaterSchedule.label(item.until, now: Date())).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text(item.post.email.from.name).font(.lovely(.subheadline, .semibold)).lineLimit(1)
+                        Text(item.post.email.subject).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                        Text("Back " + LaterSchedule.label(item.until, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     }
                     Spacer(minLength: 8)
                     Button("Bring back now") { store.bringBack(item.post.id) }
-                        .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
+                        .font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
                 }
                 .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
             }
@@ -305,7 +305,7 @@ struct MorningBriefCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle("Send a morning brief", isOn: Binding(get: { enabled }, set: { turn($0) }))
             if declined {
-                Text("Notifications are off for Lovely. Turn them on in the Settings app.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Notifications are off for Lovely. Turn them on in the Settings app.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             if enabled {
                 DatePicker("Time", selection: Binding(get: { time.wrappedValue }, set: { time.wrappedValue = $0; chosenByHand = true }), displayedComponents: .hourAndMinute)
@@ -313,16 +313,16 @@ struct MorningBriefCard: View {
                     Button("Let Lovely choose the time") {
                         UserDefaults.standard.removeObject(forKey: BriefSettings.minutesKey); chosenByHand = false
                         Task { await MorningBriefScheduler.reschedule(store: store) }
-                    }.font(.subheadline)
+                    }.font(.lovely(.subheadline))
                 } else {
-                    Text("Lovely chooses: 9:30 on weekdays, 10:00 on weekends, then it adjusts to when you open the app.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("Lovely chooses: 9:30 on weekdays, 10:00 on weekends, then it adjusts to when you open the app.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
                 Toggle("Evening check at 7 PM", isOn: $nudge)
                 Toggle("Show names in the brief", isOn: $names)
-                Text("Names can appear on your lock screen.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Names can appear on your lock screen.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             Text("A short note with counts, built on this iPhone from mail already loaded. It skips mornings with nothing to say.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -351,7 +351,7 @@ struct SettingsHeader: View {
     let text: String
     var first = false
     var body: some View {
-        Text(text.uppercased()).font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+        Text(text.uppercased()).font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             .padding(.top, first ? 4 : 18)
             .accessibilityAddTraits(.isHeader)
     }
@@ -365,10 +365,10 @@ struct SettingsRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Text(title).font(.body)
+                Text(title).font(.lovely(.body))
                 Spacer(minLength: 8)
-                if !value.isEmpty { Text(value).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1) }
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+                if !value.isEmpty { Text(value).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(1) }
+                Image(systemName: "chevron.right").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
             }
             .padding(.horizontal, 14).frame(minHeight: 48).frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).contentShape(Rectangle())
@@ -403,12 +403,12 @@ struct MorningBriefTestCard: View {
     var body: some View {
         let brief = MorningBriefScheduler.preview(store: store)
         VStack(alignment: .leading, spacing: 10) {
-            Text("MORNING BRIEF").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            Text("MORNING BRIEF").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             if let brief {
-                Text(brief.title).font(.subheadline.weight(.semibold))
-                Text(brief.body).font(.subheadline)
+                Text(brief.title).font(.lovely(.subheadline, .semibold))
+                Text(brief.body).font(.lovely(.subheadline))
             } else {
-                Text("The next brief would be skipped: nothing to say.").font(.subheadline)
+                Text("The next brief would be skipped: nothing to say.").font(.lovely(.subheadline))
             }
             Button {
                 Task {
@@ -417,8 +417,8 @@ struct MorningBriefTestCard: View {
                 }
             } label: { Label("Send a test brief", systemImage: "bell").frame(maxWidth: .infinity) }
                 .buttonStyle(CalmActionStyle())
-            if let note { Text(note).font(.caption).foregroundStyle(CalmStyle.secondary) }
-            Text("The test does not turn on the real brief.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            if let note { Text(note).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
+            Text("The test does not turn on the real brief.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -430,7 +430,7 @@ struct AboutPrivacyView: View {
     var body: some View {
         ScrollView {
             Text("Lovely reads your Gmail and writes summaries on this iPhone. Apart from Gmail, the only thing it fetches from the internet is company logos, from each company's own website, and you can turn that off in Settings under Look and feel. It changes Gmail in only two ways, both when you ask and both undoable: moving a message to Trash, and marking a message read when you tap Done. It never sends mail, never deletes anything for good, and never changes other labels. Loaded mail is kept encrypted on this phone and removed when you disconnect.")
-                .font(.body).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.body)).foregroundStyle(CalmStyle.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(20)
         }
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink)
@@ -449,7 +449,7 @@ struct AppearanceCard: View {
             .pickerStyle(.segmented)
             Text(appearance == .neon ? "Dark mode with neon: electric cyan for what you can tap, hot magenta for people waiting on you, and a glowing stripe."
                  : "Auto follows your iPhone's light and dark setting.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -463,14 +463,14 @@ struct PicturesCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle("Photos from your Contacts", isOn: Binding(get: { images.useContacts },
                                                              set: { on in Task { await images.setUseContacts(on) } }))
-                .font(.subheadline)
-            Text("Matched by email address on this iPhone. Nothing is uploaded.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.subheadline))
+            Text("Matched by email address on this iPhone. Nothing is uploaded.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             if !images.contactsStatus.isEmpty {
-                Text(images.contactsStatus).font(.caption).foregroundStyle(CalmStyle.roseInk)
+                Text(images.contactsStatus).font(.lovely(.caption)).foregroundStyle(CalmStyle.roseInk)
             }
-            Toggle("Company logos", isOn: $images.showLogos).font(.subheadline)
+            Toggle("Company logos", isOn: $images.showLogos).font(.lovely(.subheadline))
             Text("Fetched once from each company's own website and kept on this iPhone. Never for people, never through a third party.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -485,13 +485,13 @@ struct OtherAddressesCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Mail you send yourself from these shows under Notes to self, not Waiting on you.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             ForEach(store.otherAddresses, id: \.self) { address in
                 HStack {
-                    Text(address).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                    Text(address).font(.lovely(.subheadline)).lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 8)
                     Button("Remove", role: .destructive) { store.removeOtherAddress(address) }
-                        .font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 44)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 44)
                 }
             }
             HStack(spacing: 8) {
@@ -504,9 +504,9 @@ struct OtherAddressesCard: View {
                     .opacity(newAddress.trimmingCharacters(in: .whitespaces).isEmpty ? 0.45 : 1)
             }
             ForEach(store.pendingOtherAddresses.sorted(), id: \.self) { address in
-                Text("\(address) will be saved when your Gmail finishes loading.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("\(address) will be saved when your Gmail finishes loading.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
-            if let problem { Text(problem).font(.caption).foregroundStyle(CalmStyle.roseInk) }
+            if let problem { Text(problem).font(.lovely(.caption)).foregroundStyle(CalmStyle.roseInk) }
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -526,9 +526,9 @@ struct ProfileCard: View {
     let detail: String
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(CalmStyle.secondary)
-            Text(value).font(.headline)
-            Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(title).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+            Text(value).font(.lovely(.headline))
+            Text(detail).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -546,7 +546,7 @@ struct ChatSwitchCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle("Chat walk-through", isOn: $enabled)
             Text("Adds a text box to the walk-through for sorting rules, such as hiding a sender. Rules apply only after you tap Apply.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             Button("Remove rules made in chat (\(count))", role: .destructive) { store.removeChatRules(); count = LearnedRuleStore().chatRules.count }
                 .foregroundStyle(count == 0 ? CalmStyle.secondary : CalmStyle.roseInk)
                 .disabled(count == 0)
@@ -566,7 +566,7 @@ struct ICloudBackupCard: View {
             Toggle("Back up to iCloud", isOn: $enabled)
                 .onChange(of: enabled) { _, on in if on { SettingsSync.standard.start() } }
             Text("Households, kids, forwarding addresses and your Shoebox address, so a reinstall or a new iPhone gets them back. Mail and Gmail sign-in are never backed up.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
@@ -578,7 +578,7 @@ struct OpeningAnimationToggle: View {
     @AppStorage(LaunchAnimation.settingKey) private var on = true
     var body: some View {
         Toggle("Opening animation", isOn: $on)
-            .font(.body).tint(CalmStyle.blue)
+            .font(.lovely(.body)).tint(CalmStyle.blue)
             .padding(.horizontal, 14).frame(minHeight: 50)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
             .accessibilityIdentifier("settings.openingAnimation")
@@ -593,7 +593,7 @@ struct SplitPillToggle: View {
             Toggle("Split pill", isOn: $on).tint(CalmStyle.blue)
             Text(on ? "Home and People in a small pill, with one Ask or search field. Turn off to get the tab bar back."
                     : "Tab bar with Home, People and Search.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))

@@ -13,13 +13,13 @@ struct ActionPreviewSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(preview.title).font(.title3.weight(.semibold))
-                    ForEach(preview.lines, id: \.self) { Text($0).font(.body) }
+                    Text(preview.title).font(.lovely(.title3, .semibold))
+                    ForEach(preview.lines, id: \.self) { Text($0).font(.lovely(.body)) }
                     if !preview.recipients.isEmpty {
-                        Text("TO").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
-                        ForEach(preview.recipients, id: \.self) { Text($0).font(.body.weight(.medium)) }
+                        Text("TO").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
+                        ForEach(preview.recipients, id: \.self) { Text($0).font(.lovely(.body, .medium)) }
                     }
-                    Text("Nothing happens until you tap \(confirmTitle).").font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
+                    Text("Nothing happens until you tap \(confirmTitle).").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
                     Button(confirmTitle, role: destructive ? .destructive : nil) {
                         onConfirm(ConfirmedAction(preview: preview))
                         dismiss()
@@ -69,11 +69,11 @@ struct UndoBanner: View {
     private func fullBar(_ item: UndoQueue.Pending, hiddenCount: Int) -> some View {
         // Solid blue with a shadow so it stands out from cards behind it (it floats over the session screen).
         HStack(spacing: 10) {
-            Image(systemName: "arrow.uturn.backward.circle.fill").font(.title3).accessibilityHidden(true)
-            Text(item.title + (hiddenCount > 0 ? " (+\(hiddenCount) more)" : "")).font(.subheadline.weight(.medium)).lineLimit(2)
+            Image(systemName: "arrow.uturn.backward.circle.fill").font(.lovely(.title3)).accessibilityHidden(true)
+            Text(item.title + (hiddenCount > 0 ? " (+\(hiddenCount) more)" : "")).font(.lovely(.subheadline, .medium)).lineLimit(2)
             Spacer(minLength: 8)
             Button { store.undo.cancel(item.id) } label: {
-                Text("Undo").font(.subheadline.weight(.bold)).padding(.horizontal, 14).frame(minHeight: 36)
+                Text("Undo").font(.lovely(.subheadline, .bold)).padding(.horizontal, 14).frame(minHeight: 36)
                     .foregroundStyle(CalmStyle.blue).background(CalmStyle.onBlue, in: Capsule())
             }
             .buttonStyle(.plain).frame(minHeight: 44).accessibilityIdentifier("undo.banner")
@@ -94,7 +94,7 @@ struct UndoBanner: View {
                         .rotationEffect(.degrees(-90))
                 }
                 .frame(width: 20, height: 20)
-                Text("Undo").font(.subheadline.weight(.bold))
+                Text("Undo").font(.lovely(.subheadline, .bold))
             }
             .foregroundStyle(CalmStyle.onBlue)
             .padding(.horizontal, 14).frame(minHeight: 44)

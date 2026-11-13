@@ -10,13 +10,13 @@ struct OrganizationRow: View {
                 CalmAvatar(person: group.posts[0].email.from, size: 44, organization: true, domain: group.domain)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
-                        Text(group.name).font(.headline).lineLimit(1)
+                        Text(group.name).font(.lovely(.headline)).lineLimit(1)
                         Spacer(minLength: 8)
-                        Text(MailTime.label(group.latest)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text(MailTime.label(group.latest)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     }
                     Text(group.senders.count > 1 ? "\(group.posts.count) messages from \(group.senders.count) senders"
                                                  : "\(group.posts.count) message\(group.posts.count == 1 ? "" : "s")")
-                        .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                 }
             }
             .padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
@@ -128,7 +128,7 @@ struct OrganizationView: View {
                 .listRowInsets(insets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
             }
             Text("Senders group by company domain. Long-press a sender to split it out, or use Merge to join another organization.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.vertical, 16)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).padding(.vertical, 16)
                 .listRowInsets(insets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
@@ -154,13 +154,13 @@ struct OrganizationView: View {
             HStack(spacing: 14) {
                 CalmAvatar(person: group.posts[0].email.from, size: 56, organization: true, domain: group.domain)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(group.name).font(.title2.weight(.bold)).lineLimit(2)
-                    Text(group.domain ?? "Grouped by sender name").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Text(group.name).font(.lovely(.title2, .bold)).lineLimit(2)
+                    Text(group.domain ?? "Grouped by sender name").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("THE SHORT VERSION").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
-                Text(profile.shortVersion).font(.body).fixedSize(horizontal: false, vertical: true)
+                Text("THE SHORT VERSION").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                Text(profile.shortVersion).font(.lovely(.body)).fixedSize(horizontal: false, vertical: true)
             }
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
@@ -175,8 +175,8 @@ struct OrganizationView: View {
 
     private func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.title3.weight(.bold)).lineLimit(1)
-            Text(label).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+            Text(value).font(.lovely(.title3, .bold)).lineLimit(1)
+            Text(label).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
         }
         // Every tile fills the row's height so the three line up even when one label wraps.
         .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -197,9 +197,9 @@ struct OrganizationView: View {
         let isSplit = store.rules.organizationOverrides[address] != nil
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(address).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                Text(address).font(.lovely(.subheadline)).lineLimit(1).truncationMode(.middle)
                 Text(rule == .reading ? "\(count) · goes to Reading" : rule == .filtered ? "\(count) · filtered" : "\(count) message\(count == 1 ? "" : "s")")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             Spacer(minLength: 8)
             Menu {
@@ -214,7 +214,7 @@ struct OrganizationView: View {
                     Button { store.splitOut(sender: address) } label: { Label("Split this sender out", systemImage: "arrow.triangle.branch") }
                 }
             } label: {
-                Image(systemName: "ellipsis.circle").font(.title3).frame(minWidth: 44, minHeight: 44)
+                Image(systemName: "ellipsis.circle").font(.lovely(.title3)).frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel("Options for \(address)")
         }

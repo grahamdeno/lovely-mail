@@ -28,7 +28,7 @@ struct SummaryLabView: View {
 
                 ForEach(model.results) { LabResultCard(result: $0) }
 
-                Text("Paste an email").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Paste an email").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     .padding(.top, 8)
                 TextEditor(text: $model.pasted)
                     .scrollContentBackground(.hidden)
@@ -46,7 +46,7 @@ struct SummaryLabView: View {
                 if let r = model.pastedResult { LabResultCard(result: r) }
 
                 Text("Everything here runs on this iPhone. Nothing is sent anywhere, and email text is never logged.")
-                    .font(.caption2).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(16)
         }
@@ -72,7 +72,7 @@ struct SummaryLabView: View {
             }
             if model.successes.count < model.results.count {
                 Text("\(model.results.count - model.successes.count) failed")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
         }
     }
@@ -84,15 +84,15 @@ struct LabResultCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(result.label).font(.caption2).foregroundStyle(CalmStyle.secondary)
+                Text(result.label).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
                 Spacer()
                 Text(String(format: "%.0f ms", result.milliseconds))
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(CalmStyle.secondary)
             }
             if let s = result.summary {
-                Text(s.headline).font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.ink)
-                Text(s.blurb).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(s.headline).font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.ink)
+                Text(s.blurb).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 HStack(spacing: 6) {
                     Tag(s.engine == .appleIntelligence ? "AI" : "fallback")
                     Tag(s.category.label)
@@ -100,9 +100,9 @@ struct LabResultCard: View {
                     if s.sensitive { Tag("sensitive") }
                 }
                 Text("photo: \(s.imageQuery)" + (s.dates.isEmpty ? "" : " · dates: " + s.dates.joined(separator: ", ")))
-                    .font(.caption2).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
             } else if let e = result.error {
-                Text(e).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(e).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
         }
         .padding(12)
@@ -118,7 +118,7 @@ private struct Tag: View {
 
     var body: some View {
         Text(text)
-            .font(.caption2)
+            .font(.lovely(.caption2))
             .foregroundStyle(CalmStyle.secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -133,8 +133,8 @@ struct StatTile: View {
     var highlight = false
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.headline).foregroundStyle(highlight ? CalmStyle.blue : CalmStyle.ink).lineLimit(1)
-            Text(label).font(.caption2).foregroundStyle(CalmStyle.secondary)
+            Text(value).font(.lovely(.headline)).foregroundStyle(highlight ? CalmStyle.blue : CalmStyle.ink).lineLimit(1)
+            Text(label).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))

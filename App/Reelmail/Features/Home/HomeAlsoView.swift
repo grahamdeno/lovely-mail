@@ -8,9 +8,9 @@ struct HomeAlsoView: View {
     var body: some View {
         if !sentences.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text("ALSO").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                Text("ALSO").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                 Text(attributed)
-                    .font(.body).lineSpacing(4).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
+                    .font(.lovely(.body)).lineSpacing(4).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
                     .fixedSize(horizontal: false, vertical: true)
                     .environment(\.openURL, OpenURLAction { url in
                         guard url.scheme == Self.scheme, let link = HomeAlso.Link(rawValue: url.host() ?? "") else { return .systemAction }
@@ -81,7 +81,7 @@ struct ShortcutRow: View {
             HStack(spacing: 8) {
                 ForEach(items) { item in
                     Button { picked(); router.open(item.route) } label: {
-                        Label(item.title, systemImage: item.symbol).font(.subheadline).foregroundStyle(CalmStyle.ink)
+                        Label(item.title, systemImage: item.symbol).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.ink)
                             .padding(.horizontal, 12).frame(minHeight: 36)
                             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous).strokeBorder(CalmStyle.divider))

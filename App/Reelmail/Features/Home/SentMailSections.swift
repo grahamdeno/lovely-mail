@@ -32,9 +32,9 @@ struct PromiseCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("\u{201C}\(item.text)\u{201D}").font(.subheadline.weight(.medium))
+                Text("\u{201C}\(item.text)\u{201D}").font(.lovely(.subheadline, .medium))
                     .fixedSize(horizontal: false, vertical: true)
-                Text(sentLine(item.email, now: Date(), store: store)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(sentLine(item.email, now: Date(), store: store)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             HStack(spacing: 8) {
                 Button { store.closePromise(item) } label: { Label("Done", systemImage: "checkmark") }
@@ -49,7 +49,7 @@ struct PromiseCard: View {
                     Button { store.closePromise(item, notAPromise: true) } label: { Label("Not a promise", systemImage: "xmark.circle") }
                     Button { openInGmail(item.email) } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                 } label: {
-                    Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(width: 44, height: 40)
+                    Image(systemName: "ellipsis").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.blue).frame(width: 44, height: 40)
                 }
                 .accessibilityLabel("More actions")
             }
@@ -74,10 +74,10 @@ struct WaitingOnThemRow: View {
     var body: some View {
         Button { router.open(.waitingOnThem) } label: {
             HStack(spacing: 10) {
-                Text("Waiting on them · \(count)").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                Text("Waiting on them · \(count)").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                 Spacer()
-                Text("Asks with no answer yet").font(.caption).foregroundStyle(CalmStyle.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Text("Asks with no answer yet").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.horizontal, 14).frame(minHeight: 48)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
@@ -95,8 +95,8 @@ struct ThreadAskRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("You asked " + HomeDigest.age(of: item.email.date, now: Date()) + " ago, no answer yet").font(.subheadline.weight(.medium))
-            Text("\u{201C}\(item.ask)\u{201D}").font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+            Text("You asked " + HomeDigest.age(of: item.email.date, now: Date()) + " ago, no answer yet").font(.lovely(.subheadline, .medium))
+            Text("\u{201C}\(item.ask)\u{201D}").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
             HStack(spacing: 8) {
                 Button {
                     let first = GmailMessageParser.person(fromHeader: item.email.to.first ?? "").firstName
@@ -123,18 +123,18 @@ struct WaitingOnThemListView: View {
         let items = store.waitingOnThem
         List {
             if items.isEmpty {
-                Text("Nothing you asked is waiting on an answer.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                Text("Nothing you asked is waiting on an answer.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                     .listRowBackground(CalmStyle.background).listRowSeparator(.hidden)
             }
             ForEach(items) { item in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(GmailMessageParser.person(fromHeader: item.email.to.first ?? "").name)
-                            .font(.headline).lineLimit(1)
+                            .font(.lovely(.headline)).lineLimit(1)
                         Spacer(minLength: 8)
-                        Text(HomeDigest.age(of: item.email.date, now: Date())).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text(HomeDigest.age(of: item.email.date, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     }
-                    Text("\u{201C}\(item.ask)\u{201D}").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Text("\u{201C}\(item.ask)\u{201D}").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
                         Button {
@@ -172,7 +172,7 @@ struct PromisesListView: View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 if items.isEmpty {
-                    Text("Nothing you promised is open.").font(.subheadline).foregroundStyle(CalmStyle.secondary).padding(.top, 24)
+                    Text("Nothing you promised is open.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).padding(.top, 24)
                 }
                 ForEach(items) { PromiseCard(item: $0) }
             }.padding(.horizontal, 20).padding(.top, 8)
@@ -200,9 +200,9 @@ struct NudgeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Draft").font(.title3.weight(.semibold))
-            Text("To \(to) · \(subject)").font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
-            TextEditor(text: $draft).scrollContentBackground(.hidden).font(.body).padding(8)
+            Text("Draft").font(.lovely(.title3, .semibold))
+            Text("To \(to) · \(subject)").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+            TextEditor(text: $draft).scrollContentBackground(.hidden).font(.lovely(.body)).padding(8)
                 .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
             HStack(spacing: 8) {
                 Button { UIPasteboard.general.string = draft; copied = true } label: {
@@ -212,7 +212,7 @@ struct NudgeSheet: View {
                 Button { open() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app") }
                     .buttonStyle(CalmActionStyle(prominent: true))
             }
-            Text("This one opens in Gmail for you to send.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("This one opens in Gmail for you to send.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(CalmStyle.background).foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)

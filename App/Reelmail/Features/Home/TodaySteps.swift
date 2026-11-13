@@ -12,10 +12,10 @@ struct TodayStepsCard: View {
         VStack(alignment: .leading, spacing: 14) {
             Button { router.open(.brief) } label: {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Today").font(.title2.weight(.bold)).foregroundStyle(CalmStyle.ink)
+                    Text("Today").font(.lovely(.title2, .bold)).foregroundStyle(CalmStyle.ink)
                     Spacer()
-                    Text(steps.isEmpty ? "Brief" : "\(done) of \(steps.count) done").font(.subheadline).foregroundStyle(CalmStyle.secondary)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    Text(steps.isEmpty ? "Brief" : "\(done) of \(steps.count) done").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
+                    Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -32,7 +32,7 @@ struct TodayStepsCard: View {
             }
             if steps.isEmpty || active == nil {
                 Text(steps.isEmpty ? "Nothing needs you right now." : "All done for today.")
-                    .font(.headline).foregroundStyle(CalmStyle.secondary).padding(.vertical, 6)
+                    .font(.lovely(.headline)).foregroundStyle(CalmStyle.secondary).padding(.vertical, 6)
             }
             // The lit step as a full card, the other open steps as compact rows that still say what they are and when,
             // then finished steps as single crossed-out lines (owner, Nov 9: he wants to see each step to decide).
@@ -49,16 +49,16 @@ struct TodayStepsCard: View {
     private func openRow(_ step: TodayStep, number: Int) -> some View {
         Button { open(step) } label: {
             HStack(alignment: .center, spacing: 12) {
-                Text("\(number)").font(.subheadline.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                Text("\(number)").font(.lovely(.subheadline, .bold)).foregroundStyle(CalmStyle.secondary)
                     .frame(width: 30, height: 30)
                     .overlay(Circle().strokeBorder(CalmStyle.secondary.opacity(0.6), lineWidth: 2))
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(step.title).font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink).lineLimit(1)
-                        Text(step.detail).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                        Text(step.title).font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink).lineLimit(1)
+                        Text(step.detail).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                     }
                     Spacer(minLength: 6)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
@@ -71,12 +71,12 @@ struct TodayStepsCard: View {
 
     private func doneRow(_ step: TodayStep) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "checkmark").font(.caption2.weight(.bold)).foregroundStyle(CalmStyle.blue)
+            Image(systemName: "checkmark").font(.lovely(.caption2, .bold)).foregroundStyle(CalmStyle.blue)
                 .frame(width: 24, height: 24).background(CalmStyle.blue.opacity(0.2), in: Circle())
                 .frame(width: 30)
-            Text(step.title).font(.footnote).strikethrough().foregroundStyle(CalmStyle.secondary).lineLimit(1)
+            Text(step.title).font(.lovely(.footnote)).strikethrough().foregroundStyle(CalmStyle.secondary).lineLimit(1)
             Spacer(minLength: 6)
-            Text(step.kind == .bill ? "Paid" : "Done").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(step.kind == .bill ? "Paid" : "Done").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Done: " + step.title)
@@ -87,19 +87,19 @@ struct TodayStepsCard: View {
             ZStack {
                 if step.done {
                     Circle().fill(CalmStyle.blue.opacity(0.2))
-                    Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.blue)
+                    Image(systemName: "checkmark").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.blue)
                 } else if isActive {
                     Circle().fill(CalmStyle.blue)
-                    Text("\(number)").font(.subheadline.weight(.bold)).foregroundStyle(CalmStyle.onBlue)
+                    Text("\(number)").font(.lovely(.subheadline, .bold)).foregroundStyle(CalmStyle.onBlue)
                 } else {
                     Circle().strokeBorder(CalmStyle.secondary.opacity(0.6), lineWidth: 2)
-                    Text("\(number)").font(.subheadline.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                    Text("\(number)").font(.lovely(.subheadline, .bold)).foregroundStyle(CalmStyle.secondary)
                 }
             }
             .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 3) {
-                Text(step.title).font(.headline).strikethrough(step.done).foregroundStyle(step.done ? CalmStyle.secondary : CalmStyle.ink)
-                Text(step.detail).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                Text(step.title).font(.lovely(.headline)).strikethrough(step.done).foregroundStyle(step.done ? CalmStyle.secondary : CalmStyle.ink)
+                Text(step.detail).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                 if isActive {
                     Button(buttonTitle(step)) { open(step) }
                         .buttonStyle(SessionButtonStyle())

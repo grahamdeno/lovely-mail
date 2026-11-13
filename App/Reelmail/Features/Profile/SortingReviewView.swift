@@ -29,12 +29,12 @@ struct SortingReviewView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 Text("For each message, tap Right if Lovely put it in the right place, or pick where it belongs. Your answers stay on this phone and don't change sorting.")
-                    .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 if let review = store.review {
                     tally(review)
                     ForEach(recent) { post in ReviewRow(post: post, review: review, isPrivate: isPrivate(post)) }
                 } else {
-                    Text("Connect Gmail to review sorting.").font(.subheadline)
+                    Text("Connect Gmail to review sorting.").font(.lovely(.subheadline))
                 }
             }
             .padding(20)
@@ -48,12 +48,12 @@ struct SortingReviewView: View {
         let right = reviewed.filter(\.verdict.isRight).count
         VStack(alignment: .leading, spacing: 10) {
             Text(reviewed.isEmpty ? "Nothing reviewed yet" : "\(right) of \(reviewed.count) right")
-                .font(.headline)
-            Text("Showing your \(recent.count) newest messages.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.headline))
+            Text("Showing your \(recent.count) newest messages.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             if !reviewed.isEmpty {
-                Toggle("Include subjects when sharing", isOn: $includeSubjects).font(.subheadline)
+                Toggle("Include subjects when sharing", isOn: $includeSubjects).font(.lovely(.subheadline))
                 Text("Without subjects, the summary has only counts and the rule's reason, with names removed.")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 HStack {
                     ShareLink(item: SortingReviewSummary.text(reviewed, includeSubjects: includeSubjects)) {
                         Label("Share summary", systemImage: "square.and.arrow.up").lineLimit(1)
@@ -85,12 +85,12 @@ private struct ReviewRow: View {
         let verdict = review.verdict(for: post.id)
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(post.email.from.name).font(.lovely(.subheadline, .semibold)).lineLimit(1)
                 Spacer()
-                Text(MailTime.short(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(MailTime.short(post.email.date)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
-            Text(isPrivate ? "Private message" : post.email.subject).font(.subheadline).lineLimit(2)
-            Text("In \(assessment.section.title). \(assessment.reason)").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(isPrivate ? "Private message" : post.email.subject).font(.lovely(.subheadline)).lineLimit(2)
+            Text("In \(assessment.section.title). \(assessment.reason)").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             if let verdict {
                 HStack {
                     if verdict.isRight {
@@ -102,7 +102,7 @@ private struct ReviewRow: View {
                     Spacer()
                     Button("Change") { review.clear(post.id) }.buttonStyle(CalmActionStyle()).fixedSize()
                 }
-                .font(.subheadline)
+                .font(.lovely(.subheadline))
             } else {
                 HStack(spacing: 8) {
                     Button { review.mark(post.id, shown: assessment.section, correct: assessment.section) } label: {

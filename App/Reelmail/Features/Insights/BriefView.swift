@@ -27,10 +27,10 @@ struct BriefView: View {
         let appointments = BriefContent.upcomingAppointments(store.insights.store, now: now)
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text(now.formatted(.dateTime.weekday(.wide).month().day())).font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                Text(now.formatted(.dateTime.weekday(.wide).month().day())).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 ForEach(money.alarms) { b in
                     Button { router.open(.money) } label: {
-                        Text("\(b.payee) reports a payment problem.").font(.subheadline.weight(.semibold))
+                        Text("\(b.payee) reports a payment problem.").font(.lovely(.subheadline, .semibold))
                             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                             .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
                     }.buttonStyle(.plain)
@@ -72,14 +72,14 @@ struct BriefView: View {
     }
 
     private func header(_ text: String) -> some View {
-        Text(text.uppercased()).font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
+        Text(text.uppercased()).font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
     }
 
     private func line(_ title: String, sub: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body).lineLimit(1)
-                Text(sub).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2).multilineTextAlignment(.leading)
+                Text(title).font(.lovely(.body)).lineLimit(1)
+                Text(sub).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(2).multilineTextAlignment(.leading)
             }
             .padding(.horizontal, 14).padding(.vertical, 8).frame(minHeight: 48).frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
@@ -111,9 +111,9 @@ struct BriefRow: View {
     var body: some View {
         Button { router.open(.brief) } label: {
             HStack(spacing: 10) {
-                Text("Today's brief").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                Text("Today's brief").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.horizontal, 14).frame(minHeight: 48)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))

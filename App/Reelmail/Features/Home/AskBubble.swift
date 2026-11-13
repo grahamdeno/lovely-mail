@@ -7,7 +7,7 @@ struct AskBubble: View {
 
     var body: some View {
         Button { open = true } label: {
-            Image(systemName: "sparkles").font(.title3.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
+            Image(systemName: "sparkles").font(.lovely(.title3, .semibold)).foregroundStyle(CalmStyle.onBlue)
                 .frame(width: 56, height: 56)
                 .background(CalmStyle.blue, in: Circle())
                 .shadow(color: .black.opacity(0.18), radius: 8, y: 3)

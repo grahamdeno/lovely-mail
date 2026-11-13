@@ -17,7 +17,7 @@ struct SearchView: View {
             if pill {
                 Button { router.open(.askLovely(router.searchText)); router.searchText = "" } label: {
                     Label("Ask Lovely about \u{201C}\(router.searchText)\u{201D}", systemImage: "sparkles")
-                        .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.onBlue).lineLimit(2)
+                        .font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.onBlue).lineLimit(2)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.horizontal, 14)
                         .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                 }
@@ -26,7 +26,7 @@ struct SearchView: View {
             } else {
             // Pinned: title and search field stay visible while results scroll.
             VStack(alignment: .leading, spacing: 0) {
-                Text("Search").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader).padding(.bottom, 12)
+                Text("Search").font(.lovely(.title, .bold)).accessibilityAddTraits(.isHeader).padding(.bottom, 12)
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
                     TextField("People, organizations, subjects", text: $query)
@@ -45,9 +45,9 @@ struct SearchView: View {
                     let groups = store.searchOrganizations(activeQuery)
                     if activeQuery.isEmpty {
                         Text("Searches the mail loaded on this phone. Nothing leaves it.")
-                            .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 12)
+                            .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).padding(.top, 12)
                     } else if results.isEmpty, people.isEmpty, groups.isEmpty {
-                        Text("No matches in loaded mail.").font(.subheadline).foregroundStyle(CalmStyle.secondary).padding(.top, 12)
+                        Text("No matches in loaded mail.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).padding(.top, 12)
                     }
                     if !people.isEmpty {
                         DigestTitle(text: "People", count: people.count).padding(.top, 10)
@@ -56,8 +56,8 @@ struct SearchView: View {
                                 HStack(spacing: 12) {
                                     CalmAvatar(person: person, size: 36)
                                     VStack(alignment: .leading, spacing: 1) {
-                                        Text(person.name).font(.headline).lineLimit(1)
-                                        Text(person.email).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                        Text(person.name).font(.lovely(.headline)).lineLimit(1)
+                                        Text(person.email).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                                     }
                                     Spacer(minLength: 0)
                                 }

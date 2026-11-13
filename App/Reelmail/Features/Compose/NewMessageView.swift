@@ -6,10 +6,10 @@ struct NewMessageView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader)
-            Text("Write it in Gmail").font(.headline)
+            Text("New").font(.lovely(.title, .bold)).accessibilityAddTraits(.isHeader)
+            Text("Write it in Gmail").font(.lovely(.headline))
             Text("Lovely reads your mail and drafts replies, but it never sends. New emails open in Gmail so you stay in control.")
-                .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
             Button {
                 if let app = GmailCompose.appURL(to: "", subject: "", body: "") {
                     openURL(app) { ok in

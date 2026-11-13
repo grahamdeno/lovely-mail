@@ -21,10 +21,10 @@ struct PeopleView: View {
             // Pinned: title and search stay visible while the list scrolls.
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("People").font(.title.weight(.bold)).accessibilityAddTraits(.isHeader)
+                    Text("People").font(.lovely(.title, .bold)).accessibilityAddTraits(.isHeader)
                     Spacer()
                     Text(store.mode == .sample ? "Demo" : "Loaded mail")
-                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }.padding(.bottom, 12)
                 if !splitPill {
                     HStack(spacing: 10) {
@@ -50,7 +50,7 @@ struct PeopleView: View {
                             AskLovelyUsage().recordAsk(); router.searchText = ""; router.open(.askLovely(text))
                         } label: {
                             Label("Ask Lovely: \u{201C}\(activeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}", systemImage: "sparkles")
-                                .font(.subheadline.weight(.medium)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                                .font(.lovely(.subheadline, .medium)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                         }
                         .buttonStyle(.plain).foregroundStyle(CalmStyle.blue).padding(.top, 12)
@@ -61,7 +61,7 @@ struct PeopleView: View {
                     }
                     if people.isEmpty, groups.isEmpty {
                         Text(activeQuery.isEmpty ? "No people or organizations in the loaded mail yet." : "No matches.")
-                            .font(.body).padding(.vertical, 24)
+                            .font(.lovely(.body)).padding(.vertical, 24)
                     }
                     ForEach(people) { person in
                         let latest = store.conversation(with: person).last
@@ -70,15 +70,15 @@ struct PeopleView: View {
                                 CalmAvatar(person: person, size: 44, waiting: store.needsReply(person))
                                 VStack(alignment: .leading, spacing: 5) {
                                     ViewThatFits(in: .horizontal) {
-                                        HStack { Text(person.name).font(.headline); Spacer(minLength: 8); time(latest) }
-                                        VStack(alignment: .leading, spacing: 4) { Text(person.name).font(.headline); time(latest) }
+                                        HStack { Text(person.name).font(.lovely(.headline)); Spacer(minLength: 8); time(latest) }
+                                        VStack(alignment: .leading, spacing: 4) { Text(person.name).font(.lovely(.headline)); time(latest) }
                                     }
                                     if store.sharesName(person) {
-                                        Text(person.email).font(.caption).foregroundStyle(CalmStyle.secondary)
+                                        Text(person.email).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                                     }
                                     if let latest {
                                         Text(ConversationPresentation.rowText(latest, summary: store.post(for: latest)?.summary))
-                                            .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                                            .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                                     }
                                 }
                                 if store.hasUnread(person) {
@@ -103,7 +103,7 @@ struct PeopleView: View {
                         }
                     }
                     Text(store.mode == .sample ? "Fictional connections and messages." : "People from loaded mail, not your complete address book.")
-                        .font(.caption).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
+                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
                 }.padding(.horizontal, 20).padding(.bottom, 20)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -120,7 +120,7 @@ struct PeopleView: View {
 
     @ViewBuilder private func time(_ email: Email?) -> some View {
         if let email {
-            Text(MailTime.label(email.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(MailTime.label(email.date)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
     }
 }
@@ -132,14 +132,14 @@ struct OrganizationsShortcut: View {
     var body: some View {
         Button { router.open(.organizationList) } label: {
             HStack(spacing: 10) {
-                Text("Organizations · \(groups.count)").font(.subheadline.weight(.semibold))
+                Text("Organizations · \(groups.count)").font(.lovely(.subheadline, .semibold))
                 Spacer(minLength: 8)
                 HStack(spacing: 6) {
                     ForEach(groups.prefix(4)) { group in
                         CalmAvatar(person: group.posts[0].email.from, size: 26, organization: true, domain: group.domain)
                     }
                 }
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary).accessibilityHidden(true)
             }
             .padding(.horizontal, 14).frame(minHeight: 48).frame(maxWidth: .infinity)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12)).contentShape(Rectangle())

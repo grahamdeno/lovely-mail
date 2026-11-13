@@ -22,18 +22,18 @@ struct TextAboutSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("WHO?").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("WHO?").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                     if recipients.isEmpty {
                         Text("Pick someone from your contacts. Next time they'll be right here.")
-                            .font(.callout).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     }
                     ForEach(recipients) { r in
                         Button { chosen = r } label: {
                             HStack {
                                 Image(systemName: chosen == r ? "checkmark.circle.fill" : "circle").foregroundStyle(CalmStyle.blue)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(r.name).font(.body.weight(.medium))
-                                    Text(r.phone).font(.caption).foregroundStyle(CalmStyle.secondary)
+                                    Text(r.name).font(.lovely(.body, .medium))
+                                    Text(r.phone).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                                 }
                                 Spacer()
                             }
@@ -45,13 +45,13 @@ struct TextAboutSheet: View {
                     Button { picking = true } label: { Label("Choose from Contacts", systemImage: "person.crop.circle.badge.plus") }
                         .frame(minHeight: 44).foregroundStyle(CalmStyle.blue).accessibilityIdentifier("textAbout.pick")
 
-                    Text("MESSAGE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
+                    Text("MESSAGE").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 6)
                     TextEditor(text: $draft)
                         .focused($editing)
                         .frame(minHeight: 140).scrollContentBackground(.hidden)
                         .padding(10).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                         .accessibilityIdentifier("textAbout.draft")
-                    Text("Opens Messages with this filled in. You tap Send there.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("Opens Messages with this filled in. You tap Send there.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
                 .padding(20)
             }

@@ -29,7 +29,7 @@ struct SessionButtonStyle: ButtonStyle {
     var prominent = true
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.semibold))
+            .font(.lovely(.body, .semibold))
             .lineLimit(2).multilineTextAlignment(.center)
             .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 54)
             .foregroundStyle(prominent ? CalmStyle.onBlue : CalmStyle.blue)
@@ -50,14 +50,14 @@ struct SessionStartCard: View {
     var body: some View {
         Button { router.open(backlog ? .backlog : .session) } label: {
             HStack(spacing: 14) {
-                Image(systemName: "tray.full").font(.title3.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
+                Image(systemName: "tray.full").font(.lovely(.title3, .semibold)).foregroundStyle(CalmStyle.onBlue)
                     .frame(width: 44, height: 44).background(CalmStyle.blue, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(backlog ? "Clear older mail" : "Go through your inbox").font(.headline).foregroundStyle(CalmStyle.ink)
-                    Text(subtitle).font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Text(backlog ? "Clear older mail" : "Go through your inbox").font(.lovely(.headline)).foregroundStyle(CalmStyle.ink)
+                    Text(subtitle).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 18))

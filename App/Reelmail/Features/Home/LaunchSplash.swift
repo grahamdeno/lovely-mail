@@ -14,7 +14,7 @@ struct LaunchSplash: View {
             .frame(width: 128, height: 128)
             .accessibilityHidden(true)
             Wordmark(size: 40)
-            Text("Get through your email.").font(.callout).foregroundStyle(CalmStyle.secondary)
+            Text("Get through your email.").font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CalmStyle.background)

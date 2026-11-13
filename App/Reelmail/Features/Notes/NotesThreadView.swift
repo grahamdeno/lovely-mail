@@ -33,11 +33,11 @@ struct NotesThreadView: View {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         if entries.isEmpty {
                             Text("Email yourself a note and it shows up here. Then talk it through with Lovely.")
-                                .font(.callout).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
+                                .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary).padding(.top, 20)
                         }
                         ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                             if index == 0 || !Calendar.current.isDate(entries[index - 1].date, inSameDayAs: entry.date) {
-                                Text(NotesThreadView.dayHeader(entry.date)).font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                                Text(NotesThreadView.dayHeader(entry.date)).font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                                     .frame(maxWidth: .infinity).padding(.top, 6)
                             }
                             ZStack(alignment: .trailing) {
@@ -50,8 +50,8 @@ struct NotesThreadView: View {
                                 .offset(x: reveal)
                                 // Revealed by the swipe: the time, and what it was (a note from Gmail, typed here, or which engine answered).
                                 VStack(alignment: .trailing, spacing: 1) {
-                                    Text(entry.date.formatted(date: .omitted, time: .shortened)).font(.caption2.weight(.semibold))
-                                    Text(caption(entry)).font(.caption2).lineLimit(2).multilineTextAlignment(.trailing)
+                                    Text(entry.date.formatted(date: .omitted, time: .shortened)).font(.lovely(.caption2, .semibold))
+                                    Text(caption(entry)).font(.lovely(.caption2)).lineLimit(2).multilineTextAlignment(.trailing)
                                 }
                                 .foregroundStyle(CalmStyle.secondary)
                                 .frame(width: NotesThreadView.revealWidth - 6, alignment: .trailing)
@@ -61,7 +61,7 @@ struct NotesThreadView: View {
                             .id(entry.id)
                         }
                         if thinking { ProgressView().frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 12).id("thinking") }
-                        if let problem { Text(problem).font(.caption).foregroundStyle(CalmStyle.secondary).id("problem") }
+                        if let problem { Text(problem).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).id("problem") }
                     }
                     .padding(.horizontal, 16).padding(.vertical, 12)
                 }
@@ -118,8 +118,8 @@ struct NotesThreadView: View {
         return VStack(alignment: .trailing, spacing: 4) {
             Button { focusedID = post.id } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    if !post.email.subject.isEmpty { Text(post.email.subject).font(.subheadline.weight(.semibold)) }
-                    if !body.isEmpty, body != post.email.subject { Text(body).font(.subheadline) }
+                    if !post.email.subject.isEmpty { Text(post.email.subject).font(.lovely(.subheadline, .semibold)) }
+                    if !body.isEmpty, body != post.email.subject { Text(body).font(.lovely(.subheadline)) }
                 }
                 .foregroundStyle(CalmStyle.onBlue)
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -128,7 +128,7 @@ struct NotesThreadView: View {
             }
             .buttonStyle(.plain)
             .contextMenu { Button("Open the email") { router.open(.email(post.id)) } }
-            Text("Note · " + post.email.date.formatted(date: .abbreviated, time: .shortened)).font(.caption2).foregroundStyle(CalmStyle.secondary)
+            Text("Note · " + post.email.date.formatted(date: .abbreviated, time: .shortened)).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 48)
         .accessibilityIdentifier("notes.note")
@@ -137,13 +137,13 @@ struct NotesThreadView: View {
     private func messageBubble(_ m: NoteChatMessage) -> some View {
         let mine = m.role == .me
         return VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
-            Text(m.text).font(.subheadline)
+            Text(m.text).font(.lovely(.subheadline))
                 .foregroundStyle(mine ? CalmStyle.onBlue : CalmStyle.ink)
                 .padding(.horizontal, 14).padding(.vertical, 10)
                 .background(mine ? CalmStyle.blue.opacity(0.85) : CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 18))
                 .textSelection(.enabled)
             if !mine, let post = notes.first(where: { $0.id == m.noteID }) { suggestion(m, post) }
-            if !mine, let engine = m.engine { Text(engine).font(.caption2).foregroundStyle(CalmStyle.secondary) }
+            if !mine, let engine = m.engine { Text(engine).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary) }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
         .padding(mine ? .leading : .trailing, 48)
@@ -193,7 +193,7 @@ struct NotesThreadView: View {
     private func chip(_ title: String, rose: Bool = false, action: @escaping () -> Void) -> some View {
         let tint = rose ? CalmStyle.roseInk : CalmStyle.blue
         return Button(action: action) {
-            Text(title).font(.caption.weight(.semibold)).lineLimit(1).padding(.horizontal, 12).frame(minHeight: 36)
+            Text(title).font(.lovely(.caption, .semibold)).lineLimit(1).padding(.horizontal, 12).frame(minHeight: 36)
                 .foregroundStyle(tint).background(tint.opacity(0.1), in: Capsule())
         }
         .buttonStyle(.plain)

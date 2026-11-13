@@ -10,19 +10,19 @@ struct EngineSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Apple Intelligence").font(.headline)
+                    Text("Apple Intelligence").font(.lovely(.headline))
                     Text("Understands what you say in a session, answers questions about your mail, and reads calendar photos, all on this iPhone. Health mail never leaves it.")
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     Label(ModelStatus.current.isAvailable ? "On" : "Off on this iPhone", systemImage: ModelStatus.current.isAvailable ? "checkmark.circle.fill" : "exclamationmark.circle")
-                        .font(.caption.weight(.semibold)).foregroundStyle(ModelStatus.current.isAvailable ? CalmStyle.green : CalmStyle.roseInk)
+                        .font(.lovely(.caption, .semibold)).foregroundStyle(ModelStatus.current.isAvailable ? CalmStyle.green : CalmStyle.roseInk)
                         .accessibilityIdentifier("engine.apple.status")
                 }
                 .padding(14).frame(maxWidth: .infinity, alignment: .leading).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("WHAT GOES OUT").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("WHAT GOES OUT").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                     Text("Nothing goes to Claude or to the Grok API. Anything that needs the web (a form, a sign-up, a search on a site) becomes a Hand to Grok task: you see it first, and one tap sends it to your Grok Bot.")
-                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
 
                 Button { router.open(.engineScorecard) } label: { Label("Engine scorecard", systemImage: "checklist").frame(maxWidth: .infinity) }
@@ -48,14 +48,14 @@ struct EngineScorecardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("\(EngineScorecard.cases.count) made-up requests, each with the right answer. Run an engine to see how many it gets right.")
-                    .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                 ForEach(EngineKind.allCases) { kind in
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(kind.name).font(.headline)
+                            Text(kind.name).font(.lovely(.headline))
                             Spacer()
                             if let r = results[kind] {
-                                Text("\(r.filter(\.passed).count) of \(r.count)").font(.headline).foregroundStyle(CalmStyle.blue)
+                                Text("\(r.filter(\.passed).count) of \(r.count)").font(.lovely(.headline)).foregroundStyle(CalmStyle.blue)
                             }
                         }
                         Button(running == kind ? "Running…" : "Run") { run(kind) }
@@ -65,7 +65,7 @@ struct EngineScorecardView: View {
                             ForEach(r.filter { !$0.passed }) { miss in
                                 let c = EngineScorecard.cases.first { $0.id == miss.id }
                                 Text("Missed: \u{201C}\(c?.said ?? miss.id)\u{201D} wanted \(c?.action ?? "") \(c?.drawer ?? ""), got \(miss.got)")
-                                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                             }
                         }
                     }

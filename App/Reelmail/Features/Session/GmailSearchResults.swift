@@ -19,24 +19,24 @@ struct GmailSearchResults: View {
             Label(query, systemImage: "magnifyingglass").font(.caption.monospaced()).foregroundStyle(CalmStyle.secondary).lineLimit(2)
             switch state {
             case .searching:
-                ProgressView("Searching your Gmail").font(.subheadline)
+                ProgressView("Searching your Gmail").font(.lovely(.subheadline))
             case .failed(let why):
-                Text(why).font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                Text(why).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
             case .found(let total, let more, let shown, let hidden):
                 Text(GmailSearchResults.headline(total: total, more: more, newest: shown.first?.date))
-                    .font(.headline)
+                    .font(.lovely(.headline))
                 ForEach(shown, id: \.id) { m in
                     Button { router.open(.email(m.id)) } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(m.subject.isEmpty ? "(no subject)" : m.subject).font(.subheadline).lineLimit(1).foregroundStyle(CalmStyle.ink)
+                            Text(m.subject.isEmpty ? "(no subject)" : m.subject).font(.lovely(.subheadline)).lineLimit(1).foregroundStyle(CalmStyle.ink)
                             Text((m.fromName.isEmpty ? m.fromAddress : m.fromName) + " · " + m.date.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                         .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 12)).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                 }
-                if hidden > 0 { Text("\(hidden) more look like health mail and are not shown here.").font(.caption).foregroundStyle(CalmStyle.secondary) }
+                if hidden > 0 { Text("\(hidden) more look like health mail and are not shown here.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
             }
         }
         .task(id: query) { await run() }

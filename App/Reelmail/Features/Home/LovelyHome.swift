@@ -34,6 +34,8 @@ struct LovelyHome: View {
     @State private var picked: PhotosPickerItem?
     /// The field's height changed in this run loop: a tap arriving now is ignored (owner, Nov 11: no early sends).
     @State private var heightChanging = false
+    /// How far the black Swipe to start sorting knob has been dragged.
+    @State private var knob: CGFloat = 0
 
     struct Attachment: Equatable {
         var kind: String           // "photo" or "file"
@@ -75,23 +77,25 @@ struct LovelyHome: View {
         let owner = store.me.name == "You" ? "" : store.me.firstName
         let line = HomeLine.make(steps: steps, toGoThrough: toGo, firstName: owner, hour: Calendar.current.component(.hour, from: Date()))
         let chatting = turns.contains { !$0.gone }
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                CalmStyle.page.ignoresSafeArea()
-                VStack(alignment: .leading, spacing: 0) {
-                    topBar(chatting: chatting)
-                    if chatting {
-                        thread(steps: steps)
-                        composer.padding(.bottom, typing ? 8 : 100)
-                    } else {
-                        Spacer(minLength: 8)
-                        hero(line, steps: steps)
-                        composer.padding(.top, 22)
-                        if !typing { suggestions(line, steps: steps) }
-                        Color.clear.frame(height: typing ? 10 : max(120, geo.size.height * 0.2))
+        // The LifeOS look (owner, Nov 12, 2026): greige ground, light cards, black squares. One way in to sorting: the
+        // black bar above the field.
+        ZStack(alignment: .bottom) {
+            CalmStyle.background.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 0) {
+                topBar(chatting: chatting)
+                if chatting {
+                    thread(steps: steps)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            hero(line, steps: steps).padding(.top, 14)
+                            suggestions(line, steps: steps).padding(.top, 18)
+                        }
                     }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-                if !typing { bottom(toGo: toGo) }
+                if !typing { sortBar(toGo: toGo).padding(.horizontal, 20).padding(.bottom, 12) }
+                composer.padding(.bottom, 8)
             }
         }
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
@@ -135,23 +139,33 @@ struct LovelyHome: View {
     // MARK: Pieces
 
     private func topBar(chatting: Bool) -> some View {
-        HStack {
-            Text("lovely").font(.system(.title2, design: .serif).italic()).foregroundStyle(CalmStyle.ink)
-                .accessibilityAddTraits(.isHeader)
+        HStack(alignment: .center, spacing: 10) {
+            HStack(spacing: 7) {
+                Circle().fill(store.mode == .gmail ? Color(hex: 0x5FB84A) : CalmStyle.secondary).frame(width: 7, height: 7)
+                Text(store.mode == .gmail ? "Inbox synced" : "Demo mail").font(.lovely(.footnote)).foregroundStyle(CalmStyle.secondary)
+            }
+            .accessibilityElement(children: .combine)
             Spacer()
             if chatting {
-                Button("New") { withAnimation { turns = []; text = "" } }
-                    .font(.subheadline.weight(.semibold)).accessibilityIdentifier("home2.new")
+                Button { withAnimation { turns = []; text = "" } } label: {
+                    Image(systemName: "plus").font(.lovely(.body, .semibold))
+                }
+                .buttonStyle(LifeSquareStyle(dark: false))
+                .accessibilityLabel("New chat").accessibilityIdentifier("home2.new")
             }
+            Button { router.tab = .people } label: { Image(systemName: "person.2").font(.lovely(.body, .semibold)) }
+                .buttonStyle(LifeSquareStyle(dark: false))
+                .accessibilityLabel("People").accessibilityIdentifier("home2.people")
+            moreMenu
         }
-        .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 6)
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 6)
     }
 
     private func hero(_ line: HomeLine, steps: [TodayStep]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(line.greeting).font(.system(size: 34, weight: .heavy)).tracking(-0.6).lineLimit(2).minimumScaleFactor(0.7)
+            Text(line.greeting).font(.lovely(size: 32, weight: .semibold)).tracking(-0.8).lineLimit(2).minimumScaleFactor(0.7)
             Text(sentence(line))
-                .font(.title3).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(size: 18)).foregroundStyle(CalmStyle.ink).lineSpacing(3)
                 .tint(CalmStyle.ink)
                 .environment(\.openURL, OpenURLAction { url in
                     follow(HomeLine.Link(rawValue: url.host() ?? ""), steps: steps)
@@ -160,7 +174,7 @@ struct LovelyHome: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(line.plainSentence)
         }
-        .padding(.horizontal, 28)
+        .padding(.horizontal, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("home2.hero")
     }
@@ -181,30 +195,30 @@ struct LovelyHome: View {
 
     /// Grok's field, steady (owner, Nov 11, 2026): + and send sit on one fixed row and never move while he types; the
     /// words grow upward above it, photo or not. No layout switch, no animation that moves Send, and only the arrow sends.
+    /// LifeOS look: three separate pieces, a light square, the field card, a black square.
     private var composer: some View {
         let canSend = HomeComposer.shouldSend(.arrowTap, text: text, hasAttachment: attachment != nil,
                                               busy: working || attachment?.reading == true, heightChanging: false)
         return VStack(alignment: .leading, spacing: 8) {
-            if let a = attachment { attachmentChip(a) }
-            HStack(alignment: .bottom, spacing: 8) {
+            if let a = attachment { attachmentChip(a).padding(10).lifeCard(corner: 18) }
+            HStack(alignment: .bottom, spacing: 10) {
                 addButton
                 field
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 56)
+                    .lifeCard(corner: 18)
                 sendButton(canSend)
             }
         }
-        .padding(.horizontal, 6).padding(.vertical, 6)
-        .glassPane(corner: 26)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
         .transaction { $0.animation = nil }
     }
 
     /// Return makes a new line; it never sends.
     private var field: some View {
-        TextField("Ask about your mail", text: $text, axis: .vertical)
-            .font(.body).lineLimit(1...8).focused($typing)
-            .padding(.vertical, 9)
-            .frame(minHeight: 40)
-            .padding(.leading, 6)
+        TextField("Ask about your mail\u{2026}", text: $text, axis: .vertical)
+            .font(.lovely(.body)).lineLimit(1...8).focused($typing)
+            .padding(.vertical, 16)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
                 heightChanging = true
                 DispatchQueue.main.async { heightChanging = false }
@@ -220,9 +234,9 @@ struct LovelyHome: View {
             Button { showLibrary = true } label: { Label("Photo Library", systemImage: "photo.on.rectangle") }
             Button { showFiles = true } label: { Label("Choose File", systemImage: "folder") }
         } label: {
-            Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
-                .frame(width: 40, height: 40)
-                .background(CalmStyle.secondary.opacity(0.12), in: Circle())
+            Image(systemName: "paperclip").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.ink)
+                .frame(width: 56, height: 56)
+                .lifeCard(corner: 18)
         }
         .accessibilityLabel("Add a photo or file").accessibilityIdentifier("home2.add")
     }
@@ -233,9 +247,9 @@ struct LovelyHome: View {
                                           busy: working || attachment?.reading == true, heightChanging: heightChanging) else { return }
             send(text)
         } label: {
-            Image(systemName: working ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
-                .frame(width: 40, height: 40).foregroundStyle(CalmStyle.onBlue)
-                .background(CalmStyle.blue, in: Circle())
+            Image(systemName: working ? "ellipsis" : "arrow.up").font(.lovely(.body, .bold))
+                .frame(width: 56, height: 56).foregroundStyle(.white)
+                .lifeBlack(corner: 18)
         }
         .disabled(!enabled).opacity(enabled ? 1 : 0.45)
         .accessibilityLabel("Ask Lovely").accessibilityIdentifier("home2.ask.go")
@@ -247,19 +261,19 @@ struct LovelyHome: View {
                 if let image = a.image {
                     Image(uiImage: image).resizable().scaledToFill()
                 } else {
-                    Image(systemName: "doc.text").font(.title3).foregroundStyle(CalmStyle.secondary)
+                    Image(systemName: "doc.text").font(.lovely(.title3)).foregroundStyle(CalmStyle.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity).background(CalmStyle.secondary.opacity(0.12))
                 }
             }
             .frame(width: 48, height: 48).clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text(a.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(a.name).font(.lovely(.subheadline, .semibold)).lineLimit(1)
                 Text(a.reading ? "Reading on this iPhone\u{2026}" : HomeAttachment.summary(kind: a.kind, readText: a.text))
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             Spacer(minLength: 4)
             Button { attachment = nil } label: {
-                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "xmark").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary)
                     .frame(width: 32, height: 32).contentShape(Rectangle())
             }
             .accessibilityLabel("Remove attachment")
@@ -293,20 +307,54 @@ struct LovelyHome: View {
     }
 
     private func suggestions(_ line: HomeLine, steps: [TodayStep]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach(line.suggestions, id: \.self) { q in
                 Button { send(q, steps: steps) } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "arrow.up.right").font(.footnote.weight(.semibold)).foregroundStyle(CalmStyle.secondary.opacity(0.6))
-                        Text(q).font(.body).foregroundStyle(CalmStyle.secondary)
-                    }
-                    .frame(minHeight: 40).contentShape(Rectangle())
+                    LifeRow(icon: "bubble.left", title: q, trailing: "chevron.right")
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 32).padding(.top, 12)
+        .padding(.horizontal, 20)
         .accessibilityIdentifier("home2.suggestions")
+    }
+
+    /// The one way in to sorting (owner, Nov 12, 2026): a black bar; slide the knob right, or tap it.
+    private func sortBar(toGo: Int) -> some View {
+        let title = toGo > 0 ? "Swipe to sort \(toGo)" : (store.backlogCandidates.count > 0 ? "Swipe to go through older mail" : "All caught up")
+        return GeometryReader { geo in
+            let travel = max(0, geo.size.width - 68)
+            ZStack(alignment: .leading) {
+                Text(title).font(.lovely(size: 17, weight: .medium)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 76)
+                    .opacity(1 - Double(min(1, knob / max(1, travel))) * 0.8)
+                Image(systemName: "arrow.right").font(.lovely(.body, .bold)).foregroundStyle(.white)
+                    .frame(width: 56, height: 52)
+                    .background(Color(hex: 0x2B2B2B), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .offset(x: 6 + knob)
+                    .gesture(DragGesture(minimumDistance: 4)
+                        .onChanged { v in knob = min(travel, max(0, v.translation.width)) }
+                        .onEnded { _ in
+                            if knob > travel * 0.7 {
+                                withAnimation(.easeOut(duration: 0.15)) { knob = travel }
+                                startSession(toGo: toGo)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { knob = 0 }
+                            } else {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { knob = 0 }
+                            }
+                        })
+            }
+            .frame(width: geo.size.width, height: 64)
+            .lifeBlack(corner: 20)
+            .contentShape(Rectangle())
+            .onTapGesture { startSession(toGo: toGo) }
+        }
+        .frame(height: 64)
+        .accessibilityElement()
+        .accessibilityLabel(toGo > 0 ? "Sort your inbox, \(toGo) email\(toGo == 1 ? "" : "s")" : "Inbox, all caught up")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { startSession(toGo: toGo) }
+        .accessibilityIdentifier("home2.ball")
     }
 
     // MARK: The thread
@@ -321,11 +369,11 @@ struct LovelyHome: View {
                                 Image(uiImage: image).resizable().scaledToFill()
                                     .frame(width: 140, height: 140).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             } else if let name = turn.fileName {
-                                Label(name, systemImage: "doc.text").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                                Label(name, systemImage: "doc.text").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                             }
-                            Text(turn.question).font(.body).foregroundStyle(CalmStyle.onBlue)
-                                .padding(.horizontal, 14).padding(.vertical, 10)
-                                .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            Text(turn.question).font(.lovely(.body)).foregroundStyle(CalmStyle.ink)
+                                .padding(.horizontal, 16).padding(.vertical, 12)
+                                .lifeCard(corner: 22)
                         }
                         .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 56)
                         answerCard(turn)
@@ -334,7 +382,7 @@ struct LovelyHome: View {
                             .id(turn.id)
                     }
                 }
-                .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 16)
+                .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 16)
                 Color.clear.frame(height: 1).id("home2.end")
             }
             .defaultScrollAnchor(.bottom)
@@ -366,59 +414,36 @@ struct LovelyHome: View {
         VStack(alignment: .leading, spacing: 10) {
             // The card's top edge is its handle: pull it down into the ball when it's handled. (A drag anywhere would
             // fight the thread's scrolling.)
-            HStack(spacing: 6) {
-                Circle().fill(CalmStyle.rose).frame(width: 7, height: 7)
-                Text("Lovely").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
-                Spacer()
-                Text("Pull down when done").font(.caption2).foregroundStyle(CalmStyle.secondary.opacity(0.7))
-                Capsule().fill(CalmStyle.divider).frame(width: 26, height: 4)
-            }
-            .frame(minHeight: 30).contentShape(Rectangle())
-            .gesture(cardSwipe(turn))
-            .accessibilityAction(named: "Done") { if let i = turns.firstIndex(where: { $0.id == turn.id }) { turns[i].gone = true } }
             if let steps = turn.steps {
                 if steps.isEmpty {
-                    Text("Nothing needs you right now. You're all caught up.").font(.body)
+                    Text("Nothing needs you right now. You're all caught up.").font(.lovely(.body))
                 } else {
                     ForEach(steps) { step in
                         Button { act(step) } label: {
-                            HStack(alignment: .center, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(step.title).font(.body.weight(.semibold)).foregroundStyle(CalmStyle.ink)
-                                    if !step.detail.isEmpty {
-                                        Text(step.detail).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
-                                    }
-                                }
-                                Spacer(minLength: 8)
-                                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
-                            }
-                            .padding(.vertical, 8).contentShape(Rectangle())
+                            LifeRow(icon: "tray", title: step.title, detail: step.detail.isEmpty ? nil : step.detail, trailing: "chevron.right")
                         }
                         .buttonStyle(.plain)
-                        if step.id != steps.last?.id { Divider().overlay(CalmStyle.divider) }
                     }
                 }
             } else {
                 if let task = turn.handoff { handoffBox(turn, task: task) }
                 if let report = turn.report {
-                    Text("GROK'S REPORT").font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 2)
+                    Text("GROK'S REPORT").font(.lovely(.caption2, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 2)
                     SelectableText(text: EmailPresentation.linked(report))
                 }
                 if !turn.answer.isEmpty { SelectableText(text: EmailPresentation.linked(turn.answer)) }
-                if let p = turn.problem { Text(p).font(.callout).foregroundStyle(CalmStyle.secondary) }
+                if let p = turn.problem { Text(p).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary) }
                 if turn.answer.isEmpty, turn.problem == nil, turn.handoff == nil {
-                    HStack(spacing: 8) { ProgressView(); Text("Looking through your mail\u{2026}").font(.callout).foregroundStyle(CalmStyle.secondary) }
+                    HStack(spacing: 8) { ProgressView(); Text("Looking through your mail\u{2026}").font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary) }
                 }
                 if let q = turn.query {
-                    Text("FROM YOUR MAIL").font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 4)
+                    Text("FROM YOUR MAIL").font(.lovely(.caption2, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 4)
                     GmailSearchResults(query: q)
                 }
             }
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(CalmStyle.page, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(CalmStyle.divider))
-        .shadow(color: Color(hex: 0x25222A).opacity(0.08), radius: 14, y: 8)
+        .font(.lovely(.body))
+        .padding(.horizontal, 6).padding(.vertical, 4).frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Lovely's answers move like session pages: pulled down past the line, they drop into the ball.
@@ -460,7 +485,7 @@ struct LovelyHome: View {
         ZStack(alignment: .bottom) {
             if ballPull > 8 {
                 Text(ballPull > 90 ? (toGo > 0 ? "Let go to go through \(toGo)" : "Let go") : (toGo > 0 ? "Pull up to go through \(toGo)" : "Nothing to go through"))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.lovely(.subheadline, .semibold))
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(CalmStyle.page, in: Capsule())
                     .shadow(color: Color(hex: 0x25222A).opacity(0.15), radius: 10, y: 4)
@@ -469,7 +494,7 @@ struct LovelyHome: View {
             }
             HStack {
                 Button("People") { router.tab = .people }
-                    .font(.body.weight(.semibold)).frame(minWidth: 44, minHeight: 44)
+                    .font(.lovely(.body, .semibold)).frame(minWidth: 44, minHeight: 44)
                     .accessibilityIdentifier("home2.people")
                 Spacer()
                 moreMenu
@@ -509,7 +534,8 @@ struct LovelyHome: View {
             Divider()
             Button { router.open(.settings) } label: { Label("Settings", systemImage: "gearshape") }
         } label: {
-            Image(systemName: "ellipsis").font(.body.weight(.bold)).frame(width: 44, height: 44).contentShape(Rectangle())
+            Image(systemName: "ellipsis").font(.lovely(.body, .bold)).foregroundStyle(.white)
+                .frame(width: 52, height: 52).lifeBlack(corner: 16)
         }
         .accessibilityLabel("More").accessibilityIdentifier("home2.more")
     }
@@ -598,16 +624,16 @@ struct LovelyHome: View {
     /// The first Send also sets up the Gmail filter that files Grok's reports; its line is shown above the button.
     @ViewBuilder private func handoffBox(_ turn: Turn, task: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(task).font(.body.weight(.semibold))
+            Text(task).font(.lovely(.body, .semibold))
             if turn.report != nil {
                 EmptyView()
             } else if turn.sentToGrok {
-                Text(GrokSendResult.accepted.note).font(.callout).foregroundStyle(CalmStyle.secondary)
+                Text(GrokSendResult.accepted.note).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
             } else {
-                if let note = turn.grokNote { Text(note).font(.callout).foregroundStyle(CalmStyle.roseInk) }
+                if let note = turn.grokNote { Text(note).font(.lovely(.callout)).foregroundStyle(CalmStyle.roseInk) }
                 if let me = store.grokReportAddress, store.actions != nil, !store.grokReportsFiled {
                     let preview = GrokHandoff.filterPreview(owner: me)
-                    Text(preview.lines.first ?? "").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text(preview.lines.first ?? "").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     SessionConfirmButton(title: turn.sending ? "Sending\u{2026}" : "Send to Grok", previews: [preview], enabled: !turn.sending,
                                          identifier: "home2.grok") { approvals in
                         store.setUpGrokReports(confirmed: approvals[0])
@@ -718,7 +744,7 @@ struct ChatHomeToggle: View {
             Toggle("Chat Home", isOn: $on).tint(CalmStyle.blue)
             Text(on ? "Home is a greeting, one line on what matters, and a place to ask about your mail. The ball takes you through it."
                     : "The classic Home with Today's steps and shortcuts.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
@@ -746,7 +772,7 @@ struct GrokReportsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text("What Grok did for you. Each report is emailed by Grok, labeled and kept out of your inbox.")
-                    .font(.callout).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                 GmailSearchResults(query: GrokHandoff.searchQuery)
             }
             .padding(20)
@@ -763,9 +789,9 @@ struct GrokHandoffSetting: View {
     @State private var saved = GrokWebhook.isSaved
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Send to Grok").font(.headline)
+            Text("Send to Grok").font(.lovely(.headline))
             Text("When Lovely can't do something (anything on the web), one tap sends the task to your Grok Bot routine. Its report comes back by email, filed under Grok reports and shown under your question. No xAI key.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             SecureField(saved ? "Webhook URL (saved)" : "Webhook URL", text: $url)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                 .padding(.horizontal, 12).frame(minHeight: 44)
@@ -782,10 +808,10 @@ struct GrokHandoffSetting: View {
                 Spacer()
                 if saved { Button("Remove", role: .destructive) { GrokWebhook.save(url: "", authorization: ""); saved = false } }
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.lovely(.subheadline, .semibold))
             Text(saved ? "Saved on this iPhone. Send to Grok posts to it; only a 200 from Grok Bot counts as sent."
                        : "Copy both from your Grok Bot routine's webhook trigger. Until then, Send to Grok opens the share sheet instead.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))

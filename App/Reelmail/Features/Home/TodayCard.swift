@@ -14,15 +14,15 @@ struct TodayCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Button { router.open(.brief) } label: {
                 HStack {
-                    Text("Today").font(.title3.weight(.bold)).foregroundStyle(CalmStyle.ink)
+                    Text("Today").font(.lovely(.title3, .bold)).foregroundStyle(CalmStyle.ink)
                     Spacer()
-                    Text("Brief").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                    Text("Brief").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.blue)
+                    Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue)
                 }
                 .frame(minHeight: 32).contentShape(Rectangle())
             }
             .buttonStyle(.plain).accessibilityIdentifier("home.brief")
-            Text(summary).font(.subheadline).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(summary).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true)
             if toGoThrough > 0 || older > 0 {
                 Button(toGoThrough > 0 ? "Go through your inbox" : "Clear older mail") {
                     router.open(toGoThrough > 0 ? .session : .backlog)
@@ -65,8 +65,8 @@ struct InsightTiles: View {
     private func tile(_ title: String, _ detail: String, _ route: Route) -> some View {
         Button { router.open(route) } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.ink)
-                Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2).minimumScaleFactor(0.85)
+                Text(title).font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.ink)
+                Text(detail).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(2).minimumScaleFactor(0.85)
             }
             .padding(12).frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
