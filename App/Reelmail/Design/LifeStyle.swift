@@ -312,3 +312,15 @@ enum LifeNavigationLook {
         }
     }
 }
+
+extension View {
+    /// A List row as a LifeOS row card: its own light card with gaps between, no separator lines.
+    func lifeListRow() -> some View {
+        padding(.horizontal, 14).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeCard(corner: 20)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
+    }
+}

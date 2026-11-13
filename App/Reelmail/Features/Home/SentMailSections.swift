@@ -148,7 +148,7 @@ struct WaitingOnThemListView: View {
                     }
                 }
                 .padding(.vertical, 10)
-                .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                .lifeListRow()
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)

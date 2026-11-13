@@ -50,7 +50,7 @@ struct ComingUpListView: View {
                             .padding(.vertical, 6)
                         }
                         .buttonStyle(.plain)
-                        .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                        .lifeListRow()
                     }
                 } header: {
                     Text(group.bucket.rawValue.uppercased()).font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)

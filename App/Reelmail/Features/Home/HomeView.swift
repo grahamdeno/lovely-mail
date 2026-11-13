@@ -562,7 +562,7 @@ struct DigestListView: View {
                         onNotWaiting: { store.markNotWaiting(post, wholeSender: $0) },
                         onTrash: { Task { await store.moveToTrash(post) } })
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-                    .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                    .lifeListRow()
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
@@ -598,7 +598,7 @@ struct DoneTodayList: View {
                 }
                 .buttonStyle(.plain)
                 .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                .lifeListRow()
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
