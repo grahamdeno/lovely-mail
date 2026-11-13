@@ -23,7 +23,10 @@ struct HandToGrokSheet: View {
         self.onSent = onSent
     }
 
-    var body: some View {
+    var body: some View { sheetBody.lifeSheet() }
+
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Hand to Grok").font(.lovely(.title2, .bold))

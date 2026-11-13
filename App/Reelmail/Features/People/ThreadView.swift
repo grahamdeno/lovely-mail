@@ -171,7 +171,9 @@ private struct ConversationInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
     let person: Person
     let mode: DataMode
-    var body: some View {
+    var body: some View { sheetBody.lifeSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -192,7 +194,9 @@ private struct ConversationInfoSheet: View {
 private struct EmailSourceSheet: View {
     @Environment(\.dismiss) private var dismiss
     let email: Email
-    var body: some View {
+    var body: some View { sheetBody.lifeSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {

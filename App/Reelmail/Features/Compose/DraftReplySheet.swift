@@ -16,7 +16,10 @@ struct DraftReplySheet: View {
     @State private var copied = false
     @State private var sendPreview: ActionPreview?
 
-    var body: some View {
+    var body: some View { sheetBody.lifeSheet() }
+
+
+    @ViewBuilder private var sheetBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Draft reply").font(.lovely(.title3, .semibold))

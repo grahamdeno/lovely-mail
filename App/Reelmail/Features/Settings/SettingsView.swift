@@ -14,22 +14,27 @@ struct SettingsView: View {
     static let testingKey = "lovely.settings.showTesting"
 
     var body: some View {
+        // LifeOS settings (Nov 13, 2026): a centered profile, then grouped cards under small section labels.
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                AccountHeaderCard { router.open(.settingsAccount) }
+                SettingsProfileHeader { router.open(.settingsAccount) }
                 AccountAttention()
-                VStack(spacing: 8) {
-                    SettingsRow(title: "Your rules", value: Self.rulesValue(store)) { router.open(.settingsRules) }
-                    SettingsRow(title: "Categories", value: "\(CategorySettings.current.visible.count) shown") { router.open(.settingsCategories) }
-                    SettingsRow(title: "Morning brief", value: briefOn ? Self.timeLabel(briefMinutes) : "Off") { router.open(.settingsBrief) }
-                    if store.mode == .gmail { SettingsRow(title: "Clean up", value: "Old login emails") { router.open(.cleanup) } }
-                    SettingsRow(title: "Households and kids", value: Self.householdsValue()) { router.open(.insightSettings) }
-                    SettingsRow(title: "Look and feel", value: appearance.title) { router.open(.settingsLook) }
-                    SettingsRow(title: "AI", value: "On this iPhone") { router.open(.settingsAI) }
-                    SettingsRow(title: "Privacy and activity") { router.open(.settingsPrivacy) }
-                    if showTesting { SettingsRow(title: "Testing tools") { router.open(.testingTools) } }
+                LifeSectionLabel(title: "Account")
+                LifeGroup {
+                    LifeGroupRow(icon: "envelope", title: "Account", badge: store.mode == .gmail ? "Gmail" : "Demo") { router.open(.settingsAccount) }
+                    LifeGroupRow(icon: "line.3.horizontal.decrease", title: "Your rules", value: Self.rulesValue(store)) { router.open(.settingsRules) }
+                    LifeGroupRow(icon: "tray.2", title: "Categories", value: "\(CategorySettings.current.visible.count) shown") { router.open(.settingsCategories) }
+                    LifeGroupRow(icon: "house", title: "Households and kids", value: Self.householdsValue()) { router.open(.insightSettings) }
                 }
-                .padding(.top, 8)
+                LifeSectionLabel(title: "App")
+                LifeGroup {
+                    LifeGroupRow(icon: "sun.horizon", title: "Morning brief", value: briefOn ? Self.timeLabel(briefMinutes) : "Off") { router.open(.settingsBrief) }
+                    LifeGroupRow(icon: "paintpalette", title: "Look and feel", value: appearance.title) { router.open(.settingsLook) }
+                    LifeGroupRow(icon: "cpu", title: "AI", value: "On this iPhone") { router.open(.settingsAI) }
+                    LifeGroupRow(icon: "lock", title: "Privacy and activity") { router.open(.settingsPrivacy) }
+                    if store.mode == .gmail { LifeGroupRow(icon: "sparkles", title: "Clean up", value: "Old login emails") { router.open(.cleanup) } }
+                    if showTesting { LifeGroupRow(icon: "wrench.and.screwdriver", title: "Testing tools") { router.open(.testingTools) } }
+                }
                 Text(Self.versionLabel)
                     .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
@@ -70,6 +75,37 @@ struct SettingsView: View {
         if !d.households.isEmpty { parts.append("\(d.households.count) home\(d.households.count == 1 ? "" : "s")") }
         if !d.kids.isEmpty { parts.append("\(d.kids.count) kid\(d.kids.count == 1 ? "" : "s")") }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// The top of Settings, LifeOS style: a big circle with the account's initial and a black mail badge, then the address.
+struct SettingsProfileHeader: View {
+    @Environment(FeedStore.self) private var store
+    let open: () -> Void
+    var body: some View {
+        let address = store.mode == .gmail ? (store.account ?? "Gmail") : "Demo mail"
+        Button(action: open) {
+            VStack(spacing: 6) {
+                ZStack(alignment: .bottomTrailing) {
+                    Text(String(address.prefix(1)).uppercased())
+                        .font(.lovely(size: 38, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 96, height: 96)
+                        .background(LifeColor.orange, in: Circle())
+                        .overlay(Circle().strokeBorder(CalmStyle.card, lineWidth: 4))
+                    Image(systemName: "envelope").font(.footnote.weight(.semibold)).foregroundStyle(.white)
+                        .frame(width: 34, height: 34).lifeBlack(corner: 11)
+                        .offset(x: 4, y: 2)
+                }
+                Text(store.mode == .gmail ? "Your Gmail" : "Demo mail").font(.lovely(size: 24, weight: .semibold)).padding(.top, 8)
+                Text(detail).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(1).truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 8).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).accessibilityIdentifier("settings.account")
+    }
+    private var detail: String {
+        guard store.mode == .gmail else { return "Connect Gmail to see your own mail" }
+        return store.account ?? "Gmail"
     }
 }
 

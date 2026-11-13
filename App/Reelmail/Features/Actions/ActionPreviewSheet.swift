@@ -9,7 +9,10 @@ struct ActionPreviewSheet: View {
     var destructive = false
     let onConfirm: (ConfirmedAction) -> Void
 
-    var body: some View {
+    var body: some View { sheetBody.lifeSheet() }
+
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {

@@ -55,6 +55,12 @@ struct CalmAvatar: View {
     var domain: String? = nil
     private var images: AvatarImages { AvatarImages.shared }
 
+    /// The same color for the same person every time.
+    static func circleColor(for person: Person) -> Color {
+        let n = person.email.lowercased().unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0xFFFF }
+        return LifeColor.avatars[n % LifeColor.avatars.count]
+    }
+
     private var picture: UIImage? {
         organization ? images.logo(for: domain ?? OrganizationKey.domain(of: person.email)) : images.contactPhoto(for: person.email)
     }
@@ -73,18 +79,29 @@ struct CalmAvatar: View {
                     Image(uiImage: picture).resizable().scaledToFill()
                         .frame(width: size, height: size)
                         .scaleEffect(1.14)
-                        .clipShape(RoundedRectangle(cornerRadius: size * 0.3))
+                        .clipShape(Circle())
                 }
             } else {
-                Text(person.initials).font(.system(size: size * 0.38, weight: .semibold))
-                    .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(organization ? CalmStyle.secondary : CalmStyle.blue)
-                    .frame(width: size, height: size)
-                    .background(organization ? CalmStyle.bubble : CalmStyle.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.3))
+                // LifeOS agent circles: a solid color circle with white initials; organizations keep a soft square.
+                if organization {
+                    Text(person.initials).font(.lovely(size: size * 0.38, weight: .semibold))
+                        .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(CalmStyle.secondary)
+                        .frame(width: size, height: size)
+                        .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: size * 0.3))
+                } else {
+                    Text(person.initials).font(.lovely(size: size * 0.38, weight: .semibold))
+                        .lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.white)
+                        .frame(width: size, height: size)
+                        .background(Self.circleColor(for: person), in: Circle())
+                }
             }
         }
             .padding(waiting ? 3 : 0)
             .overlay {
-                if waiting { RoundedRectangle(cornerRadius: size * 0.3 + 3).strokeBorder(CalmStyle.rose, lineWidth: 1.75) }
+                if waiting {
+                    if organization { RoundedRectangle(cornerRadius: size * 0.3 + 3).strokeBorder(CalmStyle.rose, lineWidth: 1.75) }
+                    else { Circle().strokeBorder(CalmStyle.rose, lineWidth: 1.75) }
+                }
             }
             .accessibilityHidden(true)
     }
@@ -95,13 +112,24 @@ struct CalmActionStyle: ButtonStyle {
     var prominent = false
     func makeBody(configuration: Configuration) -> some View {
         // Delete, remove, decline and clear buttons (role: .destructive) are rose-red, never blue.
-        let tint = configuration.role == .destructive ? CalmStyle.roseInk : CalmStyle.blue
-        return configuration.label
-            .font(.lovely(.subheadline, .medium))
-            .padding(.horizontal, 12).frame(minHeight: 40)
-            .foregroundStyle(prominent ? CalmStyle.onBlue : tint)
-            .background(prominent ? tint : tint.opacity(0.08), in: Capsule())
-            .opacity(configuration.isPressed ? 0.7 : 1)
+        // LifeOS (Nov 13, 2026): the main button is a black rounded square, the rest are light cards.
+        let destructive = configuration.role == .destructive
+        return Group {
+            if prominent {
+                configuration.label
+                    .font(.lovely(.callout, .medium))
+                    .padding(.horizontal, 16).frame(minHeight: 50)
+                    .foregroundStyle(.white)
+                    .lifeBlack(corner: 16)
+            } else {
+                configuration.label
+                    .font(.lovely(.subheadline, .medium))
+                    .padding(.horizontal, 14).frame(minHeight: 44)
+                    .foregroundStyle(destructive ? CalmStyle.roseInk : CalmStyle.ink)
+                    .lifeCard(corner: 14)
+            }
+        }
+        .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 
@@ -534,7 +562,7 @@ struct DigestListView: View {
                         onNotWaiting: { store.markNotWaiting(post, wholeSender: $0) },
                         onTrash: { Task { await store.moveToTrash(post) } })
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-                    .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                    .lifeListRow()
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
@@ -570,7 +598,7 @@ struct DoneTodayList: View {
                 }
                 .buttonStyle(.plain)
                 .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                .lifeListRow()
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)

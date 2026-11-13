@@ -112,7 +112,7 @@ struct OrganizationView: View {
                 .listRowInsets(insets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
             ForEach(group.senders, id: \.address) { sender in
                 senderRow(sender.address, count: sender.count, groupCount: group.senders.count)
-                    .listRowInsets(insets).listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                    .lifeListRow()
             }
             if let domain = group.domain?.lowercased(), !LocalTriageRules.publicDomains.contains(domain) {
                 let key = "@" + domain
@@ -188,7 +188,7 @@ struct OrganizationView: View {
         ForEach(posts) { post in
             MailRow(post: post, assessment: store.assessment(for: post), compact: true,
                     onTrash: { Task { await store.moveToTrash(post) } })
-                .listRowInsets(insets).listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
+                .lifeListRow()
         }
     }
 
