@@ -48,3 +48,8 @@ The gesture is the confirmation, so it must say what it will do before it does i
 3. Pull down through SessionConfirm, with the destination label.
 4. The bottom object and its animation, behind Reduce Motion.
 5. UI audit job for the three moves.
+
+## Blue bar (owner, Nov 13, 2026)
+- The ball on the card page is replaced by a thin Lovely-blue bar on the very bottom edge, with no words. It rises as the email is pulled down (20 to 90 pt). The destination is still shown during the pull: the drawer label sits just above the rising bar and fills blue once letting go will file it. The safety rule above is unchanged.
+- Letting go files it through the same ConfirmedAction; the page drops into the bar and the rose dot flies out, bounces three times on the bar and drops through it (DropFlight). Reduce Motion skips the flight.
+- The glass pane is gone from the page; the email's words sit on the page (SessionCardText, SessionExcerpt).

@@ -1,8 +1,9 @@
 import SwiftUI
 
-// Sprint 8 (owner, Nov 10, 2026): the pieces of the session's card page. Ball 1 (the logo's rose dot as a gel ball)
-// and Pane 2 (a thick glass lens). Mockup: Design/mockups/sprint8-moves.html. Brand exception: the ball is the logo's
-// dot, so it is rose; rose otherwise still means only "waiting on you".
+// Sprint 8 (owner, Nov 10, 2026): the pieces of the session's card page. The gel ball (the logo's rose dot) now lives
+// only on Home's Swipe to sort; on the card page the blue bar and the flying dot replaced it (Nov 13, SessionDropBar).
+// The glass pane is kept for the drawer box. Brand exception: the dot is the logo's, so it is rose; rose otherwise still
+// means only "waiting on you".
 
 /// The ball's physics: a springy scale, a lean toward the thumb, and a few wobble modes that die away.
 /// Settles into a still, perfect sphere. Plain class: stepped from the Canvas, never observed.
@@ -153,4 +154,25 @@ extension CalmStyle {
     static let pageGround = Color(light: 0xF2E1E5, dark: 0x0B0A0D, neon: 0x0B0A0D)
     /// Card 1: the session page itself.
     static let page = Color(light: 0xFBF3F5, dark: 0x141317, neon: 0x121116)
+}
+
+/// The email's own words on the card page (owner, Nov 13, 2026): a thin rule at the left marks them as the sender's,
+/// not Lovely's summary. They take whatever room is left on the page and fade out at the bottom; a tap on the page opens
+/// the whole email in the quick look.
+struct SessionExcerpt: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary).lineSpacing(3)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.leading, 14)
+            .overlay(alignment: .leading) { Capsule().fill(CalmStyle.divider).frame(width: 3) }
+            .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+            .clipped()
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.78),
+                                         .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("From the email: \(text)")
+    }
 }

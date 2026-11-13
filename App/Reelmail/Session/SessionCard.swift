@@ -199,3 +199,103 @@ enum DrawerLikely {
         return after.split(separator: ",").prefix(2).map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: ", ")
     }
 }
+
+// MARK: Blue bar drop (owner, Nov 13, 2026)
+
+/// What the email page says in words, with no box around it. Lovely's summary leads (it is capped at 25 words, so a
+/// taller box would only show empty glass); the email's own words fill the rest of the page and fade out, and a tap opens
+/// the whole thing. The fallback summary is the email's first words, so it is not repeated. Health mail and mail with
+/// codes, account numbers, medical or legal details never show their own words here.
+struct SessionCardText: Equatable {
+    var lead: String?
+    var leadIsAsk = false
+    var excerpt: String?
+
+    static let excerptLimit = 700
+
+    static func make(_ m: SessionMessage, summary: EmailSummary) -> SessionCardText {
+        let blurb = summary.blurb.trimmingCharacters(in: .whitespacesAndNewlines)
+        var out = SessionCardText()
+        if let ask = m.ask?.trimmingCharacters(in: .whitespacesAndNewlines), !ask.isEmpty {
+            out.lead = ask; out.leadIsAsk = true
+        } else if summary.engine == .appleIntelligence, !blurb.isEmpty {
+            out.lead = blurb
+        }
+        if !m.isHealth, !summary.sensitive {
+            let words = clean(m.text)
+            if !words.isEmpty, words != out.lead { out.excerpt = words }
+        }
+        if out.lead == nil, out.excerpt == nil, !blurb.isEmpty { out.lead = blurb }
+        return out
+    }
+
+    /// Spaces collapsed, at most one blank line in a row, cut at a word near the limit.
+    static func clean(_ s: String) -> String {
+        var lines: [String] = []
+        for raw in s.components(separatedBy: .newlines) {
+            let line = raw.split(whereSeparator: { $0 == " " || $0 == "\t" }).joined(separator: " ")
+            if line.isEmpty { if let last = lines.last, !last.isEmpty { lines.append("") } } else { lines.append(line) }
+        }
+        while lines.last == "" { lines.removeLast() }
+        let text = lines.joined(separator: "\n")
+        guard text.count > excerptLimit else { return text }
+        let cut = text.prefix(excerptLimit)
+        let end = cut.lastIndex(where: { $0 == " " || $0 == "\n" }) ?? cut.endIndex
+        return String(cut[..<end]) + "\u{2026}"
+    }
+}
+
+/// The rose dot's flight after an email drops into the blue bar: one continuous motion with no joints. It is launched
+/// up and to the right, a soft pull toward the middle swings it back left of center while gravity brings it down, it
+/// bounces three times on the bar (each lower, with a squash), then drops through. About 1.7 seconds. Worked in a
+/// 390 by 844 space; the view scales it to the screen.
+struct DropFlight: Equatable {
+    static let width: Double = 390
+    static let height: Double = 844
+    static let barHeight: Double = 20
+    static let radius: Double = 24
+    static var floor: Double { height - barHeight - radius }
+
+    var x = 170.0
+    var y = DropFlight.floor
+    var vx = 1350.0
+    var vy = -2170.0
+    private(set) var bounces = 0
+    private(set) var squash = 0.0
+    private(set) var grow = 0.0
+    private(set) var through = false
+    private(set) var elapsed = 0.0
+
+    /// Gone through the bar and faded out.
+    var finished: Bool { through && y >= Self.floor + 70 }
+    var opacity: Double { through ? max(0, 1 - (y - Self.floor) / 70) : 1 }
+    /// Width and height scale: it grows in as it leaves the bar and squashes on each landing.
+    var scale: (x: Double, y: Double) {
+        let g = 0.6 + 0.4 * (1 - pow(1 - grow, 3))
+        return (g * (1 + 0.32 * squash), g * (1 - 0.28 * squash))
+    }
+
+    /// Moves it on by `dt` seconds. Returns how hard it landed (0...1) when it lands on the bar in this step.
+    mutating func step(_ dt: Double) -> Double? {
+        let dt = min(1.0 / 30, max(0, dt))
+        elapsed += dt
+        var landed: Double?
+        let n = 4, h = dt / Double(n)
+        for _ in 0..<n {
+            vx += (-40 * (x - 165) - 3 * vx) * h
+            vy += 4200 * h
+            x += vx * h; y += vy * h
+            if !through, vy > 0, y >= Self.floor {
+                let hit = vy
+                y = Self.floor; bounces += 1
+                vy = -vy * (bounces == 1 ? 0.38 : 0.34)
+                squash = min(1, 0.5 + abs(vy) / 1200)
+                landed = min(1, hit / 2200)
+                if bounces >= 3 { through = true; vy = 260 }
+            }
+        }
+        grow = min(1, grow + dt / 0.14)
+        squash = max(0, squash - dt * 10)
+        return landed
+    }
+}
