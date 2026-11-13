@@ -159,6 +159,14 @@ struct LovelyHome: View {
             moreMenu
         }
         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 6)
+        .overlay(alignment: .bottom) {
+            // Neon's glowing stripe under the top bar.
+            if ThemeState.neon {
+                Rectangle().fill(CalmStyle.gel).frame(height: 2)
+                    .shadow(color: Color(hex: 0x9D4EDD).opacity(0.8), radius: 6)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 
     private func hero(_ line: HomeLine, steps: [TodayStep]) -> some View {
@@ -248,7 +256,7 @@ struct LovelyHome: View {
             send(text)
         } label: {
             Image(systemName: working ? "ellipsis" : "arrow.up").font(.lovely(.body, .bold))
-                .frame(width: 56, height: 56).foregroundStyle(.white)
+                .frame(width: 56, height: 56).foregroundStyle(CalmStyle.onBlue)
                 .lifeBlack(corner: 18)
         }
         .disabled(!enabled).opacity(enabled ? 1 : 0.45)
@@ -325,12 +333,12 @@ struct LovelyHome: View {
         return GeometryReader { geo in
             let travel = max(0, geo.size.width - 68)
             ZStack(alignment: .leading) {
-                Text(title).font(.lovely(size: 17, weight: .medium)).foregroundStyle(.white)
+                Text(title).font(.lovely(size: 17, weight: .medium)).foregroundStyle(CalmStyle.onBlue)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 76)
                     .opacity(1 - Double(min(1, knob / max(1, travel))) * 0.8)
-                Image(systemName: "arrow.right").font(.lovely(.body, .bold)).foregroundStyle(.white)
+                Image(systemName: "arrow.right").font(.lovely(.body, .bold)).foregroundStyle(CalmStyle.onBlue)
                     .frame(width: 56, height: 52)
-                    .background(Color(hex: 0x2B2B2B), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                     .offset(x: 6 + knob)
                     .gesture(DragGesture(minimumDistance: 4)
                         .onChanged { v in knob = min(travel, max(0, v.translation.width)) }
@@ -534,7 +542,7 @@ struct LovelyHome: View {
             Divider()
             Button { router.open(.settings) } label: { Label("Settings", systemImage: "gearshape") }
         } label: {
-            Image(systemName: "ellipsis").font(.lovely(.body, .bold)).foregroundStyle(.white)
+            Image(systemName: "ellipsis").font(.lovely(.body, .bold)).foregroundStyle(CalmStyle.onBlue)
                 .frame(width: 52, height: 52).lifeBlack(corner: 16)
         }
         .accessibilityLabel("More").accessibilityIdentifier("home2.more")

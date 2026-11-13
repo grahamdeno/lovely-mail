@@ -33,15 +33,20 @@ struct SessionView: View {
             model = fresh
             // Routine mail the rules could not place gets an on-device drawer suggestion, so its screen has one main button.
             let unplaced = plan.items.filter { $0.drawer == nil && !$0.message.isPerson && $0.group != .reading }.map(\.message)
-            guard !unplaced.isEmpty else { return }
-            let guesses = await AppleDrawerGuesser.guesses(for: unplaced)
-            if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses, backlog: backlog, excluding: shown.subtracting(plan.items.map(\.id)))) }
+            if !unplaced.isEmpty {
+                let guesses = await AppleDrawerGuesser.guesses(for: unplaced)
+                if !guesses.isEmpty { fresh.replacePlanBeforeStart(store.makeSessionPlan(modelGuesses: guesses, backlog: backlog, excluding: shown.subtracting(plan.items.map(\.id)))) }
+            }
+            if !backlog, fresh.phase == .start { fresh.start() }
         }
     }
 
     @ViewBuilder private func content(_ m: SessionModel) -> some View {
         switch m.phase {
-        case .start: SessionStartScreen(model: m, openBacklog: openBacklog)
+        // Swipe to sort already said go (owner, Nov 13, 2026): the inbox session opens on its first email, no Start screen.
+        case .start:
+            if backlog { SessionStartScreen(model: m, openBacklog: openBacklog) }
+            else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         case .item(let id): SessionItemScreen(model: m, itemID: id).id(id)
         case .batch: SessionBatchScreen(model: m)
         case .reading: SessionReadingScreen(model: m)
@@ -631,33 +636,18 @@ extension SessionItemScreen {
         let corner = pageCornerNow(p)
         let y = pageOffsetNow()
         ZStack(alignment: .bottom) {
-            // LifeOS (Nov 13, 2026): the dotted automations ground, the deck peeking above, the card floating on it.
-            LifeDots().ignoresSafeArea()
+            CalmStyle.pageGround.ignoresSafeArea()
 
-            ForEach([1, 0], id: \.self) { k in
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(CalmStyle.page.opacity(k == 0 ? 0.8 : 0.55))
-                    .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(LifeColor.cardEdge, lineWidth: 1.5))
-                    .padding(.horizontal, 10 + CGFloat(k + 1) * 14)
-                    .padding(.top, Self.cardTop - CGFloat(k + 1) * 11)
-                    .opacity(model.remaining > k + 1 && appeared && !intoBall ? 1 : 0)
-                    .ignoresSafeArea(.container, edges: .bottom)
-                    .allowsHitTesting(false)
-            }
-
-            // The card, drawn to the bottom edge; the words ride on top with the same moves.
+            // The white page, drawn to the bottom edge; the words ride on top with the same moves.
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(CalmStyle.page)
-                .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous).strokeBorder(LifeColor.cardEdge, lineWidth: 1.5))
-                .shadow(color: Color(hex: 0x5A3C28).opacity(0.10), radius: 20, y: 10)
-                .padding(.horizontal, 10).padding(.top, Self.cardTop)
+                .shadow(color: Color(hex: 0x25222A).opacity(drag != 0 || slide != 0 ? 0.12 : 0), radius: 18, y: 6)
                 .scaleEffect(pageScale, anchor: .bottom)
                 .offset(x: slide, y: y)
                 .opacity(flyOpacity * (appeared ? 1 : 0))
                 .ignoresSafeArea(.container, edges: .bottom)
 
             cardPage(item, post)
-                .padding(.horizontal, 10).padding(.top, Self.cardTop)
                 .contentShape(Rectangle())
                 .scaleEffect(pageScale, anchor: .bottom)
                 .offset(x: slide, y: y)
@@ -680,10 +670,10 @@ extension SessionItemScreen {
                 .allowsHitTesting(false)
 
             if !typing {
-                // The drawer, LifeOS style: a dashed purple box that fills purple once the pull will file it.
+                // The drawer: a dashed box that fills Lovely blue once the pull will file it.
                 Label(p >= 1 ? target.releaseLabel : target.label, systemImage: p >= 1 ? "checkmark" : "tray")
                     .font(.lovely(.callout, .medium))
-                    .foregroundStyle(p >= 1 ? Color.white : CalmStyle.ink)
+                    .foregroundStyle(p >= 1 ? CalmStyle.onBlue : CalmStyle.ink)
                     .padding(.horizontal, 20).frame(minHeight: 56)
                     .background(p >= 1 ? LifeColor.purple : CalmStyle.card.opacity(0.7), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -732,13 +722,11 @@ extension SessionItemScreen {
         return pull * into * rise
     }
 
-    /// Room above the card for the deck to peek out.
-    static let cardTop: CGFloat = 30
-
     private func pageCornerNow(_ p: CGFloat) -> CGFloat {
         if intoBall || !appeared { return 300 }
-        if drag > 0 { return max(30, min(44, p * 44)) }
-        return 30
+        if drag > 0 { return min(44, p * 44) }
+        if drag < 0 { return min(44, -drag / 3) }
+        return slide < 0 ? 24 : 0
     }
 
     private func pageOffsetNow() -> CGFloat {
@@ -753,25 +741,16 @@ extension SessionItemScreen {
         let waiting = item.message.section == .waiting
         return VStack(alignment: .leading, spacing: 0) {
             SenderWarning(verdict: store.senderVerdict(post.email), compact: true)
-            // The step card's gray panel (LifeOS automations): who it's from, a dashed line, the drawer it's headed for.
             HStack(spacing: 11) {
-                CalmAvatar(person: post.email.from, size: 40, waiting: waiting, organization: !item.message.isPerson)
+                CalmAvatar(person: post.email.from, size: 36, waiting: waiting, organization: !item.message.isPerson)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(post.email.from.name).font(.lovely(.subheadline, .semibold)).lineLimit(1)
-                    Text(HomeDigest.age(of: post.email.date, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                    Text(post.email.from.email).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Path { p in p.move(to: CGPoint(x: 0, y: 1)); p.addLine(to: CGPoint(x: 26, y: 1)) }
-                    .stroke(LifeColor.dash, style: StrokeStyle(lineWidth: 2, dash: [4, 4]))
-                    .frame(width: 26, height: 2)
-                    .accessibilityHidden(true)
-                Image(systemName: "tray").font(.callout.weight(.medium)).foregroundStyle(.white)
-                    .frame(width: 40, height: 40).background(LifeColor.black, in: Circle())
-                    .accessibilityHidden(true)
+                Text(HomeDigest.age(of: post.email.date, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
-            .padding(12)
-            .background(LifeColor.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(.top, 14)
+            .padding(.top, 10)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(fact.label).font(.lovely(.subheadline, .semibold)).foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)

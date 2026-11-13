@@ -88,11 +88,11 @@ struct GelBall: View {
                 ctx.drawLayer { layer in
                     layer.addFilter(.blur(radius: 10))
                     layer.translateBy(x: 0, y: 8)
-                    layer.fill(shape, with: .color(Color(hex: 0xB83A1A).opacity(0.28)))
+                    layer.fill(shape, with: .color(Color(hex: 0xA3384F).opacity(0.28)))
                 }
                 let stops = dark
                     ? [Gradient.Stop(color: Color(hex: 0xF7B3C2), location: 0), .init(color: Color(hex: 0xE77A91), location: 0.55), .init(color: Color(hex: 0xB4506A), location: 1)]
-                    : [Gradient.Stop(color: Color(hex: 0xF6A58E), location: 0), .init(color: Color(hex: 0xE8552F), location: 0.55), .init(color: Color(hex: 0xB83A1A), location: 1)]
+                    : [Gradient.Stop(color: Color(hex: 0xF29AAE), location: 0), .init(color: Color(hex: 0xD2546E), location: 0.55), .init(color: Color(hex: 0xA3384F), location: 1)]
                 ctx.fill(shape, with: .radialGradient(Gradient(stops: stops), center: CGPoint(x: c.x - r * 0.24, y: c.y - r * 0.4),
                                                       startRadius: 0, endRadius: r * 1.5))
                 let m2 = physics.modes[0].a
@@ -150,7 +150,7 @@ extension View {
 
 extension CalmStyle {
     /// What shows behind a session page while it moves.
-    static let pageGround = Color(light: 0xEAE2D9, dark: 0x0B0A0D, neon: 0x0B0A0D)
+    static let pageGround = Color(light: 0xF2E1E5, dark: 0x0B0A0D, neon: 0x0B0A0D)
     /// Card 1: the session page itself.
-    static let page = Color(light: 0xF6F2EE, dark: 0x141317, neon: 0x121116)
+    static let page = Color(light: 0xFBF3F5, dark: 0x141317, neon: 0x121116)
 }
