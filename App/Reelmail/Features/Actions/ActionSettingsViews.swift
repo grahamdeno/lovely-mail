@@ -18,10 +18,10 @@ struct ForwardingAddressesView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(a)
                         Button(ShoeboxRule.address() == a ? "This is your Shoebox address" : "Use as Shoebox address") { ShoeboxRule.setAddress(a); addresses = ForwardAllowlist().addresses }
-                            .font(.caption).disabled(ShoeboxRule.address() == a)
+                            .font(.lovely(.caption)).disabled(ShoeboxRule.address() == a)
                         if let gmailEntries {
                             let s = ForwardingStatus.of(a, in: gmailEntries)
-                            Text(s.label).font(.caption).foregroundStyle(s == .verified ? CalmStyle.secondary : Color.orange)
+                            Text(s.label).font(.lovely(.caption)).foregroundStyle(s == .verified ? CalmStyle.secondary : Color.orange)
                         }
                     }
                 }
@@ -37,7 +37,7 @@ struct ForwardingAddressesView: View {
             Section {
                 Button(checking ? "Checking Gmail…" : "Check Gmail again") { Task { await check() } }.disabled(checking || store.actions == nil)
             }
-            if let status { Section { Text(status).font(.caption) } }
+            if let status { Section { Text(status).font(.lovely(.caption)) } }
         }
             .listRowBackground(CalmStyle.card)
         }
@@ -69,15 +69,15 @@ struct GmailFiltersView: View {
             ForEach(filters) { f in
                 VStack(alignment: .leading, spacing: 4) {
                     Text("From " + f.sender)
-                    if let to = f.forwardTo { Text("Forwards to " + to).font(.caption).foregroundStyle(CalmStyle.secondary) }
-                    if f.label != nil { Text("Adds a Lovely label").font(.caption).foregroundStyle(CalmStyle.secondary) }
+                    if let to = f.forwardTo { Text("Forwards to " + to).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
+                    if f.label != nil { Text("Adds a Lovely label").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
                     Button("Delete", role: .destructive) {
                         preview = ActionPreview(id: f.gmailID, kind: .deleteFilter, title: "Delete this filter",
                                                 lines: ["Mail from \(f.sender) will no longer be forwarded or labeled by it.", "Mail already forwarded stays where it went."])
-                    }.font(.caption)
+                    }.font(.lovely(.caption))
                 }
             }
-            if let status { Text(status).font(.caption) }
+            if let status { Text(status).font(.lovely(.caption)) }
         }
             .listRowBackground(CalmStyle.card)
         }
@@ -106,7 +106,7 @@ struct GmailActivityView: View {
             ForEach(entries.reversed()) { e in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(e.summary)
-                    Text(e.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text(e.date.formatted(date: .abbreviated, time: .shortened)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
             }
         }

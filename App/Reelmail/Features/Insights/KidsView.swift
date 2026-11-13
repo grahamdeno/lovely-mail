@@ -7,10 +7,10 @@ struct KidsRow: View {
     var body: some View {
         Button { router.open(.kids) } label: {
             HStack(spacing: 10) {
-                Text("Kids").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                Text("Kids").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                 Spacer()
-                Text(count == 0 ? "Nothing new" : "\(count) in mail").font(.caption).foregroundStyle(CalmStyle.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Text(count == 0 ? "Nothing new" : "\(count) in mail").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.horizontal, 14).frame(minHeight: 48)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
@@ -29,20 +29,20 @@ struct KidsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if kids.isEmpty {
                     Text("Add your children in Settings, then Lovely can gather their school and activity mail here.")
-                        .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
                 ForEach(kids) { kid in
                     let next = KidInsights.next(for: kid, mail: store.kidMail(for: kid), now: Date())
                     Button { router.open(.kid(kid.id)) } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(kid.name).font(.headline)
+                                Text(kid.name).font(.lovely(.headline))
                                 // What's next instead of a mail count (Nov 9).
                                 Text(next.map { "\($0.what) \u{00B7} \($0.when)" } ?? "Nothing coming up")
-                                    .font(.subheadline).foregroundStyle(next == nil ? CalmStyle.secondary : CalmStyle.ink).lineLimit(1)
+                                    .font(.lovely(.subheadline)).foregroundStyle(next == nil ? CalmStyle.secondary : CalmStyle.ink).lineLimit(1)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                            Image(systemName: "chevron.right").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary)
                         }
                         .padding(.horizontal, 14).frame(minHeight: 56).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
                     }.buttonStyle(.plain)
@@ -75,7 +75,7 @@ struct KidView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let kid {
                     let mail = store.kidMail(for: kid)
-                    if mail.isEmpty { Text("No mail about \(kid.name) in your inbox right now.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
+                    if mail.isEmpty { Text("No mail about \(kid.name) in your inbox right now.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary) }
                     ForEach(mail) { item in
                         let date = MailDates.extract(item.post.email, now: Date()).first
                         VStack(alignment: .leading, spacing: 6) {
@@ -84,12 +84,12 @@ struct KidView: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     if let date {
                                         Label(ComingUp.label(date, now: Date()), systemImage: "calendar")
-                                            .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                                            .font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue)
                                     }
-                                    Text(item.post.summary.headline).font(.headline).multilineTextAlignment(.leading)
+                                    Text(item.post.summary.headline).font(.lovely(.headline)).multilineTextAlignment(.leading)
                                     Text(item.post.email.from.name + " · " + item.post.email.date.formatted(date: .abbreviated, time: .omitted))
-                                        .font(.caption).foregroundStyle(CalmStyle.secondary)
-                                    Text(KidInsights.plainReasons(item.reasons)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                                    Text(KidInsights.plainReasons(item.reasons)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }.buttonStyle(.plain)
@@ -100,7 +100,7 @@ struct KidView: View {
                                         Label("Send this sender to Shoebox", systemImage: "tray.and.arrow.down")
                                     }
                                 } label: {
-                                    Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                                    Image(systemName: "ellipsis").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.secondary)
                                         .frame(width: 44, height: 44).contentShape(Rectangle())
                                 }
                                 .accessibilityLabel("More actions")
@@ -108,11 +108,11 @@ struct KidView: View {
                             }
                             if item.post.email.body.count > 1_500 {
                                 if let list = summaries[item.id] {
-                                    ForEach(list, id: \.self) { Text("• " + $0).font(.subheadline) }
-                                    if list.isEmpty { Text("Nothing specific found.").font(.caption).foregroundStyle(CalmStyle.secondary) }
+                                    ForEach(list, id: \.self) { Text("• " + $0).font(.lovely(.subheadline)) }
+                                    if list.isEmpty { Text("Nothing specific found.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
                                 } else {
                                     Button(working.contains(item.id) ? "Reading…" : "Summarize on this phone") { summarize(item, kid: kid) }
-                                        .font(.subheadline).disabled(working.contains(item.id))
+                                        .font(.lovely(.subheadline)).disabled(working.contains(item.id))
                                 }
                             }
                         }
@@ -120,7 +120,7 @@ struct KidView: View {
                         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                     }
                 } else {
-                    Text("This child is no longer in Settings.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Text("This child is no longer in Settings.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
             }.padding(20)
         }
@@ -189,7 +189,7 @@ struct InsightSettingsView: View {
                         TextField("Sender domains, comma separated", text: Binding(
                             get: { h.payeeDomains.joined(separator: ", ") },
                             set: { h.payeeDomains = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty } }))
-                            .font(.caption).textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .font(.lovely(.caption)).textInputAutocapitalization(.never).autocorrectionDisabled()
                         Toggle("Ends on a date", isOn: Binding(get: { h.endsOn != nil }, set: { h.endsOn = $0 ? (h.endsOn ?? Date()) : nil }))
                         if let end = h.endsOn { DatePicker("Ends", selection: Binding(get: { end }, set: { h.endsOn = $0 }), displayedComponents: .date) }
                     }
@@ -209,7 +209,7 @@ struct InsightSettingsView: View {
                 .onDelete { data.kids.remove(atOffsets: $0) }
                 HStack { TextField("Add a child", text: $newKid); Button("Add") { add(kid: newKid) }.disabled(newKid.isEmpty) }
             }
-            Section { Text("Saved on this iPhone and backed up to your iCloud. Kept when you disconnect Gmail.").font(.caption).foregroundStyle(CalmStyle.secondary) }
+            Section { Text("Saved on this iPhone and backed up to your iCloud. Kept when you disconnect Gmail.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
         }
             .listRowBackground(CalmStyle.card)
         }
@@ -222,8 +222,8 @@ struct InsightSettingsView: View {
     private func foundRow(_ c: Discovery.Candidate, detail: String, add: @escaping () -> Void) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(c.name).font(.body.weight(.semibold))
-                Text(detail).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(c.name).font(.lovely(.body, .semibold))
+                Text(detail).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             Spacer()
             Button("Add") { add(); dismissed.insert(c.id) }.buttonStyle(.borderless)

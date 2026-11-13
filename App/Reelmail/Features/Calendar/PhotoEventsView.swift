@@ -61,10 +61,10 @@ struct PhotoEventsView: View {
                 case .review: reviewView
                 case .added(let n):
                     Label("Adding \(n) event\(n == 1 ? "" : "s") to \(target?.title ?? "Work") in 10 seconds. Undo below if that was wrong.",
-                          systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(CalmStyle.green)
+                          systemImage: "checkmark.circle.fill").font(.lovely(.headline)).foregroundStyle(CalmStyle.green)
                     Button("Done") { dismiss() }.buttonStyle(SessionButtonStyle())
                 }
-                if let note { Text(note).font(.caption).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true) }
+                if let note { Text(note).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).fixedSize(horizontal: false, vertical: true) }
             }
             .padding(20)
         }
@@ -87,7 +87,7 @@ struct PhotoEventsView: View {
     private var startView: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Take a photo of your calendar, or pick a screenshot or PDF. Lovely shows you each event and adds the new ones to your Work calendar.")
-                .font(.callout).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
             // One button, like every other upload: take a photo, pick one, or choose a file (a PDF works too).
             Menu {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -101,7 +101,7 @@ struct PhotoEventsView: View {
             .buttonStyle(SessionButtonStyle())
             .accessibilityIdentifier("photoEvents.add.source")
             Text("Read on this iPhone. Check each event. Events already on your calendar at the same time with the same title start unchecked.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
     }
 
@@ -110,10 +110,10 @@ struct PhotoEventsView: View {
         let byDay = Dictionary(grouping: rows.indices, by: { Calendar.current.startOfDay(for: rows[$0].event.start) }).sorted { $0.key < $1.key }
         return VStack(alignment: .leading, spacing: 12) {
             Text(rows.isEmpty ? "No events found in that picture." : "\(rows.count) event\(rows.count == 1 ? "" : "s") found. Check them, then add.")
-                .font(.headline)
-            if let readBy { Text(readBy).font(.caption).foregroundStyle(CalmStyle.secondary) }
+                .font(.lovely(.headline))
+            if let readBy { Text(readBy).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
             ForEach(byDay, id: \.key) { entry in
-                Text(entry.key.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())).font(.caption.weight(.semibold))
+                Text(entry.key.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())).font(.lovely(.caption, .semibold))
                     .foregroundStyle(CalmStyle.secondary).padding(.top, 6)
                 ForEach(entry.value, id: \.self) { i in row(i) }
             }
@@ -126,33 +126,33 @@ struct PhotoEventsView: View {
             }
             if target?.title.lowercased() != "work" {
                 Text("No calendar named Work on this iPhone yet. Create a calendar called Work in Google Calendar, then turn it on at calendar.google.com/calendar/syncselect so it shows here.")
-                    .font(.caption).foregroundStyle(CalmStyle.warningInk).fixedSize(horizontal: false, vertical: true)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.warningInk).fixedSize(horizontal: false, vertical: true)
             }
             Button(chosen == 0 ? "Nothing to add" : "Add \(chosen) to \(target?.title ?? "Work")") { add() }
                 .buttonStyle(SessionButtonStyle()).disabled(chosen == 0 || target == nil)
                 .accessibilityIdentifier("photoEvents.add")
             Button("Try another photo") { rows = []; pick = nil; readBy = nil; phase = .start }
-                .font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(maxWidth: .infinity, minHeight: 44)
+                .font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.blue).frame(maxWidth: .infinity, minHeight: 44)
         }
     }
 
     private func row(_ i: Int) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Button { rows[i].include.toggle() } label: {
-                Image(systemName: rows[i].include ? "checkmark.circle.fill" : "circle").font(.title3)
+                Image(systemName: rows[i].include ? "checkmark.circle.fill" : "circle").font(.lovely(.title3))
                     .foregroundStyle(rows[i].include ? CalmStyle.blue : CalmStyle.secondary)
             }.buttonStyle(.plain).frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 4) {
-                TextField("Title", text: $rows[i].event.title).font(.body.weight(.medium))
+                TextField("Title", text: $rows[i].event.title).font(.lovely(.body, .medium))
                 HStack(spacing: 6) {
                     DatePicker("", selection: $rows[i].event.start, displayedComponents: [.hourAndMinute]).labelsHidden()
-                    Text("to").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("to").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     DatePicker("", selection: $rows[i].event.end, displayedComponents: [.hourAndMinute]).labelsHidden()
                 }
                 if rows[i].duplicate {
-                    Label("Already on your calendar", systemImage: "equal.circle").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Label("Already on your calendar", systemImage: "equal.circle").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 } else if rows[i].event.unsure {
-                    Label("Check this one", systemImage: "questionmark.circle").font(.caption).foregroundStyle(CalmStyle.warningInk)
+                    Label("Check this one", systemImage: "questionmark.circle").font(.lovely(.caption)).foregroundStyle(CalmStyle.warningInk)
                 }
             }
         }

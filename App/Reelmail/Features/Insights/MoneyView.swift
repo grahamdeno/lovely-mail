@@ -8,11 +8,11 @@ struct MoneyRow: View {
         Button { router.open(.money) } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
-                    Text("Money").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                    Text("Money").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                 }
-                Text(line).font(.caption).foregroundStyle(summary.alarms.isEmpty ? CalmStyle.secondary : CalmStyle.warningInk)
+                Text(line).font(.lovely(.caption)).foregroundStyle(summary.alarms.isEmpty ? CalmStyle.secondary : CalmStyle.warningInk)
             }
             .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 48)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -47,19 +47,19 @@ struct MoneyView: View {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(summary.alarms) { b in
                     Text("\(b.payee) reports a payment problem. Check it today.")
-                        .font(.subheadline.weight(.semibold)).padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                        .font(.lovely(.subheadline, .semibold)).padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
                         .onTapGesture { router.open(.email(b.id)) }
                 }
                 // 1. The answer.
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("NEXT").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("NEXT").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                     if let next {
                         Text(next.payee + (next.amount.map { String(format: " · $%.2f", $0) } ?? ""))
-                            .font(.title3.weight(.bold)).lineLimit(2)
-                        Text(dueText(next)).font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.title3, .bold)).lineLimit(2)
+                        Text(dueText(next)).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                     } else {
-                        Text("Nothing due right now").font(.title3.weight(.bold))
+                        Text("Nothing due right now").font(.lovely(.title3, .bold))
                     }
                 }
                 .padding(16).frame(maxWidth: .infinity, alignment: .leading)
@@ -71,7 +71,7 @@ struct MoneyView: View {
                 // 2. Did you pay these?
                 if !unpaid.isEmpty {
                     header("Did you pay these?")
-                    Text("Their due dates passed and Lovely didn't see a payment email.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("Their due dates passed and Lovely didn't see a payment email.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     ForEach(unpaid) { b in
                         VStack(alignment: .leading, spacing: 8) {
                             Button { router.open(.email(b.id)) } label: {
@@ -101,7 +101,7 @@ struct MoneyView: View {
                 if months.contains(where: { $0.total > 0 }) {
                     header("Bills by month")
                     MoneyMonthsChart(months: months)
-                    if let trend = MoneyPlan.trend(months) { Text(trend).font(.caption).foregroundStyle(CalmStyle.secondary) }
+                    if let trend = MoneyPlan.trend(months) { Text(trend).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
                 }
 
                 if !summary.renewals.isEmpty {
@@ -123,9 +123,9 @@ struct MoneyView: View {
                 if !paid.isEmpty {
                     Button { withAnimation { showHistory.toggle() } } label: {
                         HStack {
-                            Text("History · \(paid.count) paid").font(.subheadline.weight(.medium))
+                            Text("History · \(paid.count) paid").font(.lovely(.subheadline, .medium))
                             Spacer()
-                            Image(systemName: showHistory ? "chevron.up" : "chevron.down").font(.caption.weight(.semibold))
+                            Image(systemName: showHistory ? "chevron.up" : "chevron.down").font(.lovely(.caption, .semibold))
                         }.foregroundStyle(CalmStyle.blue).frame(minHeight: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).padding(.top, 8)
                     if showHistory {
@@ -134,7 +134,7 @@ struct MoneyView: View {
                 }
                 if store.insights.store.isEmpty {
                     Text(store.insights.isRunning ? "Reading your last 12 months of mail." : "Nothing found yet.")
-                        .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
             }.padding(20)
         }
@@ -144,7 +144,7 @@ struct MoneyView: View {
     }
 
     private func header(_ text: String) -> some View {
-        Text(text.uppercased()).font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 8)
+        Text(text.uppercased()).font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary).padding(.top, 8)
     }
 
     private func dueText(_ b: Bill) -> String {
@@ -161,11 +161,11 @@ struct MoneyView: View {
     private func row(_ title: String, sub: String, trailing: String, card: Bool = true) -> some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body).lineLimit(1)
-                Text(sub).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                Text(title).font(.lovely(.body)).lineLimit(1)
+                Text(sub).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
             }
             Spacer(minLength: 8)
-            Text(trailing).font(.subheadline).foregroundStyle(CalmStyle.secondary)
+            Text(trailing).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(.horizontal, card ? 14 : 0).padding(.vertical, card ? 8 : 0).frame(minHeight: card ? 48 : 0)
         .background(card ? CalmStyle.card : Color.clear, in: RoundedRectangle(cornerRadius: 12))
@@ -181,12 +181,12 @@ struct MoneyMonthsChart: View {
         HStack(alignment: .bottom, spacing: 10) {
             ForEach(months) { m in
                 VStack(spacing: 4) {
-                    Text(m.total > 0 ? String(format: "$%.0f", m.total) : "").font(.caption2).foregroundStyle(CalmStyle.secondary)
+                    Text(m.total > 0 ? String(format: "$%.0f", m.total) : "").font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
                         .lineLimit(1).minimumScaleFactor(0.7)
                     RoundedRectangle(cornerRadius: 6)
                         .fill(m.id == months.last?.id ? CalmStyle.blue : CalmStyle.blue.opacity(0.35))
                         .frame(height: max(4, CGFloat(m.total / top) * 110))
-                    Text(m.start.formatted(.dateTime.month(.abbreviated))).font(.caption2).foregroundStyle(CalmStyle.secondary)
+                    Text(m.start.formatted(.dateTime.month(.abbreviated))).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
                 }
                 .frame(maxWidth: .infinity)
             }

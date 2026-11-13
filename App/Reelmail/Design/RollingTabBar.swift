@@ -12,8 +12,8 @@ struct RollingTabBar: View {
             ForEach(tabs) { tab in
                 Button { selection = tab } label: {
                     VStack(spacing: 5) {
-                        Image(systemName: tab.symbol).font(.body.weight(.semibold))
-                        if !typeSize.isAccessibilitySize { Text(tab.title).font(.caption.weight(.medium)).lineLimit(1) }
+                        Image(systemName: tab.symbol).font(.lovely(.body, .semibold))
+                        if !typeSize.isAccessibilitySize { Text(tab.title).font(.lovely(.caption, .medium)).lineLimit(1) }
                     }
                     .foregroundStyle(selection == tab ? CalmStyle.blue : CalmStyle.secondary)
                     .frame(maxWidth: .infinity, minHeight: Self.barHeight)

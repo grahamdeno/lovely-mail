@@ -26,7 +26,7 @@ struct HandToGrokSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Hand to Grok").font(.title2.weight(.bold))
+                Text("Hand to Grok").font(.lovely(.title2, .bold))
                 if blocked {
                     Text("Health mail stays on this iPhone, so Lovely does not write a prompt for it.").foregroundStyle(CalmStyle.secondary)
                     Spacer()
@@ -36,8 +36,8 @@ struct HandToGrokSheet: View {
                         .padding(12).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                         .accessibilityIdentifier("handToGrok.task")
                     Text("Grok Bot stops and asks you before it submits, pays, signs, sends, deletes anything, or uploads an ID or personal document. Its report comes back under Grok reports.")
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
-                    if let note { Text(note).font(.callout).foregroundStyle(CalmStyle.roseInk) }
+                        .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
+                    if let note { Text(note).font(.lovely(.callout)).foregroundStyle(CalmStyle.roseInk) }
                     Spacer()
                     sendButton
                 }
@@ -56,7 +56,7 @@ struct HandToGrokSheet: View {
         let title = sending ? "Sending\u{2026}" : "Send to Grok"
         if let me = store.grokReportAddress, store.actions != nil, !store.grokReportsFiled {
             let preview = GrokHandoff.filterPreview(owner: me)
-            Text(preview.lines.first ?? "").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text(preview.lines.first ?? "").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             SessionConfirmButton(title: title, previews: [preview], enabled: !sending && !cleanTask.isEmpty, identifier: "handToGrok.send") { approvals in
                 store.setUpGrokReports(confirmed: approvals[0])
                 deliver()

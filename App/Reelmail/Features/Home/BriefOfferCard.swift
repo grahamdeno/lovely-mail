@@ -9,9 +9,9 @@ struct BriefOfferCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Want a short morning brief? Counts only, at 7:30.").font(.subheadline.weight(.medium))
+            Text("Want a short morning brief? Counts only, at 7:30.").font(.lovely(.subheadline, .medium))
             if declined {
-                Text("Notifications are off for Lovely. Turn them on in the Settings app.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Notifications are off for Lovely. Turn them on in the Settings app.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             HStack(spacing: 8) {
                 Button("Turn on") {

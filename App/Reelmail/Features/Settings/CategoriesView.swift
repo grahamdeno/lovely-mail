@@ -19,12 +19,12 @@ struct CategoriesView: View {
                         HStack(spacing: 12) {
                             Image(systemName: d.icon).frame(width: 24).foregroundStyle(e.hidden ? CalmStyle.secondary : CalmStyle.blue)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(settings.title(for: d)).font(.body.weight(.medium))
+                                Text(settings.title(for: d)).font(.lovely(.body, .medium))
                                     .foregroundStyle(e.hidden ? CalmStyle.secondary : CalmStyle.ink)
-                                Text(e.hidden ? "Hidden" : subtitle(d)).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                Text(e.hidden ? "Hidden" : subtitle(d)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                             }
                             Spacer(minLength: 8)
-                            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                            Image(systemName: "chevron.right").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary)
                         }
                         .frame(minHeight: 44).contentShape(Rectangle())
                     }
@@ -88,7 +88,7 @@ struct CategoryDetailView: View {
                 TextField(drawer.defaultTitle, text: $name)
                     .onSubmit { settings.rename(drawer, to: name); settings.save() }
                     .accessibilityIdentifier("category.name")
-                Text("Gmail label: " + DrawerChoice(Drawer(id: id)).labelName).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Gmail label: " + DrawerChoice(Drawer(id: id)).labelName).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             Section {
                 TextField("What goes in it", text: $meaning, axis: .vertical)

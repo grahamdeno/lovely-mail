@@ -19,10 +19,10 @@ struct DraftReplySheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Draft reply").font(.title3.weight(.semibold))
+                Text("Draft reply").font(.lovely(.title3, .semibold))
                 Spacer()
                 Text(engine == .appleIntelligence ? "Written on this iPhone" : "Starter text")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             if offersReplyAll {
                 Picker("Reply to", selection: $replyAll) {
@@ -32,14 +32,14 @@ struct DraftReplySheet: View {
                 .pickerStyle(.segmented)
             }
             Text(ReplyRecipients.summaryLine(plan, email: post.email))
-                .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
             Text(GmailCompose.replySubject(post.email.subject))
-                .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
 
             ZStack {
                 TextEditor(text: $draft)
                     .scrollContentBackground(.hidden)
-                    .font(.body)
+                    .font(.lovely(.body))
                     .padding(8)
                     .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
                     .accessibilityIdentifier("draft.editor")
@@ -62,7 +62,7 @@ struct DraftReplySheet: View {
             }
             Text(sendable ? "Lovely sends only what you approve. After you confirm, you have 10 seconds to undo."
                          : "Review and send it yourself in Gmail.")
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

@@ -8,11 +8,11 @@ struct EnergyRow: View {
         Button { router.open(.energy) } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
-                    Text("Energy").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                    Text("Energy").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                 }
-                Text(summary.headline).font(.caption).foregroundStyle(CalmStyle.secondary).multilineTextAlignment(.leading)
+                Text(summary.headline).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).multilineTextAlignment(.leading)
             }
             .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 48)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -30,7 +30,7 @@ struct EnergyView: View {
         let summary = EnergyInsights.summary(store.insights.store, household: nil)
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text(summary.headline).font(.title3.weight(.semibold))
+                Text(summary.headline).font(.lovely(.title3, .semibold))
                 if let suggestion = summary.suggestion {
                     ProfileCard(title: "This month", value: "One thing to try", detail: suggestion)
                 }
@@ -40,19 +40,19 @@ struct EnergyView: View {
                 }
                 if summary.months.count > 1 { MonthBars(months: summary.months) }
                 if let latest = summary.latest, !latest.devices.isEmpty {
-                    Text("LAST MONTH BY DEVICE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("LAST MONTH BY DEVICE").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                     ForEach(latest.devices.sorted { $0.dollars > $1.dollars }, id: \.name) { d in
                         HStack { Text(d.name); Spacer(); Text(String(format: "$%.2f", d.dollars)).foregroundStyle(CalmStyle.secondary) }
                             .padding(.horizontal, 14).frame(minHeight: 44).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 if !summary.water.isEmpty {
-                    Text("WATER AND SEWER").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                    Text("WATER AND SEWER").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                     ForEach(summary.water) { b in
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(b.payee)
-                                Text(b.postedOn.formatted(date: .abbreviated, time: .omitted)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                                Text(b.postedOn.formatted(date: .abbreviated, time: .omitted)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                             }
                             Spacer()
                             if let a = b.amount { Text(String(format: "$%.2f", a)).foregroundStyle(CalmStyle.secondary) }
@@ -62,7 +62,7 @@ struct EnergyView: View {
                 }
                 if store.insights.store.energy.isEmpty {
                     Text(store.insights.isRunning ? "Reading your last 12 months of mail." : "No energy report has been found in your last 12 months of mail.")
-                        .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
             }.padding(20)
         }
@@ -78,12 +78,12 @@ private struct MonthBars: View {
     var body: some View {
         let top = max(months.map(\.dollarsPerDay).max() ?? 1, 0.01)
         VStack(alignment: .leading, spacing: 8) {
-            Text("DOLLARS A DAY").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            Text("DOLLARS A DAY").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             HStack(alignment: .bottom, spacing: 6) {
                 ForEach(months) { m in
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 4).fill(CalmStyle.blue).frame(height: max(4, 90 * m.dollarsPerDay / top))
-                        Text(m.month.formatted(.dateTime.month(.narrow))).font(.caption2).foregroundStyle(CalmStyle.secondary)
+                        Text(m.month.formatted(.dateTime.month(.narrow))).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
                     }.frame(maxWidth: .infinity)
                 }
             }.frame(height: 120, alignment: .bottom)

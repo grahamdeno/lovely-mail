@@ -35,7 +35,7 @@ struct LaunchAnimation: View {
                 .frame(width: size, height: size)
                 VStack(spacing: 8) {
                     Wordmark(size: 40)
-                    Text("Get through your email.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                    Text("Get through your email.").font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                 }
                 .opacity(words ? 1 : 0).offset(y: words ? 0 : 8)
             }

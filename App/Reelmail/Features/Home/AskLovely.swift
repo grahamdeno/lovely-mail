@@ -40,17 +40,17 @@ struct AskLovelyBar: View {
                 if usage.trialOver() {
                     HStack(spacing: 8) {
                         Text("You asked Lovely \(usage.count) time\(usage.count == 1 ? "" : "s") in two weeks. Keep it?")
-                            .font(.caption).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                         Spacer(minLength: 4)
-                        Button("Keep") { decided = true }.font(.caption.weight(.semibold))
-                        Button("Remove") { enabled = false; decided = true }.font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.roseInk)
+                        Button("Keep") { decided = true }.font(.lovely(.caption, .semibold))
+                        Button("Remove") { enabled = false; decided = true }.font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.roseInk)
                     }
                 } else if showSuggestions {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(Self.suggestions, id: \.self) { q in
                                 Button(q) { ask(q) }
-                                    .font(.caption).foregroundStyle(CalmStyle.blue)
+                                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.blue)
                                     .padding(.horizontal, 10).frame(minHeight: 30)
                                     .background(CalmStyle.blue.opacity(0.1), in: Capsule())
                             }
@@ -65,7 +65,7 @@ struct AskLovelyBar: View {
                         .overlay(RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous).strokeBorder(CalmStyle.divider))
                         .accessibilityIdentifier("home.ask")
                     Button { ask(text) } label: {
-                        Image(systemName: "arrow.up").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
+                        Image(systemName: "arrow.up").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.onBlue)
                             .frame(width: 44, height: 44).background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                     }
                     .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -124,7 +124,7 @@ struct AskLovelyView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         if turns.isEmpty { starter }
                         ForEach(turns) { turn in
-                            Text(turn.question).font(.body).foregroundStyle(CalmStyle.onBlue)
+                            Text(turn.question).font(.lovely(.body)).foregroundStyle(CalmStyle.onBlue)
                                 .padding(.horizontal, 14).padding(.vertical, 10)
                                 .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18))
                                 .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 48)
@@ -132,17 +132,17 @@ struct AskLovelyView: View {
                                 if !turn.answer.isEmpty {
                                     SelectableText(text: EmailPresentation.linked(turn.answer))
                                 }
-                                if let p = turn.problem { Text(p).font(.callout).foregroundStyle(CalmStyle.secondary) }
+                                if let p = turn.problem { Text(p).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary) }
                                 if turn.answer.isEmpty, turn.problem == nil {
-                                    HStack(spacing: 8) { ProgressView(); Text("Thinking\u{2026}").font(.callout).foregroundStyle(CalmStyle.secondary) }
+                                    HStack(spacing: 8) { ProgressView(); Text("Thinking\u{2026}").font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary) }
                                 }
                                 if let q = turn.query {
-                                    Text("FROM YOUR MAIL").font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                                    Text("FROM YOUR MAIL").font(.lovely(.caption2, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                                         .padding(.top, 4)
                                     GmailSearchResults(query: q)
                                 }
                                 if !turn.engine.isEmpty {
-                                    Text(turn.engine).font(.caption2).foregroundStyle(CalmStyle.secondary)
+                                    Text(turn.engine).font(.lovely(.caption2)).foregroundStyle(CalmStyle.secondary)
                                 }
                             }
                             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
@@ -162,7 +162,7 @@ struct AskLovelyView: View {
                     .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                     .accessibilityIdentifier("ask.field")
                 Button { send(text) } label: {
-                    Image(systemName: "arrow.up").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
+                    Image(systemName: "arrow.up").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.onBlue)
                         .frame(width: 44, height: 44).background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                 }
                 .disabled(working || text.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -183,11 +183,11 @@ struct AskLovelyView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(topic == nil ? "Ask about your mail, or anything else. Answers from your mail show the emails underneath."
                               : "Ask about what's on your \(topic!.title) page, or anything around it.")
-                .font(.callout).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
             WrapLayout(spacing: 8) {
                 ForEach(topic?.suggestions ?? ["What did school send this week?", "Who's waiting on me?", "Which bills are due?"], id: \.self) { q in
                     Button { send(q) } label: {
-                        Text(q).font(.subheadline).foregroundStyle(CalmStyle.blue)
+                        Text(q).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.blue)
                             .padding(.horizontal, 12).frame(minHeight: 36)
                             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: SplitPillBar.corner, style: .continuous))
                     }

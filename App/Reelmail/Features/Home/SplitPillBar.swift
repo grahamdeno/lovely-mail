@@ -41,7 +41,7 @@ struct SplitPillBar: View {
                 // he expected Search kept wiping what he typed).
                 if focused || !router.searchText.isEmpty {
                     Button { router.searchText = ""; focused = false } label: {
-                        Image(systemName: "chevron.left").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                        Image(systemName: "chevron.left").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.secondary)
                             .frame(width: 28, height: 44).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).accessibilityLabel("Close search").accessibilityIdentifier("pill.close")
@@ -54,7 +54,7 @@ struct SplitPillBar: View {
                     .accessibilityIdentifier("pill.field")
                 if !router.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     Button { ask() } label: {
-                        Image(systemName: "arrow.up.circle.fill").font(.title2).foregroundStyle(CalmStyle.blue)
+                        Image(systemName: "arrow.up.circle.fill").font(.lovely(.title2)).foregroundStyle(CalmStyle.blue)
                             .frame(width: 36, height: 44).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).accessibilityLabel("Ask Lovely").accessibilityIdentifier("pill.ask")
@@ -71,7 +71,7 @@ struct SplitPillBar: View {
         let on = router.tab == tab
         return Button { if router.tab != tab { router.searchText = "" }; router.tab = tab } label: {
             Image(systemName: on ? symbol + ".fill" : symbol)
-                .font(.body.weight(.medium))
+                .font(.lovely(.body, .medium))
                 .foregroundStyle(on ? CalmStyle.blue : CalmStyle.secondary)
                 .frame(width: 44, height: 38)
                 .background(on ? CalmStyle.blue.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: Self.corner - 3, style: .continuous))

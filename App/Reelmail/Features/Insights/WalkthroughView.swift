@@ -23,11 +23,11 @@ struct WalkthroughView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if let post = list.first {
-                    Text("\(list.count) left").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("\(list.count) left").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     card(post)
                 } else {
-                    Text("That is everything for now.").font(.title3.weight(.semibold))
-                    Text("Nothing else needs you today.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Text("That is everything for now.").font(.lovely(.title3, .semibold))
+                    Text("Nothing else needs you today.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 }
                 if LearnedRuleStore().chatEnabled { chat }
             }.padding(20)
@@ -38,9 +38,9 @@ struct WalkthroughView: View {
 
     private func card(_ post: Post) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(post.email.from.name).font(.subheadline).foregroundStyle(CalmStyle.secondary)
-            Text(post.summary.headline).font(.title3.weight(.semibold))
-            Text(post.summary.blurb).font(.body)
+            Text(post.email.from.name).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
+            Text(post.summary.headline).font(.lovely(.title3, .semibold))
+            Text(post.summary.blurb).font(.lovely(.body))
             HStack(spacing: 8) {
                 Button { Task { await store.markDone(post) } } label: { Label("Done", systemImage: "checkmark").frame(maxWidth: .infinity) }
                     .buttonStyle(CalmActionStyle(prominent: true))
@@ -60,16 +60,16 @@ struct WalkthroughView: View {
 
     private var chat: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("CHAT (TESTING)").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            Text("CHAT (TESTING)").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             TextField("For example: stop showing mail from Acme", text: $sentence).textFieldStyle(.roundedBorder)
                 .onSubmit { interpret() }
             Button("Preview") { interpret() }.disabled(sentence.isEmpty)
             if let p = preview {
                 Text("\(p.intent.action == .filtered ? "Hide" : p.intent.action == .reading ? "Move to Reading" : "Keep in Home"): \(p.senders.joined(separator: ", "))")
-                    .font(.subheadline)
+                    .font(.lovely(.subheadline))
                 Button("Apply this rule") { apply(p) }.buttonStyle(CalmActionStyle(prominent: true))
             }
-            if let message { Text(message).font(.caption).foregroundStyle(CalmStyle.secondary) }
+            if let message { Text(message).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary) }
         }
         .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
     }

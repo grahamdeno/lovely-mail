@@ -14,9 +14,9 @@ struct FetchedEmailView: View {
             if let email {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text(email.from.name.isEmpty ? email.from.email : email.from.name).font(.subheadline).foregroundStyle(CalmStyle.secondary)
-                        Text(email.subject.isEmpty ? "(no subject)" : email.subject).font(.title3.weight(.bold))
-                        Text(email.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text(email.from.name.isEmpty ? email.from.email : email.from.name).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
+                        Text(email.subject.isEmpty ? "(no subject)" : email.subject).font(.lovely(.title3, .bold))
+                        Text(email.date.formatted(date: .abbreviated, time: .shortened)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                         Divider()
                         SelectableText(text: EmailPresentation.linked(email.body)).frame(maxWidth: .infinity, alignment: .leading)
                         Button { openInGmail() } label: { Label("Open in Gmail", systemImage: "arrow.up.forward.app").frame(maxWidth: .infinity) }

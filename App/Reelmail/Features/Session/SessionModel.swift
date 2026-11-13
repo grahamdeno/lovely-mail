@@ -72,13 +72,8 @@ final class SessionModel {
     /// Start with one group (tapped on the start screen); the rest follow in the usual order afterwards.
     func start(with group: SessionGroup) {
         let open = plan.items.filter(isOpen)
-        switch group {
-        case .oneAtATime:
-            if let first = open.first(where: { $0.group == .oneAtATime }) { phase = .item(first.id) } else { advance() }
-        case .quick: phase = open.contains { $0.group == .quick } ? .batch : .start
-        case .reading: phase = open.contains { $0.group == .reading } ? .reading : .start
-        }
-        if phase == .start { advance() }
+        // One workflow (owner, Nov 12, 2026): every email is a card, whatever its group.
+        if let first = open.first(where: { $0.group == group }) { phase = .item(first.id) } else { advance() }
     }
 
     /// A better plan arrived before the owner started (Apple Intelligence drawer suggestions). Ignored once started.
@@ -92,15 +87,14 @@ final class SessionModel {
         !progress.handled.contains(item.id) && !progress.leftUnread.contains(item.id)
     }
 
-    /// One at a time first, then the quick batch, then reading, then anything skipped, then the wrap-up.
+    /// One workflow (owner, Nov 12, 2026): every email is a card, the ones needing a decision first, then the quick
+    /// ones, then newsletters; then anything skipped, then the wrap-up. No batch screens.
     func advance(skipping skippedNow: String? = nil) {
-        let open = plan.items.filter(isOpen)
-        if let next = open.first(where: { $0.group == .oneAtATime && !progress.skipped.contains($0.id) }) { phase = .item(next.id); return }
-        if open.contains(where: { $0.group == .quick }) { phase = .batch; return }
-        if open.contains(where: { $0.group == .reading }) { phase = .reading; return }
+        let open = SessionGroup.allCases.flatMap { g in plan.items.filter { $0.group == g && isOpen($0) } }
+        if let next = open.first(where: { !progress.skipped.contains($0.id) }) { phase = .item(next.id); return }
         // Back to skipped ones, but never straight back to the one just skipped: with only it left, Skip looked broken
         // (it reopened the same email). Then the session wraps up and leaves it in the inbox.
-        let skipped = open.filter { $0.group == .oneAtATime && $0.id != skippedNow }
+        let skipped = open.filter { $0.id != skippedNow }
         if let i = open.firstIndex(where: { $0.id == skippedNow }),
            let after = skipped.first(where: { s in (open.firstIndex { $0.id == s.id } ?? 0) > i }) ?? skipped.first {
             phase = .item(after.id); return
@@ -230,6 +224,8 @@ final class SessionModel {
 
     // MARK: Wrap-up
 
+    /// Emails not yet handled or left unread, the current one included.
+    var remaining: Int { plan.items.filter(isOpen).count }
     var replies: Int { outcomes.values.filter { $0 == .replied }.count }
     var filed: Int { outcomes.values.filter { if case .filed = $0 { return true } else { return false } }.count }
     var archived: Int { outcomes.values.filter { $0 == .archived }.count }

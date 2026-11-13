@@ -1,33 +1,35 @@
 import SwiftUI
 
-/// Lovely's Airmail palette. Source of truth: Design/Brand/README.md.
+/// Lovely's palette. Light mode is the LifeOS look (owner, Nov 12, 2026): greige ground, light cards, black for
+/// everything you tap, orange for Waiting on you, purple for done. Dark and Neon are unchanged.
+/// Earlier source of truth: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
 /// Neon (owner, Nov 9): dark mode's surfaces and text, with cool neon accents: electric cyan for everything you can
 /// tap, hot magenta for Waiting on you, violet in the stripe, lime for Done.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(light: 0xFBF8F4, dark: 0x17161A, neon: 0x121116)
+    static let background = Color(light: 0xEAE2D9, dark: 0x17161A, neon: 0x121116)
     /// Cards, pills and fields that sit on the background.
-    static let card = Color(light: 0xFFFFFF, dark: 0x25232A, neon: 0x211F27)
-    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF2EFEA)
-    static let secondary = Color(light: 0x5E5962, dark: 0xA9A3AC, neon: 0xA9A3AC)
+    static let card = Color(light: 0xF6F2EE, dark: 0x25232A, neon: 0x211F27)
+    static let ink = Color(light: 0x141414, dark: 0xF2EFEA, neon: 0xF2EFEA)
+    static let secondary = Color(light: 0x5F5650, dark: 0xA9A3AC, neon: 0xA9A3AC)
     /// Airmail blue: everything you can tap. In Neon, electric cyan.
-    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x2DE2E6)
+    static let blue = Color(light: 0x141414, dark: 0x5B7FE8, neon: 0x2DE2E6)
     /// Text and icons on `blue`: white, except near-black on Neon's bright cyan.
     static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0x0B1416)
     /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, hot magenta.
-    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF3CAC)
+    static let rose = Color(light: 0xE8552F, dark: 0xE0708A, neon: 0xFF3CAC)
     /// Postmark rose for text; passes 4.5:1 on its background in every palette.
-    static let roseInk = Color(light: 0xB8405A, dark: 0xF08DA3, neon: 0xFF8FD0)
+    static let roseInk = Color(light: 0xAD3517, dark: 0xF08DA3, neon: 0xFF8FD0)
     /// Done. Swipe tint only, with white text.
-    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x17A866)
-    static let divider = Color(light: 0xECE6E2, dark: 0x2F2D34, neon: 0x2C2A33)
+    static let green = Color(light: 0x3D2A73, dark: 0x3A9D66, neon: 0x17A866)
+    static let divider = Color(light: 0xDCD2C8, dark: 0x2F2D34, neon: 0x2C2A33)
     static let field = card
-    static let bubble = Color(light: 0xEFEBE8, dark: 0x2B2930, neon: 0x2A2731)
+    static let bubble = Color(light: 0xE3DBD3, dark: 0x2B2930, neon: 0x2A2731)
     static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x332A14)
     static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFE066)
     /// The Undo bar: dark in every palette, with white text.
-    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x2E2B36)
+    static let toast = Color(light: 0x141414, dark: 0x3A3842, neon: 0x2E2B36)
     /// Neon's signature stripe: cyan, violet, magenta. Used for the line under the top bar.
     static let gel = LinearGradient(colors: [Color(hex: 0x2DE2E6), Color(hex: 0x9D4EDD), Color(hex: 0xFF3CAC)],
                                     startPoint: .leading, endPoint: .trailing)
@@ -95,7 +97,7 @@ struct CalmActionStyle: ButtonStyle {
         // Delete, remove, decline and clear buttons (role: .destructive) are rose-red, never blue.
         let tint = configuration.role == .destructive ? CalmStyle.roseInk : CalmStyle.blue
         return configuration.label
-            .font(.subheadline.weight(.medium))
+            .font(.lovely(.subheadline, .medium))
             .padding(.horizontal, 12).frame(minHeight: 40)
             .foregroundStyle(prominent ? CalmStyle.onBlue : tint)
             .background(prominent ? tint : tint.opacity(0.08), in: Capsule())
@@ -165,7 +167,7 @@ struct HomeView: View {
                 Group {
                     if !store.isLoading, store.sections.isEmpty { EmptyFeedNote() }
                     if !store.isLoading, !store.posts.isEmpty {
-                        Text(footerText).font(.caption).foregroundStyle(CalmStyle.secondary).padding(.vertical, 20)
+                        Text(footerText).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).padding(.vertical, 20)
                     }
                 }
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
@@ -220,9 +222,9 @@ struct HomeView: View {
                     Button { router.open(.mailList("done")) } label: {
                         HStack(spacing: 6) {
                             Label(note, systemImage: "checkmark.circle.fill").labelStyle(.titleAndIcon)
-                            Image(systemName: "chevron.right").font(.caption2.weight(.bold)).accessibilityHidden(true)
+                            Image(systemName: "chevron.right").font(.lovely(.caption2, .bold)).accessibilityHidden(true)
                         }
-                        .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                        .font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue)
                         .frame(minHeight: 44).padding(.top, 18).padding(.bottom, 2).contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless).accessibilityHint("Shows what you finished today")
@@ -257,9 +259,9 @@ struct HomeView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath").foregroundStyle(CalmStyle.blue)
                     Text("\(store.shortTermExpired) short-term email\(store.shortTermExpired == 1 ? "" : "s") past \(ShortTerm.keepDays) days")
-                        .font(.subheadline).foregroundStyle(CalmStyle.ink)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.ink)
                     Spacer(minLength: 8)
-                    Text("Review").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                    Text("Review").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.blue)
                 }
                 .frame(minHeight: 44).contentShape(Rectangle())
             }
@@ -273,9 +275,9 @@ struct HomeView: View {
                 HStack(spacing: 12) {
                     Circle().strokeBorder(CalmStyle.secondary.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
                         .frame(width: 22, height: 22).padding(.leading, 9)
-                    Text("Optional: clear \(older) older email\(older == 1 ? "" : "s")").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                    Text("Optional: clear \(older) older email\(older == 1 ? "" : "s")").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                     Spacer(minLength: 8)
-                    Text("about \(max(1, Int((Double(older) * 0.08).rounded()))) min").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("about \(max(1, Int((Double(older) * 0.08).rounded()))) min").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
                 .frame(minHeight: 44).contentShape(Rectangle())
             }
@@ -348,7 +350,7 @@ struct HomeView: View {
             rows(Array(todo.dropFirst().prefix(4)), compact: true, showAge: true)
             if todo.count > 5 {
                 Button { router.open(.mailList("todo")) } label: {
-                    Text("\(todo.count - 5) more unread").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                    Text("\(todo.count - 5) more unread").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.blue)
                         .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -356,7 +358,7 @@ struct HomeView: View {
             }
         } else if !store.isLoading, !store.posts.isEmpty {
             title("To do", 0, note: note, opens: note == nil ? nil : "todo")
-            Text("Nothing unread. All caught up.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+            Text("Nothing unread. All caught up.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                 .padding(.vertical, 6)
                 .listRowInsets(rowInsets).listRowSeparator(.hidden).listRowBackground(CalmStyle.background)
         }
@@ -408,7 +410,7 @@ struct TopBar: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 Text(Date().formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.secondary)
                     .padding(.leading, 20)
                 Spacer()
                 Button { router.open(.settings) } label: {
@@ -455,12 +457,12 @@ struct DigestTitle: View {
                     .foregroundStyle(CalmStyle.blue).textCase(nil)
             }
             if chevron {
-                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).accessibilityHidden(true)
+                Image(systemName: "chevron.right").font(.lovely(.caption2, .bold)).accessibilityHidden(true)
             }
         }
         .frame(minHeight: 32)
         .contentShape(Rectangle())
-        .font(.caption.weight(.semibold))
+        .font(.lovely(.caption, .semibold))
         .foregroundStyle(rose ? CalmStyle.roseInk : CalmStyle.secondary)
         .padding(.top, 18).padding(.bottom, 2)
         .accessibilityAddTraits(.isHeader)
@@ -479,7 +481,7 @@ struct OrganizationChips: View {
                     Button { router.open(.organization(group.id)) } label: {
                         HStack(spacing: 8) {
                             CalmAvatar(person: group.posts[0].email.from, size: 22, organization: true, domain: group.domain)
-                            Text(chipText(group)).font(.subheadline.weight(.medium)).lineLimit(1)
+                            Text(chipText(group)).font(.lovely(.subheadline, .medium)).lineLimit(1)
                         }
                             .padding(.leading, 8).padding(.trailing, 12).frame(minHeight: 36)
                             .foregroundStyle(CalmStyle.ink)
@@ -558,9 +560,9 @@ struct DoneTodayList: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(CalmStyle.blue).padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(r.from).font(.subheadline.weight(.semibold)).lineLimit(1)
-                            Text(r.subject.isEmpty ? "(no subject)" : r.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
-                            Text("Done " + r.doneAt.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                            Text(r.from).font(.lovely(.subheadline, .semibold)).lineLimit(1)
+                            Text(r.subject.isEmpty ? "(no subject)" : r.subject).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                            Text("Done " + r.doneAt.formatted(date: .omitted, time: .shortened)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -582,8 +584,8 @@ struct SectionTitle: View {
     let count: Int
     var body: some View {
         HStack(spacing: 6) {
-            Text(section.title.uppercased()).font(.caption.weight(.semibold)).kerning(0.6)
-            Text("\(count)").font(.caption).opacity(0.7)
+            Text(section.title.uppercased()).font(.lovely(.caption, .semibold)).kerning(0.6)
+            Text("\(count)").font(.lovely(.caption)).opacity(0.7)
         }
         .foregroundStyle(section == .waiting ? CalmStyle.roseInk : CalmStyle.secondary)
         .padding(.top, 18).padding(.bottom, 2)
@@ -597,14 +599,14 @@ struct EmptyFeedNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(store.posts.isEmpty ? (store.mode == .gmail && store.lastFetched != nil ? "Your inbox is empty. Nice." : "No mail loaded yet.") : "Nothing here right now.")
-                .font(.subheadline.weight(.medium))
+                .font(.lovely(.subheadline, .medium))
             if store.mode == .gmail, store.posts.isEmpty, store.lastFetched != nil {
                 Text("Pull down to check again.")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             } else if store.filter == .waiting {
-                Text("No one is waiting on a reply from you.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("No one is waiting on a reply from you.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             } else if store.filter == .notes {
-                Text("Mail from your other addresses shows here. Add them in Settings.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text("Mail from your other addresses shows here. Add them in Settings.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
         }.padding(.vertical, 24)
     }
@@ -615,9 +617,9 @@ struct UndoBar: View {
     let undo: () -> Void
     var body: some View {
         HStack {
-            Text(text).font(.subheadline)
+            Text(text).font(.lovely(.subheadline))
             Spacer(minLength: 12)
-            Button("Undo", action: undo).font(.subheadline.weight(.semibold)).foregroundStyle(Color.white)
+            Button("Undo", action: undo).font(.lovely(.subheadline, .semibold)).foregroundStyle(Color.white)
                 .frame(minWidth: 44, minHeight: 44).accessibilityIdentifier("undo.home")
         }
         .padding(.horizontal, 16)
@@ -635,12 +637,12 @@ struct StatusNotices: View {
             if !waiting.isEmpty, store.actions != nil {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("\(waiting.count) change\(waiting.count == 1 ? "" : "s") from earlier did not reach Gmail.", systemImage: "tray.and.arrow.up")
-                        .font(.subheadline)
+                        .font(.lovely(.subheadline))
                     SessionConfirmButton(title: "Finish them", previews: [Outbox.preview(waiting)], identifier: "home.outbox.finish") { approvals in
                         store.finishWaitingChanges(confirmed: approvals[0])
                     }
                     Button("Put them back") { store.dropWaitingChanges() }
-                        .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                        .font(.lovely(.subheadline, .medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                 }
                 .padding(14).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
             }
@@ -652,7 +654,7 @@ struct StatusNotices: View {
                 notice("Lovely needs your OK to change mail in Gmail (Trash and Done). It can't send mail or delete anything for good. Reconnect and allow it.", button: "Reconnect Gmail")
             } else if let error = store.errorMessage {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label(error, systemImage: "exclamationmark.triangle").font(.subheadline)
+                    Label(error, systemImage: "exclamationmark.triangle").font(.lovely(.subheadline))
                     if store.refreshFailed {
                         Button("Try again") { Task { await store.load() } }
                             .buttonStyle(CalmActionStyle(prominent: true)).disabled(store.isLoading)
@@ -662,10 +664,10 @@ struct StatusNotices: View {
                 .background(CalmStyle.warning, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(CalmStyle.warningInk)
             }
             if let error = store.rules.persistenceError {
-                Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Label(error, systemImage: "exclamationmark.triangle").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             if store.isLoading, store.posts.isEmpty {
-                ProgressView("Loading mail…").font(.caption).frame(maxWidth: .infinity).padding(.vertical, 24)
+                ProgressView("Loading mail…").font(.lovely(.caption)).frame(maxWidth: .infinity).padding(.vertical, 24)
             }
         }
         .padding(.top, store.needsReconnect || store.needsTrashPermission || store.errorMessage != nil ? 10 : 0)
@@ -673,7 +675,7 @@ struct StatusNotices: View {
 
     private func notice(_ text: String, button: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(text).font(.subheadline)
+            Text(text).font(.lovely(.subheadline))
             Button(button) { Task { await store.connectGmail() } }.buttonStyle(CalmActionStyle(prominent: true))
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
@@ -736,12 +738,12 @@ struct MailRow: View {
                     Text(compactName).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
                     Spacer(minLength: 8)
                     Text(showAge ? HomeDigest.age(of: post.email.date, now: Date()) : MailTime.short(post.email.date))
-                        .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
+                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
                     if post.email.isUnread { Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread") }
                 }
                 Text(sensitive ? "Private message" : (fromPerson ? post.summary.blurb : post.summary.headline))
-                    .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
-                if let laterText { Label(laterText, systemImage: "clock").font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1) }
+                    .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                if let laterText { Label(laterText, systemImage: "clock").font(.lovely(.caption)).foregroundStyle(CalmStyle.blue).lineLimit(1) }
             }
         }
         .padding(.vertical, 8)
@@ -755,20 +757,20 @@ struct MailRow: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(post.email.from.name).font(.subheadline.weight(post.email.isUnread ? .bold : .semibold)).lineLimit(1)
                         Spacer(minLength: 8)
-                        Text(MailTime.short(post.email.date)).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
+                        Text(MailTime.short(post.email.date)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1).fixedSize()
                         if post.email.isUnread { Circle().fill(CalmStyle.blue).frame(width: 7, height: 7).accessibilityLabel("Unread") }
                     }
                     Text(sensitive ? "Private message" : post.summary.headline)
-                        .font(.subheadline.weight(.medium)).lineLimit(1)
+                        .font(.lovely(.subheadline, .medium)).lineLimit(1)
                     Text(preview)
-                        .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                        .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                    if let laterText { Label(laterText, systemImage: "clock").font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1) }
+                    if let laterText { Label(laterText, systemImage: "clock").font(.lovely(.caption)).foregroundStyle(CalmStyle.blue).lineLimit(1) }
                     if waiting {
-                        Text(assessment.reason).font(.caption.weight(.medium)).foregroundStyle(CalmStyle.roseInk).lineLimit(1)
+                        Text(assessment.reason).font(.lovely(.caption, .medium)).foregroundStyle(CalmStyle.roseInk).lineLimit(1)
                     } else if !post.summary.dates.isEmpty, !sensitive {
                         Label(post.summary.dates.prefix(2).joined(separator: " · "), systemImage: "calendar")
-                            .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                            .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                     }
                 }
             }
@@ -860,21 +862,21 @@ struct FilteredMailReview: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Filtered senders are hidden in Lovely. A Gmail filter, if you made one, is listed in Settings > Gmail filters.").font(.subheadline)
-                    if let error = store.rules.persistenceError { Text(error).font(.subheadline) }
+                    Text(store.mode == .sample ? "Fictional mail. Rules change the demo only." : "Filtered senders are hidden in Lovely. A Gmail filter, if you made one, is listed in Settings > Gmail filters.").font(.lovely(.subheadline))
+                    if let error = store.rules.persistenceError { Text(error).font(.lovely(.subheadline)) }
                     let senders = store.rules.filteredSenders
-                    if senders.isEmpty && store.filteredPosts.isEmpty { Text("Nothing is filtered.").font(.subheadline).foregroundStyle(CalmStyle.secondary) }
+                    if senders.isEmpty && store.filteredPosts.isEmpty { Text("Nothing is filtered.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary) }
                     if !senders.isEmpty {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(senders, id: \.self) { sender in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(sender.hasPrefix("@") ? "Everything from " + sender.dropFirst() : sender).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                                        Text(sender.hasPrefix("@") ? "Everything from " + sender.dropFirst() : sender).font(.lovely(.subheadline)).lineLimit(1).truncationMode(.middle)
                                         let n = store.filteredPosts.filter { post in
                                             let from = post.email.from.email.lowercased()
                                             return sender.hasPrefix("@") ? LocalTriageRules.domainKeys(from).contains(sender) : from == sender
                                         }.count
-                                        Text(n == 0 ? "No loaded mail" : "\(n) hidden").font(.caption).foregroundStyle(CalmStyle.secondary)
+                                        Text(n == 0 ? "No loaded mail" : "\(n) hidden").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                                     }
                                     Spacer(minLength: 8)
                                     Button("Restore") { store.unfilterSender(sender) }.buttonStyle(CalmActionStyle()).frame(minHeight: 44)
@@ -882,13 +884,13 @@ struct FilteredMailReview: View {
                                 Divider()
                             }
                         }.padding(16).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16)).disabled(store.rules.persistenceError != nil)
-                        if !store.filteredPosts.isEmpty { Text("Hidden messages").font(.headline).padding(.top, 4) }
+                        if !store.filteredPosts.isEmpty { Text("Hidden messages").font(.lovely(.headline)).padding(.top, 4) }
                     }
                     ForEach(store.filteredPosts) { post in
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(post.email.from.name).font(.headline)
-                            Text(ConversationPresentation.isSensitive(post.email, summary: post.summary) ? "Private message" : post.email.subject).font(.subheadline)
-                            Text(store.rules.decision(messageID: post.id, sender: post.email.from.email).reason).font(.caption).foregroundStyle(CalmStyle.secondary)
+                            Text(post.email.from.name).font(.lovely(.headline))
+                            Text(ConversationPresentation.isSensitive(post.email, summary: post.summary) ? "Private message" : post.email.subject).font(.lovely(.subheadline))
+                            Text(store.rules.decision(messageID: post.id, sender: post.email.from.email).reason).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                             HStack {
                                 Button("Restore sender") { store.setSenderRule(post.email.from.email, destination: nil) }.buttonStyle(CalmActionStyle())
                                 Button("Keep this message") { store.setMessageRule(post.id, destination: .inbox) }.buttonStyle(CalmActionStyle())
@@ -920,16 +922,16 @@ struct NextUpCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Button { router.open(.email(post.id)) } label: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("NEXT UP").font(.caption2.weight(.bold)).tracking(0.8).foregroundStyle(CalmStyle.blue)
+                    Text("NEXT UP").font(.lovely(.caption2, .bold)).tracking(0.8).foregroundStyle(CalmStyle.blue)
                     HStack(alignment: .top, spacing: 12) {
                         CalmAvatar(person: post.email.from, size: 36, organization: organization)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(organization ? HomeDigest.organizationName(post.email.from) : post.email.from.name)
-                                .font(.subheadline.weight(.bold)).lineLimit(1)
+                                .font(.lovely(.subheadline, .bold)).lineLimit(1)
                             Text(sensitive ? "Private message" : post.summary.headline)
-                                .font(.subheadline.weight(.medium)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                                .font(.lovely(.subheadline, .medium)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                             if !sensitive {
-                                Text(post.summary.blurb).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                                Text(post.summary.blurb).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -939,7 +941,7 @@ struct NextUpCard: View {
                          + (stale ? "Still need this? Unread \(HomeDigest.age(of: post.email.date, now: Date()))."
                                   : "Unread \(HomeDigest.age(of: post.email.date, now: Date())).")
                     )
-                        .font(.caption.weight(.medium)).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.caption, .medium)).foregroundStyle(CalmStyle.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -951,7 +953,7 @@ struct NextUpCard: View {
                     .buttonStyle(CalmActionStyle(prominent: true)).lineLimit(1)
                     .accessibilityHint("Marks it read in Gmail").accessibilityIdentifier("home.nextup.done")
                 LaterMenu(post: post) {
-                    Image(systemName: "clock").font(.body.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                    Image(systemName: "clock").font(.lovely(.body, .medium)).foregroundStyle(CalmStyle.blue)
                         .frame(minWidth: 44, minHeight: 40)
                 }
                 if !organization {
@@ -960,7 +962,7 @@ struct NextUpCard: View {
                 }
                 Spacer(minLength: 0)
                 Button(action: onTrash) {
-                    Label("Trash", systemImage: "trash").labelStyle(AdaptiveLabelStyle()).font(.subheadline).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 44)
+                    Label("Trash", systemImage: "trash").labelStyle(AdaptiveLabelStyle()).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.roseInk).frame(minWidth: 44, minHeight: 44)
                 }.buttonStyle(.plain).accessibilityLabel("Move to Gmail Trash").accessibilityIdentifier("home.nextup.trash")
             }
         }
@@ -974,8 +976,8 @@ struct SampleMailCard: View {
     @Environment(FeedStore.self) private var store
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("This is sample mail. The people here are made up.").font(.subheadline.weight(.semibold))
-            Text("Connect Gmail to see your own. Lovely reads your mail on this iPhone.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("This is sample mail. The people here are made up.").font(.lovely(.subheadline, .semibold))
+            Text("Connect Gmail to see your own. Lovely reads your mail on this iPhone.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             if store.gmailConfigured {
                 Button { Task { await store.connectGmail() } } label: {
                     Label("Connect Gmail", systemImage: "envelope.badge.shield.half.filled").frame(maxWidth: .infinity)

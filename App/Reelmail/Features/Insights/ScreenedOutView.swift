@@ -7,10 +7,10 @@ struct ScreenedOutRow: View {
     var body: some View {
         Button { router.open(.screenedOut) } label: {
             HStack(spacing: 10) {
-                Text("New senders · \(count)").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                Text("New senders · \(count)").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                 Spacer()
-                Text("Accept or decline").font(.caption).foregroundStyle(CalmStyle.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Text("Accept or decline").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.horizontal, 14).frame(minHeight: 48).background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
         }.buttonStyle(.plain).accessibilityIdentifier("home.row.screenedout")
@@ -33,9 +33,9 @@ struct ScreenedOutView: View {
             if candidates.isEmpty { Text("No new senders.").foregroundStyle(CalmStyle.secondary) }
             ForEach(candidates) { c in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(c.name).font(.headline)
-                    Text(c.address).font(.caption).foregroundStyle(CalmStyle.secondary)
-                    Text(c.subject).font(.subheadline).lineLimit(2)
+                    Text(c.name).font(.lovely(.headline))
+                    Text(c.address).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                    Text(c.subject).font(.lovely(.subheadline)).lineLimit(2)
                     HStack {
                         Button("Accept") { store.accept(c) }.buttonStyle(CalmActionStyle(prominent: true)).accessibilityIdentifier("screened.accept")
                         if store.actions != nil {

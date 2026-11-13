@@ -19,14 +19,14 @@ struct CleanupView: View {
                     Text(kind == .logins
                          ? "Login codes, new-device checks and password resets you no longer need. Nothing moves until you tap the button, and Gmail keeps Trash for 30 days."
                          : "Mail you chose to keep for \(ShortTerm.keepDays) days, now past that. Gmail keeps Trash for 30 days.")
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     if kind == .shortTerm {
                         Toggle("Move to Trash automatically after \(ShortTerm.keepDays) days", isOn: $auto)
                             .onChange(of: auto) { _, on in UserDefaults.standard.set(on, forKey: ShortTerm.autoKey(account: store.account ?? "")) }
                             .accessibilityIdentifier("shortTerm.auto")
                         Text(auto ? "Starred mail and mail from people you write to are never moved. You get the usual Undo bar."
                                   : "Off: Home tells you when some have expired, and nothing moves until you tap.")
-                            .font(.caption).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     }
                     if kind == .logins {
                         Picker("Older than", selection: $age) {
@@ -38,19 +38,19 @@ struct CleanupView: View {
                     }
                     if searching { ProgressView().frame(maxWidth: .infinity) }
                     if let moved {
-                        Label("\(moved) moved to Trash.", systemImage: "checkmark.circle").font(.callout)
+                        Label("\(moved) moved to Trash.", systemImage: "checkmark.circle").font(.lovely(.callout))
                     }
                     if let found {
                         if found.isEmpty {
-                            Text("Nothing to clean up.").font(.headline)
+                            Text("Nothing to clean up.").font(.lovely(.headline))
                         } else {
-                            Text(found.count == 1 ? "1 email" : "\(found.count) emails").font(.headline)
+                            Text(found.count == 1 ? "1 email" : "\(found.count) emails").font(.lovely(.headline))
                             VStack(spacing: 0) {
                                 ForEach(found.prefix(60), id: \.id) { stub in
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(stub.fromName.isEmpty ? stub.fromAddress : stub.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                        Text(stub.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(1)
-                                        Text(stub.date.formatted(date: .abbreviated, time: .omitted)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                                        Text(stub.fromName.isEmpty ? stub.fromAddress : stub.fromName).font(.lovely(.subheadline, .semibold)).lineLimit(1)
+                                        Text(stub.subject).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                        Text(stub.date.formatted(date: .abbreviated, time: .omitted)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 14).padding(.vertical, 10)
@@ -59,7 +59,7 @@ struct CleanupView: View {
                             }
                             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
                             if found.count > 60 {
-                                Text("and \(found.count - 60) more like these").font(.caption).foregroundStyle(CalmStyle.secondary)
+                                Text("and \(found.count - 60) more like these").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                             }
                         }
                     }

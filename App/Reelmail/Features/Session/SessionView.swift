@@ -77,10 +77,10 @@ struct SessionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(title).font(.headline)
+                Text(title).font(.lovely(.headline))
                 Spacer()
                 Button(action: close) {
-                    Image(systemName: "xmark").font(.body.weight(.semibold))
+                    Image(systemName: "xmark").font(.lovely(.body, .semibold))
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).foregroundStyle(CalmStyle.secondary).frame(minWidth: 44, minHeight: 44)
@@ -88,10 +88,10 @@ struct SessionHeader: View {
             }
             if model.plan.count > 0 {
                 HStack {
-                    Text("\(model.progress.dealtWith) of \(model.plan.count)").font(.caption.weight(.semibold))
+                    Text("\(model.progress.dealtWith) of \(model.plan.count)").font(.lovely(.caption, .semibold))
                     Spacer()
                     if model.progress.dealtWith < model.plan.count {
-                        Text("about \(remainingMinutes) min").font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text("about \(remainingMinutes) min").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     }
                 }
                 ProgressView(value: model.progress.fraction).tint(CalmStyle.blue)
@@ -119,11 +119,11 @@ struct SessionStartScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if model.isEmpty {
-                        Text("Nothing to go through").font(.largeTitle.weight(.bold))
+                        Text("Nothing to go through").font(.lovely(.largeTitle, .bold))
                         Text(model.backlog ? "No older mail is left in your inbox." : "Nothing new is waiting. New mail will be here next time.")
                             .foregroundStyle(CalmStyle.secondary)
                     } else {
-                        Text(model.backlog ? "\(model.plan.count) older emails" : "\(model.plan.count) to go through").font(.largeTitle.weight(.bold))
+                        Text(model.backlog ? "\(model.plan.count) older emails" : "\(model.plan.count) to go through").font(.lovely(.largeTitle, .bold))
                         // Each group is a way in: tap one to start there. Start (below) still goes in the usual order.
                         VStack(spacing: 0) {
                             let groups = SessionGroup.allCases.filter { g in model.plan.items.contains { $0.group == g } }
@@ -133,8 +133,8 @@ struct SessionStartScreen: View {
                                     HStack(spacing: 10) {
                                         Text(group.title).foregroundStyle(CalmStyle.ink)
                                         Spacer()
-                                        Text("\(n)").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.ink)
-                                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(CalmStyle.secondary)
+                                        Text("\(n)").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.ink)
+                                        Image(systemName: "chevron.right").font(.lovely(.caption, .bold)).foregroundStyle(CalmStyle.secondary)
                                     }
                                     .padding(.horizontal, 16).frame(minHeight: 52).contentShape(Rectangle())
                                 }
@@ -145,15 +145,15 @@ struct SessionStartScreen: View {
                             }
                         }
                         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
-                        Text("Tap a group to start there.").font(.caption).foregroundStyle(CalmStyle.secondary)
+                        Text("Tap a group to start there.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                         Text("About \(model.plan.estimatedMinutes) min. Each one ends up answered, dated or filed, and out of your inbox.")
-                            .font(.callout).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     }
                     if !model.plan.carried.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("STILL OPEN FROM BEFORE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                            Text("STILL OPEN FROM BEFORE").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                             ForEach(model.plan.carried.prefix(3), id: \.id) { p in
-                                Text("You told \(p.recipient): \u{201C}\(p.text)\u{201D}").font(.callout).lineLimit(2)
+                                Text("You told \(p.recipient): \u{201C}\(p.text)\u{201D}").font(.lovely(.callout)).lineLimit(2)
                             }
                         }
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
@@ -222,6 +222,7 @@ struct SessionItemScreen: View {
     @State var appeared = false
     @State var busy = false
     @State var showBox = false
+    @State var peek: SessionItem?
     @State var light: CGFloat = 0.3
     @State var gelAwake = true
     @State var gelSleep: Task<Void, Never>?
@@ -238,6 +239,7 @@ struct SessionItemScreen: View {
             .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
             .sheet(isPresented: $showMore) { moreSheet(item, post) }
             .sheet(item: $textAboutFromAsk) { TextAboutSheet(post: $0) }
+            .sheet(item: $peek) { SessionPeek(item: $0) }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -300,7 +302,7 @@ struct SessionItemScreen: View {
     @ViewBuilder private func primaryAction(_ item: SessionItem, _ post: Post) -> some View {
         if store.sessionTrashMemory.suggestsTrash(for: post.email.from.email) {
             trashButton(item, post, prominent: true)
-            Text("You moved mail from this sender to Trash before.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("You moved mail from this sender to Trash before.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         } else {
             suggestedAction(item, post)
         }
@@ -340,7 +342,7 @@ struct SessionItemScreen: View {
             if showOtherDrawer { small("Other drawer", id: "session.otherDrawer") { mode = .drawers } }
             small("Leave unread", id: "session.leaveUnread") { model.record(item.id, .leftUnread); model.advance() }
             small("Skip", id: "session.skip") { model.skip(item.id) }
-            Button { showMore = true } label: { Image(systemName: "ellipsis.circle").font(.title3) }
+            Button { showMore = true } label: { Image(systemName: "ellipsis.circle").font(.lovely(.title3)) }
                 .frame(width: 44, height: 44).foregroundStyle(CalmStyle.blue)
                 .accessibilityLabel("More for this sender").accessibilityIdentifier("session.more")
         }
@@ -358,8 +360,8 @@ struct SessionItemScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Mail from \(post.email.from.name)").font(.title3.weight(.bold))
-                        Text(sender).font(.callout).foregroundStyle(CalmStyle.secondary)
+                        Text("Mail from \(post.email.from.name)").font(.lovely(.title3, .bold))
+                        Text(sender).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     }
                     if let drawer {
                         let label = DrawerChoice(drawer.drawer).labelName
@@ -386,7 +388,7 @@ struct SessionItemScreen: View {
                         }
                     }
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Just this email.").font(.callout).foregroundStyle(CalmStyle.secondary)
+                        Text("Just this email.").font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                         Button { textAbout = post } label: {
                             Label(OpenEmailView.textAboutTitle(TextRecipients().all.first), systemImage: "message").frame(maxWidth: .infinity)
                         }
@@ -411,7 +413,7 @@ struct SessionItemScreen: View {
     private func ruleBlock(_ preview: ActionPreview, @ViewBuilder button: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(preview.lines.enumerated()), id: \.offset) { _, line in
-                Text(line).font(.callout).foregroundStyle(CalmStyle.secondary)
+                Text(line).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
             }
             button()
         }
@@ -430,7 +432,7 @@ struct SessionItemScreen: View {
 
     private func small(_ title: String, id: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .font(.subheadline.weight(.medium)).lineLimit(1).minimumScaleFactor(0.8)
+            .font(.lovely(.subheadline, .medium)).lineLimit(1).minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, minHeight: 44)
             .foregroundStyle(CalmStyle.blue)
             .accessibilityIdentifier(id)
@@ -488,7 +490,7 @@ struct SessionItemScreen: View {
                         Button {
                             if off { removedTags.remove(tag) } else { removedTags.insert(tag) }
                         } label: {
-                            Text(tag.title).font(.caption.weight(.medium)).strikethrough(off)
+                            Text(tag.title).font(.lovely(.caption, .medium)).strikethrough(off)
                                 .padding(.horizontal, 10).frame(minHeight: 30)
                                 .foregroundStyle(off ? CalmStyle.secondary : CalmStyle.blue)
                                 .background((off ? CalmStyle.secondary : CalmStyle.blue).opacity(0.1), in: Capsule())
@@ -513,7 +515,7 @@ struct SessionItemScreen: View {
 
     private func drawerGrid(_ item: SessionItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("WHERE DOES IT GO?").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            Text("WHERE DOES IT GO?").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(DrawerChoice.all(kids: store.sessionKids), id: \.self) { d in
                     let move = filedMove(item, d)
@@ -542,7 +544,7 @@ struct SessionItemScreen: View {
 
     private var replyEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("YOUR REPLY").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+            Text("YOUR REPLY").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $draft)
                     .frame(minHeight: 180).scrollContentBackground(.hidden)
@@ -565,10 +567,10 @@ struct SessionItemScreen: View {
                 model.record(item.id, .replied)
                 model.advance()
             }
-            Text("To \(post.email.from.email). You have 10 seconds to undo.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("To \(post.email.from.email). You have 10 seconds to undo.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         } else {
             Button("Finish in Gmail") { openInGmail(post) }.buttonStyle(SessionButtonStyle())
-            Text("Several people are on this one, so Gmail sends it.").font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("Several people are on this one, so Gmail sends it.").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         HStack {
             small("Back", id: "session.replyBack") { mode = .decide }
@@ -631,6 +633,18 @@ extension SessionItemScreen {
         ZStack(alignment: .bottom) {
             CalmStyle.pageGround.ignoresSafeArea()
 
+            // The deck (LifeOS stack): the next two cards show behind the page while it's pulled.
+            ForEach(0..<2, id: \.self) { k in
+                RoundedRectangle(cornerRadius: 44, style: .continuous)
+                    .fill(CalmStyle.page.opacity(k == 0 ? 0.85 : 0.6))
+                    .overlay(RoundedRectangle(cornerRadius: 44, style: .continuous).strokeBorder(LifeColor.cardEdge, lineWidth: 1.5))
+                    .scaleEffect(0.9 - CGFloat(k) * 0.05, anchor: .bottom)
+                    .offset(y: -CGFloat(k + 1) * 16)
+                    .opacity(drag > 0 && model.remaining > k + 1 ? 1 : 0)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .allowsHitTesting(false)
+            }
+
             // The white page, drawn to the bottom edge; the words ride on top with the same moves.
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(CalmStyle.page)
@@ -645,7 +659,7 @@ extension SessionItemScreen {
                 .scaleEffect(pageScale, anchor: .bottom)
                 .offset(x: slide, y: y)
                 .opacity(flyOpacity * (appeared ? 1 : 0) * (intoBall ? 0.4 : 1))
-                .onTapGesture { tapPage(post) }
+                .onTapGesture { tapPage(item, post) }
                 .gesture(cardDrag(item, post, target), including: typing || showBox ? .subviews : .all)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("session.card")
@@ -656,18 +670,21 @@ extension SessionItemScreen {
             if slide < 0 { trashWord(item, post) }
 
             Text(drag <= -SessionCardMotion.upDistance ? "Back next session" : "Skip for now")
-                .font(.subheadline.weight(.semibold))
+                .font(.lovely(.subheadline, .semibold))
                 .foregroundStyle(drag <= -SessionCardMotion.upDistance ? CalmStyle.blue : CalmStyle.secondary)
                 .frame(maxHeight: .infinity, alignment: .top).padding(.top, 4)
                 .opacity(Double(min(1, max(0, -drag) / SessionCardMotion.upDistance)))
                 .allowsHitTesting(false)
 
             if !typing {
-                Text(p >= 1 ? target.releaseLabel : target.label)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(p >= 1 ? CalmStyle.ink : CalmStyle.secondary)
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(p >= 1 ? CalmStyle.page : .clear, in: Capsule())
+                // The drawer, LifeOS style: a dashed purple box that fills purple once the pull will file it.
+                Label(p >= 1 ? target.releaseLabel : target.label, systemImage: p >= 1 ? "checkmark" : "tray")
+                    .font(.lovely(.callout, .medium))
+                    .foregroundStyle(p >= 1 ? Color.white : CalmStyle.ink)
+                    .padding(.horizontal, 20).frame(minHeight: 56)
+                    .background(p >= 1 ? LifeColor.purple : CalmStyle.card.opacity(0.7), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(LifeColor.dash, style: StrokeStyle(lineWidth: 2, dash: p >= 1 ? [] : [6, 5])))
                     .padding(.bottom, 170)
                     .opacity(Double(min(1, p * 1.8)))
                     .allowsHitTesting(false)
@@ -734,18 +751,18 @@ extension SessionItemScreen {
             HStack(spacing: 11) {
                 CalmAvatar(person: post.email.from, size: 36, waiting: waiting, organization: !item.message.isPerson)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(post.email.from.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    Text(post.email.from.email).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                    Text(post.email.from.name).font(.lovely(.subheadline, .semibold)).lineLimit(1)
+                    Text(post.email.from.email).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text(HomeDigest.age(of: post.email.date, now: Date())).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(HomeDigest.age(of: post.email.date, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.top, 10)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(fact.label).font(.subheadline.weight(.semibold)).foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)
+                Text(fact.label).font(.lovely(.subheadline, .semibold)).foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)
                 Text(fact.value)
-                    .font(.system(size: 72, weight: .heavy)).tracking(-2)
+                    .font(.lovely(size: 72, weight: .heavy)).tracking(-2)
                     .lineLimit(2).minimumScaleFactor(0.4)
                     .foregroundStyle(CalmStyle.ink)
                 Capsule().fill(waiting ? CalmStyle.rose : CalmStyle.divider).frame(width: 36, height: 4).padding(.top, 12)
@@ -768,16 +785,16 @@ extension SessionItemScreen {
         let talked = !askHistory.isEmpty || !proposals.isEmpty || askNote != nil || thinking
         return VStack(alignment: .leading, spacing: 10) {
             if !post.email.subject.isEmpty {
-                Text(post.email.subject).font(.title3.weight(.bold)).fixedSize(horizontal: false, vertical: true).lineLimit(3)
+                Text(post.email.subject).font(.lovely(.title3, .bold)).fixedSize(horizontal: false, vertical: true).lineLimit(3)
             }
             if let ask = item.message.ask {
-                Text("\u{201C}\(ask)\u{201D}").font(.body).foregroundStyle(CalmStyle.roseInk).lineLimit(4)
+                Text("\u{201C}\(ask)\u{201D}").font(.lovely(.body)).foregroundStyle(CalmStyle.roseInk).lineLimit(4)
             } else if !post.summary.blurb.isEmpty {
-                Text(post.summary.blurb).font(.body).foregroundStyle(CalmStyle.secondary).lineLimit(talked ? 2 : 4)
+                Text(post.summary.blurb).font(.lovely(.body)).foregroundStyle(CalmStyle.secondary).lineLimit(talked ? 2 : 4)
             }
             if store.sessionTrashMemory.suggestsTrash(for: post.email.from.email) {
                 Text("You moved mail from this sender to Trash before. Swipe left to do it again.")
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
             tagChips(item)
             HStack(spacing: 18) {
@@ -788,7 +805,7 @@ extension SessionItemScreen {
                 Spacer(minLength: 0)
                 Button("Open \u{203A}") { router.open(.email(post.id)) }.accessibilityIdentifier("session.openEmail")
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+            .font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.blue)
             .frame(minHeight: 36)
             if talked {
                 ScrollView { askResults(item, post) }
@@ -809,11 +826,11 @@ extension SessionItemScreen {
             SessionConfirmTap(previews: [FeedStore.putAwayPreview([move])], identifier: "session.archive") { approvals in
                 fileInto(move, approvals[0])
             } label: {
-                Text("Archive").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minWidth: 44, minHeight: 44)
+                Text("Archive").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.blue).frame(minWidth: 44, minHeight: 44)
             }
             Spacer()
             Button { showMore = true } label: {
-                Image(systemName: "ellipsis").font(.body.weight(.bold)).frame(width: 44, height: 44)
+                Image(systemName: "ellipsis").font(.lovely(.body, .bold)).frame(width: 44, height: 44)
             }
             .foregroundStyle(CalmStyle.blue)
             .accessibilityLabel("More for this email and sender").accessibilityIdentifier("session.more")
@@ -825,7 +842,7 @@ extension SessionItemScreen {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
             Button { trashCard(item, post) } label: {
-                Text("Move to\nTrash").font(.body.weight(.semibold)).multilineTextAlignment(.center)
+                Text("Move to\nTrash").font(.lovely(.body, .semibold)).multilineTextAlignment(.center)
                     .foregroundStyle(Color.white)
                     .frame(width: max(SessionCardMotion.trashWidth, -slide))
                     .frame(maxHeight: .infinity)
@@ -895,10 +912,11 @@ extension SessionItemScreen {
             }
     }
 
-    private func tapPage(_ post: Post) {
+    /// A tap reads: the frosted quick look, with Open for the full email (owner, Nov 12, 2026).
+    private func tapPage(_ item: SessionItem, _ post: Post) {
         if slide < 0 { withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { slide = 0 }; return }
         guard !busy, !typing else { return }
-        router.open(.email(post.id))
+        peek = item
     }
 
     // MARK: The moves
@@ -1001,13 +1019,13 @@ extension SessionItemScreen {
             Color.black.opacity(0.18).ignoresSafeArea().onTapGesture { closeBox() }.accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(post.email.from.name).font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
-                    Text(post.email.subject).font(.headline).lineLimit(2)
+                    Text(post.email.from.name).font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
+                    Text(post.email.subject).font(.lovely(.headline)).lineLimit(2)
                     if !post.summary.blurb.isEmpty {
-                        Text(post.summary.blurb).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(3)
+                        Text(post.summary.blurb).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(3)
                     }
                 }
-                Text("MOST LIKELY").font(.caption.weight(.semibold)).tracking(0.6).foregroundStyle(CalmStyle.secondary).padding(.top, 4)
+                Text("MOST LIKELY").font(.lovely(.caption, .semibold)).tracking(0.6).foregroundStyle(CalmStyle.secondary).padding(.top, 4)
                 ForEach(picks, id: \.choice) { pick in
                     let move = filedMove(item, pick.choice)
                     SessionConfirmTap(previews: [FeedStore.putAwayPreview([move])], identifier: "session.drawer.\(pick.choice.labelName)") { a in
@@ -1015,10 +1033,10 @@ extension SessionItemScreen {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { fileInto(move, a[0]) }
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: pick.choice.drawer.icon).font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(width: 26)
+                            Image(systemName: pick.choice.drawer.icon).font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.blue).frame(width: 26)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(pick.choice.title).font(.body.weight(.semibold)).foregroundStyle(CalmStyle.ink)
-                                Text(pick.reason).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1)
+                                Text(pick.choice.title).font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.ink)
+                                Text(pick.reason).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                             }
                             Spacer(minLength: 0)
                         }
@@ -1027,7 +1045,7 @@ extension SessionItemScreen {
                         .contentShape(Rectangle())
                     }
                 }
-                Text("OTHER DRAWERS").font(.caption.weight(.semibold)).tracking(0.6).foregroundStyle(CalmStyle.secondary).padding(.top, 4)
+                Text("OTHER DRAWERS").font(.lovely(.caption, .semibold)).tracking(0.6).foregroundStyle(CalmStyle.secondary).padding(.top, 4)
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                         ForEach(rest, id: \.self) { d in
@@ -1036,7 +1054,7 @@ extension SessionItemScreen {
                                 closeBox()
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { fileInto(move, a[0]) }
                             } label: {
-                                Text(d.title).font(.subheadline.weight(.semibold)).foregroundStyle(CalmStyle.ink).lineLimit(1)
+                                Text(d.title).font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.ink).lineLimit(1)
                                     .frame(maxWidth: .infinity, minHeight: 40)
                                     .background(CalmStyle.page.opacity(0.7), in: Capsule())
                                     .contentShape(Capsule())
@@ -1046,7 +1064,7 @@ extension SessionItemScreen {
                 }
                 .frame(maxHeight: 150)
                 Button("Not now") { closeBox() }
-                    .font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                    .font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.blue)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .accessibilityIdentifier("session.box.cancel")
             }
@@ -1097,24 +1115,24 @@ struct SessionMailCard: View {
             HStack(spacing: 12) {
                 CalmAvatar(person: post.email.from, size: 44, waiting: item.message.section == .waiting, organization: !item.message.isPerson)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(post.email.from.name).font(.headline).lineLimit(1)
+                    Text(post.email.from.name).font(.lovely(.headline)).lineLimit(1)
                     Text(HomeDigest.age(of: post.email.date, now: Date()) + (post.email.isUnread ? " · unread" : ""))
-                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
                 Spacer()
             }
             if !post.email.subject.isEmpty {
-                Text(post.email.subject).font(.title3.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                Text(post.email.subject).font(.lovely(.title3, .semibold)).fixedSize(horizontal: false, vertical: true)
             }
             if let ask = item.message.ask {
-                Text("\u{201C}\(ask)\u{201D}").font(.body).foregroundStyle(CalmStyle.roseInk).fixedSize(horizontal: false, vertical: true)
+                Text("\u{201C}\(ask)\u{201D}").font(.lovely(.body)).foregroundStyle(CalmStyle.roseInk).fixedSize(horizontal: false, vertical: true)
             } else if !post.summary.blurb.isEmpty {
-                Text(post.summary.blurb).font(.body).foregroundStyle(CalmStyle.secondary).lineLimit(5)
+                Text(post.summary.blurb).font(.lovely(.body)).foregroundStyle(CalmStyle.secondary).lineLimit(5)
             }
             if let reason = item.drawer?.reason, item.suggestion != .reply {
-                Label(reason, systemImage: "tray.and.arrow.down").font(.caption).foregroundStyle(CalmStyle.secondary)
+                Label(reason, systemImage: "tray.and.arrow.down").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
-            Button("Open the email", action: open).font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+            Button("Open the email", action: open).font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.blue)
                 .frame(minHeight: 44).accessibilityIdentifier("session.openEmail")
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
@@ -1143,9 +1161,9 @@ struct SessionBatchScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.title.weight(.bold))
+                    Text(page.count == 1 ? "One quick one" : "\(page.count) quick ones").font(.lovely(.title, .bold))
                     Text("Each goes in its drawer, marked read and out of your inbox. Change a row's choice to decide it differently; tap Every time to make it a Gmail filter for that sender, or Block to screen the sender out.")
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(page) { item in
                             row(item)
@@ -1187,7 +1205,7 @@ struct SessionBatchScreen: View {
                     model.finishBatchPage(moves, keptTwoWeeks: twoWeeks, trashed: trash, blocked: blocked)
                 }
                 Button(acting + blocks.count == 0 ? "Continue" : "Leave these unread") { model.finishBatchPage([]) }
-                    .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                    .font(.lovely(.subheadline, .medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                     .accessibilityIdentifier("session.batch.skip")
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
@@ -1206,11 +1224,11 @@ struct SessionBatchScreen: View {
                 if let post { SenderWarning(verdict: store.senderVerdict(post.email), compact: true).padding(.top, 4) }
                 let tags = model.batchTags(item)
                 if !tags.isEmpty {
-                    Text(tags.map(\.title).joined(separator: " · ")).font(.caption).foregroundStyle(CalmStyle.blue).lineLimit(1)
+                    Text(tags.map(\.title).joined(separator: " · ")).font(.lovely(.caption)).foregroundStyle(CalmStyle.blue).lineLimit(1)
                 }
                 if let date, let post {
                     Button { calendar = SessionCalendarBox(draft: CalendarDraft.make(email: post.email, date: date)) } label: {
-                        Label("Add \(ComingUp.fullLabel(date))", systemImage: "calendar.badge.plus").font(.caption.weight(.medium))
+                        Label("Add \(ComingUp.fullLabel(date))", systemImage: "calendar.badge.plus").font(.lovely(.caption, .medium))
                     }
                     .buttonStyle(.plain).foregroundStyle(CalmStyle.blue).frame(minHeight: 32)
                 }
@@ -1242,9 +1260,9 @@ struct SessionReadingScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(items.count == 1 ? "One newsletter" : "\(items.count) newsletters").font(.title.weight(.bold))
+                    Text(items.count == 1 ? "One newsletter" : "\(items.count) newsletters").font(.lovely(.title, .bold))
                     Text("Archive the ones you won't read, or Block a sender so their mail skips your inbox from now on. Lovely remembers each sender.")
-                        .font(.callout).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     VStack(spacing: 0) {
                         ForEach(items) { item in
                             let unread = model.batchFate(item, reading: true) == .unread
@@ -1279,7 +1297,7 @@ struct SessionReadingScreen: View {
                     model.finishReading(moves, keptTwoWeeks: twoWeeks, trashed: trash, blocked: blocked)
                 }
                 Button(acting + blocks.count == 0 ? "Continue" : "Leave them unread") { model.finishReading([]) }
-                    .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                    .font(.lovely(.subheadline, .medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                     .accessibilityIdentifier("session.reading.skip")
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
@@ -1299,16 +1317,16 @@ struct SessionRowHeader: View {
         Button(action: peek) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(item.message.fromName).font(.lovely(.subheadline, .semibold)).lineLimit(1)
                     Spacer(minLength: 4)
                     // The chevron says the row opens (owner, Nov 12: "I had no way of opening the email").
                     HStack(spacing: 4) {
                         Text(ReceivedDate.label(item.message.date, now: Date()))
-                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                        Image(systemName: "chevron.right").font(.lovely(.caption2, .semibold))
                     }
-                    .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).layoutPriority(1)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1).layoutPriority(1)
                 }
-                Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                Text(item.message.subject).font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1326,6 +1344,8 @@ struct SessionRowHeader: View {
 }
 
 /// The quick look: who, when, the subject and the email's text. Read only; Open shows the full email.
+/// The quick look, LifeOS style: a frosted sheet with the subject, a light close square, the sender and date, the text,
+/// and one black button to open the full email. Read only.
 struct SessionPeek: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
@@ -1334,19 +1354,42 @@ struct SessionPeek: View {
 
     var body: some View {
         let post = store.sessionPost(item.id)
-        NavigationStack {
-            SessionPeekBody(item: item, post: post)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                    if let post {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button("Open") { dismiss(); router.open(.email(post.id)) }.accessibilityIdentifier("session.peek.open")
-                        }
-                    }
-                }
+        let full = post?.email.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = full.isEmpty ? item.message.text : full
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(item.message.subject.isEmpty ? item.message.fromName : item.message.subject)
+                    .font(.lovely(size: 26, weight: .semibold)).tracking(-0.5).lineLimit(3)
+                Spacer(minLength: 8)
+                Button { dismiss() } label: { Image(systemName: "xmark").font(.body.weight(.bold)) }
+                    .buttonStyle(LifeSquareStyle(dark: false))
+                    .accessibilityLabel("Close").accessibilityIdentifier("session.peek.close")
+            }
+            HStack {
+                Text(item.message.fromName).font(.lovely(.subheadline)).lineLimit(1)
+                Spacer(minLength: 8)
+                Text(ReceivedDate.label(item.message.date, now: Date())).font(.lovely(.footnote))
+                    .padding(.horizontal, 12).frame(minHeight: 30)
+                    .background(Color.white.opacity(0.16), in: Capsule())
+            }
+            ScrollView {
+                Text(text.isEmpty ? "Open the email to read it." : String(text.prefix(4_000)))
+                    .font(.lovely(.body)).lineSpacing(4)
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+            }
+            .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            if let post {
+                Button("Open the full email") { dismiss(); router.open(.email(post.id)) }
+                    .buttonStyle(LifeBlackButtonStyle())
+                    .accessibilityIdentifier("session.peek.open")
+            }
         }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 22).padding(.top, 26).padding(.bottom, 12)
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(34)
+        .presentationBackground(Color(hex: 0x766C65).opacity(0.96))
     }
 }
 
@@ -1359,15 +1402,15 @@ struct SessionPeekBody: View {
         let text = full.isEmpty ? item.message.text : full
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(item.message.fromName).font(.headline)
-                Text(item.message.fromAddress).font(.caption).foregroundStyle(CalmStyle.secondary).textSelection(.enabled)
-                Text(ReceivedDate.full(item.message.date)).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(item.message.fromName).font(.lovely(.headline))
+                Text(item.message.fromAddress).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).textSelection(.enabled)
+                Text(ReceivedDate.full(item.message.date)).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 if !item.message.subject.isEmpty {
-                    Text(item.message.subject).font(.title3.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                    Text(item.message.subject).font(.lovely(.title3, .semibold)).fixedSize(horizontal: false, vertical: true)
                 }
                 Divider().overlay(CalmStyle.divider)
                 Text(text.isEmpty ? "Open the email to read it." : String(text.prefix(4_000)))
-                    .font(.body).foregroundStyle(text.isEmpty ? CalmStyle.secondary : CalmStyle.ink)
+                    .font(.lovely(.body)).foregroundStyle(text.isEmpty ? CalmStyle.secondary : CalmStyle.ink)
                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
             .padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -1406,7 +1449,7 @@ struct SessionFateStrip: View {
                 if store.actions != nil, !item.message.isPerson {
                     Button { model.setBatchFate(.block, for: item) } label: {
                         Label("Block", systemImage: "nosign").labelStyle(.titleAndIcon)
-                            .font(.caption.weight(.semibold)).lineLimit(1)
+                            .font(.lovely(.caption, .semibold)).lineLimit(1)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .foregroundStyle(fate == .block ? CalmStyle.onBlue : CalmStyle.roseInk)
                             .background(fate == .block ? CalmStyle.roseInk : CalmStyle.roseInk.opacity(0.1), in: Capsule())
@@ -1422,7 +1465,7 @@ struct SessionFateStrip: View {
                         if on { model.alwaysRows.remove(item.id) } else { model.alwaysRows.insert(item.id) }
                     } label: {
                         Label(suggested ? "Every time?" : "Every time", systemImage: on ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
-                            .font(.caption.weight(.semibold)).lineLimit(1)
+                            .font(.lovely(.caption, .semibold)).lineLimit(1)
                             .padding(.horizontal, 12).frame(minHeight: 34)
                             .foregroundStyle(on ? CalmStyle.onBlue : CalmStyle.blue)
                             .background(on ? CalmStyle.blue : Color.clear, in: Capsule())
@@ -1456,7 +1499,7 @@ struct SessionFateStrip: View {
 
     private func chip(_ title: String, selected: Bool, rose: Bool = false) -> some View {
         let tint = rose ? CalmStyle.roseInk : CalmStyle.blue
-        return Text(title).font(.caption.weight(.semibold)).lineLimit(1)
+        return Text(title).font(.lovely(.caption, .semibold)).lineLimit(1)
             .padding(.horizontal, 12).frame(minHeight: 34)
             .foregroundStyle(selected ? CalmStyle.onBlue : tint)
             .background(selected ? tint : tint.opacity(0.1), in: Capsule())
@@ -1508,7 +1551,7 @@ struct SessionWrapScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text(model.leftUnread.isEmpty ? "Inbox clear" : "Done for now").font(.largeTitle.weight(.bold))
+                    Text(model.leftUnread.isEmpty ? "Inbox clear" : "Done for now").font(.lovely(.largeTitle, .bold))
                     HStack(spacing: 10) {
                         stat(model.replies, "Replies")
                         stat(model.filed, "Filed")
@@ -1516,28 +1559,28 @@ struct SessionWrapScreen: View {
                         if model.trashed > 0 { stat(model.trashed, "Trashed") }
                     }
                     if !model.drawerSummary.isEmpty {
-                        Text(model.drawerSummary).font(.callout).foregroundStyle(CalmStyle.secondary)
+                        Text(model.drawerSummary).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
                     }
                     if model.datesAdded > 0 {
                         Label(model.datesAdded == 1 ? "1 date added to your calendar" : "\(model.datesAdded) dates added to your calendar",
-                              systemImage: "calendar").font(.callout)
+                              systemImage: "calendar").font(.lovely(.callout))
                     }
                     if !model.leftUnread.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("LEFT UNREAD ON PURPOSE").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                            Text("LEFT UNREAD ON PURPOSE").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                             ForEach(model.leftUnread.prefix(5)) { item in
-                                Text("\(item.message.fromName): \(item.message.subject)").font(.callout).lineLimit(1)
+                                Text("\(item.message.fromName): \(item.message.subject)").font(.lovely(.callout)).lineLimit(1)
                             }
                             if model.leftUnread.count > 5 {
-                                Text("and \(model.leftUnread.count - 5) more").font(.caption).foregroundStyle(CalmStyle.secondary)
+                                Text("and \(model.leftUnread.count - 5) more").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                             }
                         }
                     }
                     if !model.plan.carried.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("YOU PROMISED").font(.caption.weight(.semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                            Text("YOU PROMISED").font(.lovely(.caption, .semibold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
                             ForEach(model.plan.carried.prefix(5), id: \.id) { p in
-                                Text("\(p.recipient): \u{201C}\(p.text)\u{201D}").font(.callout).lineLimit(2)
+                                Text("\(p.recipient): \u{201C}\(p.text)\u{201D}").font(.lovely(.callout)).lineLimit(2)
                             }
                         }
                     }
@@ -1548,7 +1591,7 @@ struct SessionWrapScreen: View {
                 Button("Done") { close() }.buttonStyle(SessionButtonStyle()).accessibilityIdentifier("session.done")
                 if let openBacklog {
                     Button(model.backlog ? "Clear the next page" : "Clear older mail too") { openBacklog() }
-                        .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                        .font(.lovely(.subheadline, .medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
                         .accessibilityIdentifier("session.backlog.next")
                 }
             }
@@ -1558,8 +1601,8 @@ struct SessionWrapScreen: View {
 
     private func stat(_ n: Int, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(n)").font(.title.weight(.bold))
-            Text(label).font(.caption).foregroundStyle(CalmStyle.secondary)
+            Text("\(n)").font(.lovely(.title, .bold))
+            Text(label).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 14))
@@ -1593,7 +1636,7 @@ extension SessionItemScreen {
         VStack(alignment: .leading, spacing: 10) {
             // His words, like a sent message, so it is clear they went somewhere.
             ForEach(Array(askHistory.enumerated()), id: \.offset) { _, said in
-                Text(said).font(.body).foregroundStyle(CalmStyle.onBlue)
+                Text(said).font(.lovely(.body)).foregroundStyle(CalmStyle.onBlue)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(CalmStyle.blue, in: RoundedRectangle(cornerRadius: 18))
                     .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 48)
@@ -1601,12 +1644,12 @@ extension SessionItemScreen {
             }
             if thinking { ProgressView().frame(maxWidth: .infinity) }
             if let askNote {
-                Text(askNote).font(.callout).foregroundStyle(CalmStyle.secondary)
+                Text(askNote).font(.lovely(.callout)).foregroundStyle(CalmStyle.secondary)
             }
             ForEach(proposals) { p in proposalCard(p, item, post, comparing: proposals.count > 1) }
             if !proposals.isEmpty, mode == .drawers {
                 Button("Not that, show the drawers") { clearAsk() }
-                    .font(.subheadline.weight(.medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
+                    .font(.lovely(.subheadline, .medium)).frame(minHeight: 44).foregroundStyle(CalmStyle.blue)
             }
         }
         .id("session.askResults")
@@ -1659,11 +1702,11 @@ extension SessionItemScreen {
     @ViewBuilder private func proposalCard(_ p: SessionProposal, _ item: SessionItem, _ post: Post, comparing: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if comparing || !p.quick {
-                Text(p.label.uppercased()).font(.caption2.weight(.bold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
+                Text(p.label.uppercased()).font(.lovely(.caption2, .bold)).tracking(0.8).foregroundStyle(CalmStyle.secondary)
             }
-            if !p.say.isEmpty { Text(p.say).font(.callout) }
+            if !p.say.isEmpty { Text(p.say).font(.lovely(.callout)) }
             if case .reply(let text, _) = p.action {
-                Text(text).font(.body).padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                Text(text).font(.lovely(.body)).padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .background(CalmStyle.bubble, in: RoundedRectangle(cornerRadius: 12))
             }
             proposalButton(p, item, post, comparing: comparing)
@@ -1793,7 +1836,7 @@ struct SessionAskField: View {
                     .onSubmit(send)
                     .accessibilityIdentifier("session.ask")
                 Button(action: send) {
-                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.body.weight(.bold))
+                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.lovely(.body, .bold))
                         .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
                         .background(CalmStyle.blue, in: Circle())
                 }
@@ -1801,7 +1844,7 @@ struct SessionAskField: View {
                 .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
             }
             if focused, text.isEmpty {
-                Text(hint).font(.caption).foregroundStyle(CalmStyle.secondary)
+                Text(hint).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             }
         }
         .onChange(of: focused) { _, now in onFocus(now) }

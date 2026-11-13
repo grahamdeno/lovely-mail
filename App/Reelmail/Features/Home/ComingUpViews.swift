@@ -9,10 +9,10 @@ struct ComingUpRow: View {
     var body: some View {
         Button { router.open(.comingUp) } label: {
             HStack(spacing: 10) {
-                Text("Coming up · \(count) this week").font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.ink)
+                Text("Coming up · \(count) this week").font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.ink)
                 Spacer()
-                Text("Dates in your mail").font(.caption).foregroundStyle(CalmStyle.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Text("Dates in your mail").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
             .padding(.horizontal, 14).frame(minHeight: 48)
             .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 12))
@@ -31,7 +31,7 @@ struct ComingUpListView: View {
         let groups = ComingUp.grouped(store.comingUp, now: now)
         List {
             if groups.isEmpty {
-                Text("No dates ahead in your mail.").font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                Text("No dates ahead in your mail.").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                     .listRowBackground(CalmStyle.background).listRowSeparator(.hidden)
             }
             ForEach(groups, id: \.bucket) { group in
@@ -40,12 +40,12 @@ struct ComingUpListView: View {
                         Button { router.open(.email(entry.post.id)) } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack(alignment: .firstTextBaseline) {
-                                    Text(entry.post.email.from.name).font(.headline).lineLimit(1)
+                                    Text(entry.post.email.from.name).font(.lovely(.headline)).lineLimit(1)
                                     Spacer(minLength: 8)
-                                    Text(ComingUp.label(entry.date, now: now)).font(.subheadline.weight(.medium)).foregroundStyle(CalmStyle.blue)
+                                    Text(ComingUp.label(entry.date, now: now)).font(.lovely(.subheadline, .medium)).foregroundStyle(CalmStyle.blue)
                                 }
                                 Text(FallbackSummarizer.cleanSubject(entry.post.email.subject, fallbackBody: entry.post.email.body))
-                                    .font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
+                                    .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                             }
                             .padding(.vertical, 6)
                         }
@@ -53,7 +53,7 @@ struct ComingUpListView: View {
                         .listRowBackground(CalmStyle.background).listRowSeparatorTint(CalmStyle.divider)
                     }
                 } header: {
-                    Text(group.bucket.rawValue.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                    Text(group.bucket.rawValue.uppercased()).font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
                 }
             }
         }
@@ -73,7 +73,7 @@ struct EmailDateRow: View {
         if let first = dates.first {
             HStack(spacing: 10) {
                 Image(systemName: "calendar").foregroundStyle(CalmStyle.blue)
-                Text(ComingUp.fullLabel(first)).font(.subheadline.weight(.medium)).lineLimit(1)
+                Text(ComingUp.fullLabel(first)).font(.lovely(.subheadline, .medium)).lineLimit(1)
                 Spacer(minLength: 8)
                 if dates.count > 1 {
                     Menu("+\(dates.count - 1) more") {
@@ -81,7 +81,7 @@ struct EmailDateRow: View {
                             Button(ComingUp.fullLabel(d)) { draft = CalendarDraft.make(email: post.email, date: d) }
                         }
                     }
-                    .font(.caption).foregroundStyle(CalmStyle.secondary)
+                    .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                 }
                 Button { draft = CalendarDraft.make(email: post.email, date: first) } label: { Label("Add to Calendar", systemImage: "plus") }
                     .buttonStyle(CalmActionStyle()).lineLimit(1)

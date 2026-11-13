@@ -26,13 +26,13 @@ struct OpenEmailView: View {
                     EmailDateRow(post: post)
                     if EmailPresentation.showsSummary(email), !ConversationPresentation.isSensitive(email, summary: post.summary) {
                         (Text("In short: ").fontWeight(.semibold) + Text(post.summary.blurb))
-                            .font(.subheadline).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Divider().overlay(CalmStyle.divider)
                     if email.body.isEmpty {
                         Text("No readable text was imported. Open it in Gmail to see it.")
-                            .font(.body).foregroundStyle(CalmStyle.secondary)
+                            .font(.lovely(.body)).foregroundStyle(CalmStyle.secondary)
                     } else {
                         SelectableText(text: EmailPresentation.linked(email.body))
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -89,12 +89,12 @@ struct OpenEmailView: View {
             }
             if post.email.isUnread {
                 LaterMenu(post: post, onPut: { leave() }) {
-                    Image(systemName: "clock").font(.body.weight(.medium)).foregroundStyle(CalmStyle.blue).frame(width: 44, height: 44)
+                    Image(systemName: "clock").font(.lovely(.body, .medium)).foregroundStyle(CalmStyle.blue).frame(width: 44, height: 44)
                 }
             }
             Spacer(minLength: 0)
             Button { Task { await store.moveToTrash(post) }; leave() } label: {
-                Image(systemName: "trash").font(.body.weight(.medium)).foregroundStyle(CalmStyle.roseInk)
+                Image(systemName: "trash").font(.lovely(.body, .medium)).foregroundStyle(CalmStyle.roseInk)
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("Move to Gmail Trash").accessibilityIdentifier("email.trash")
@@ -141,7 +141,7 @@ struct OpenEmailView: View {
                     Button { store.hide(post); leave() } label: { Label("Hide in Lovely", systemImage: "eye.slash") }
                 }
             } label: {
-                Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                Image(systemName: "ellipsis").font(.lovely(.body, .semibold)).foregroundStyle(CalmStyle.blue)
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("More actions").accessibilityIdentifier("email.more")
@@ -189,12 +189,12 @@ struct EmailHeader: View {
             CalmAvatar(person: email.from, size: 40, organization: organization)
             VStack(alignment: .leading, spacing: 1) {
                 Text(organization ? HomeDigest.organizationName(email.from) : email.from.name)
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(email.from.email).font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).truncationMode(.middle)
+                    .font(.lovely(.subheadline, .semibold)).lineLimit(1)
+                Text(email.from.email).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1).truncationMode(.middle)
             }
             Spacer(minLength: 0)
             if !organization {
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.secondary)
+                Image(systemName: "chevron.right").font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.secondary)
             }
         }
         .contentShape(Rectangle())
@@ -211,9 +211,9 @@ struct EmailHeader: View {
             }
 
             Text(email.subject.isEmpty ? "(no subject)" : email.subject)
-                .font(.title3.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                .font(.lovely(.title3, .semibold)).fixedSize(horizontal: false, vertical: true)
             Text(EmailPresentation.dateLine(email.date, now: Date()))
-                .font(.caption).foregroundStyle(CalmStyle.secondary)
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
             if EmailPresentation.showsRecipients(email, mine: mine) {
                 VStack(alignment: .leading, spacing: 4) {
                     HeaderLine(key: "To", value: email.to.joined(separator: ", "))
@@ -248,11 +248,11 @@ struct EmailContext: View {
                             Text("Waiting on you. ").fontWeight(.semibold) + Text(assessment.reason)
                         }
                     }
-                    .font(.subheadline).foregroundStyle(CalmStyle.roseInk)
+                    .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.roseInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Button("Not waiting") { store.markNotWaiting(post, wholeSender: false) }
-                        .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue)
+                        .font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue)
                         .frame(minHeight: 44).fixedSize()
                 }
                 .padding(.horizontal, 12)
@@ -260,21 +260,21 @@ struct EmailContext: View {
             } else {
                 HStack(spacing: 8) {
                     Text(assessment.section.title + " · " + assessment.reason)
-                        .font(.caption).foregroundStyle(CalmStyle.secondary)
+                        .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if store.isMarkedNotWaiting(post) {
                         Spacer(minLength: 4)
                         Button("Put back in Waiting") { store.undoNotWaiting(post) }
-                            .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44).fixedSize()
+                            .font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44).fixedSize()
                     }
                 }
             }
             if assessment.section == .notes, store.otherAddresses.contains(post.email.from.email.lowercased()) {
                 Button("This isn't my address") { store.removeOtherAddress(post.email.from.email) }
-                    .font(.caption.weight(.semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
+                    .font(.lovely(.caption, .semibold)).foregroundStyle(CalmStyle.blue).frame(minHeight: 44)
             } else if looksLikeYou {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("This name matches yours. Is it another address of yours?").font(.caption).foregroundStyle(CalmStyle.secondary)
+                    Text("This name matches yours. Is it another address of yours?").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
                     Button("Yes, \(post.email.from.email) is mine") { store.addOtherAddress(post.email.from.email) }
                         .buttonStyle(CalmActionStyle()).lineLimit(1).minimumScaleFactor(0.7)
                 }
@@ -289,8 +289,8 @@ struct HeaderLine: View {
     let value: String
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(key).font(.caption).foregroundStyle(CalmStyle.secondary).frame(width: 36, alignment: .leading)
-            Text(value).font(.caption).textSelection(.enabled)
+            Text(key).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).frame(width: 36, alignment: .leading)
+            Text(value).font(.lovely(.caption)).textSelection(.enabled)
         }
     }
 }
