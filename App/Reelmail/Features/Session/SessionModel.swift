@@ -224,6 +224,8 @@ final class SessionModel {
 
     // MARK: Wrap-up
 
+    /// Emails not yet handled or left unread, the current one included.
+    var remaining: Int { plan.items.filter(isOpen).count }
     var replies: Int { outcomes.values.filter { $0 == .replied }.count }
     var filed: Int { outcomes.values.filter { if case .filed = $0 { return true } else { return false } }.count }
     var archived: Int { outcomes.values.filter { $0 == .archived }.count }

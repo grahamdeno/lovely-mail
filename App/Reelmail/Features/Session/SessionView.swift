@@ -222,6 +222,7 @@ struct SessionItemScreen: View {
     @State var appeared = false
     @State var busy = false
     @State var showBox = false
+    @State var peek: SessionItem?
     @State var light: CGFloat = 0.3
     @State var gelAwake = true
     @State var gelSleep: Task<Void, Never>?
@@ -238,6 +239,7 @@ struct SessionItemScreen: View {
             .sheet(item: $handoff) { offer in SessionHandoffSheet(offer: offer) { model.record(item.id, .leftUnread); model.advance() } }
             .sheet(isPresented: $showMore) { moreSheet(item, post) }
             .sheet(item: $textAboutFromAsk) { TextAboutSheet(post: $0) }
+            .sheet(item: $peek) { SessionPeek(item: $0) }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -631,6 +633,18 @@ extension SessionItemScreen {
         ZStack(alignment: .bottom) {
             CalmStyle.pageGround.ignoresSafeArea()
 
+            // The deck (LifeOS stack): the next two cards show behind the page while it's pulled.
+            ForEach(0..<2, id: \.self) { k in
+                RoundedRectangle(cornerRadius: 44, style: .continuous)
+                    .fill(CalmStyle.page.opacity(k == 0 ? 0.85 : 0.6))
+                    .overlay(RoundedRectangle(cornerRadius: 44, style: .continuous).strokeBorder(LifeColor.cardEdge, lineWidth: 1.5))
+                    .scaleEffect(0.9 - CGFloat(k) * 0.05, anchor: .bottom)
+                    .offset(y: -CGFloat(k + 1) * 16)
+                    .opacity(drag > 0 && model.remaining > k + 1 ? 1 : 0)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .allowsHitTesting(false)
+            }
+
             // The white page, drawn to the bottom edge; the words ride on top with the same moves.
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(CalmStyle.page)
@@ -645,7 +659,7 @@ extension SessionItemScreen {
                 .scaleEffect(pageScale, anchor: .bottom)
                 .offset(x: slide, y: y)
                 .opacity(flyOpacity * (appeared ? 1 : 0) * (intoBall ? 0.4 : 1))
-                .onTapGesture { tapPage(post) }
+                .onTapGesture { tapPage(item, post) }
                 .gesture(cardDrag(item, post, target), including: typing || showBox ? .subviews : .all)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("session.card")
@@ -898,10 +912,11 @@ extension SessionItemScreen {
             }
     }
 
-    private func tapPage(_ post: Post) {
+    /// A tap reads: the frosted quick look, with Open for the full email (owner, Nov 12, 2026).
+    private func tapPage(_ item: SessionItem, _ post: Post) {
         if slide < 0 { withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { slide = 0 }; return }
         guard !busy, !typing else { return }
-        router.open(.email(post.id))
+        peek = item
     }
 
     // MARK: The moves
@@ -1329,6 +1344,8 @@ struct SessionRowHeader: View {
 }
 
 /// The quick look: who, when, the subject and the email's text. Read only; Open shows the full email.
+/// The quick look, LifeOS style: a frosted sheet with the subject, a light close square, the sender and date, the text,
+/// and one black button to open the full email. Read only.
 struct SessionPeek: View {
     @Environment(FeedStore.self) private var store
     @Environment(Router.self) private var router
@@ -1337,19 +1354,42 @@ struct SessionPeek: View {
 
     var body: some View {
         let post = store.sessionPost(item.id)
-        NavigationStack {
-            SessionPeekBody(item: item, post: post)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                    if let post {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button("Open") { dismiss(); router.open(.email(post.id)) }.accessibilityIdentifier("session.peek.open")
-                        }
-                    }
-                }
+        let full = post?.email.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = full.isEmpty ? item.message.text : full
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(item.message.subject.isEmpty ? item.message.fromName : item.message.subject)
+                    .font(.lovely(size: 26, weight: .semibold)).tracking(-0.5).lineLimit(3)
+                Spacer(minLength: 8)
+                Button { dismiss() } label: { Image(systemName: "xmark").font(.body.weight(.bold)) }
+                    .buttonStyle(LifeSquareStyle(dark: false))
+                    .accessibilityLabel("Close").accessibilityIdentifier("session.peek.close")
+            }
+            HStack {
+                Text(item.message.fromName).font(.lovely(.subheadline)).lineLimit(1)
+                Spacer(minLength: 8)
+                Text(ReceivedDate.label(item.message.date, now: Date())).font(.lovely(.footnote))
+                    .padding(.horizontal, 12).frame(minHeight: 30)
+                    .background(Color.white.opacity(0.16), in: Capsule())
+            }
+            ScrollView {
+                Text(text.isEmpty ? "Open the email to read it." : String(text.prefix(4_000)))
+                    .font(.lovely(.body)).lineSpacing(4)
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+            }
+            .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            if let post {
+                Button("Open the full email") { dismiss(); router.open(.email(post.id)) }
+                    .buttonStyle(LifeBlackButtonStyle())
+                    .accessibilityIdentifier("session.peek.open")
+            }
         }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 22).padding(.top, 26).padding(.bottom, 12)
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(34)
+        .presentationBackground(Color(hex: 0x766C65).opacity(0.96))
     }
 }
 

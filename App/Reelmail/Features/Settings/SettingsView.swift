@@ -212,7 +212,6 @@ struct SettingsLookView: View {
             AppearanceCard()
             OpeningAnimationToggle()
             SplitPillToggle()
-            ChatHomeToggle()
             SettingsHeader(text: "Pictures")
             PicturesCard()
         }
