@@ -232,6 +232,8 @@ struct SessionItemScreen: View {
     @State var busy = false
     @State var showBox = false
     @State var peek: SessionItem?
+    /// The home indicator's inset, so Archive and ⋯ clear the blue bar on every phone.
+    @State var safeBottom: CGFloat = 0
     @Environment(SessionDropBar.self) var bar: SessionDropBar?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -688,9 +690,6 @@ extension SessionItemScreen {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
 
-                aboveBar(item, post)
-                    .opacity(Double(max(0, 1 - p * 2)))
-                    .ignoresSafeArea(.container, edges: .bottom)
             }
 
             if showBox {
@@ -700,6 +699,7 @@ extension SessionItemScreen {
                     .zIndex(5)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { safeBottom = $0 }
         .onAppear {
             // The next email rises out of the bar.
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appeared = true }
@@ -778,7 +778,13 @@ extension SessionItemScreen {
             }
 
             choices(item, post, talked: talked)
-                .padding(.bottom, typing ? 8 : 52)
+                .padding(.bottom, typing ? 8 : 4)
+            if !typing {
+                // Archive and ⋯ in the page's own flow, so they never cover the ask field; clear of the bar on any phone.
+                aboveBar(item, post)
+                    .opacity(Double(max(0, 1 - SessionCardMotion.pullProgress(drag) * 2)))
+                    .padding(.bottom, max(4, SessionDropBar.restHeight + 8 - safeBottom))
+            }
         }
         .padding(.horizontal, 22)
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
@@ -829,7 +835,7 @@ extension SessionItemScreen {
             .foregroundStyle(CalmStyle.blue)
             .accessibilityLabel("More for this email and sender").accessibilityIdentifier("session.more")
         }
-        .padding(.horizontal, 24).padding(.bottom, SessionDropBar.restHeight + 14)
+        .padding(.horizontal, -10)
     }
 
     private func trashWord(_ item: SessionItem, _ post: Post) -> some View {
