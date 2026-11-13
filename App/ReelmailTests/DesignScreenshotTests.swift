@@ -98,6 +98,14 @@ final class DesignScreenshotTests: XCTestCase {
         try await capture(BriefOfferCard().padding(20).background(CalmStyle.background).environment(store), name: "23-Home-brief-offer")
     }
     /// Sprint 5: fictional mail only.
+    /// LifeOS shell (Nov 13, 2026): the sorting card on its dotted ground, and Search with the new bottom bar.
+    func testLifeOSShellScreenshots() async throws {
+        let store = await demoStore()
+        try await capture(NavigationStack { SessionView() }.environment(store).environment(Router()), name: "26-Sort-card")
+        let router = Router(); router.tab = .search
+        try await capture(RootView().environment(store).environment(router), name: "27-Search-tab-bar")
+    }
+
     func testSprint5Screenshots() async throws {
         let client = Sprint3ScreenshotClient()
         let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil, veto: nil)

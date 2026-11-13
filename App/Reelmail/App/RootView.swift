@@ -15,14 +15,11 @@ struct RootView: View {
         NavigationStack(path: $router.path) {
             ZStack {
                 // On People the pill's field filters the People list in place; elsewhere it opens search.
-                if splitPill, !router.searchText.isEmpty, router.tab != .people {
-                    SearchView(pill: true)
-                } else {
-                    switch router.tab {
-                    case .home: if chatHome { LovelyHome() } else { HomeView() }
-                    case .people: PeopleView()
-                    case .search: splitPill ? AnyView(HomeView()) : AnyView(SearchView())
-                    }
+                // LifeOS bar (Nov 13, 2026): Home, People, Ask, Search, Settings. Search is its own tab again.
+                switch router.tab {
+                case .home: if chatHome { LovelyHome() } else { HomeView() }
+                case .people: PeopleView()
+                case .search: SearchView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -30,10 +27,8 @@ struct RootView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 // The chat Home has its own bottom (People, the ball, ⋯).
                 if !chatHomeShowing {
-                    Group {
-                        if splitPill { SplitPillBar() } else { RollingTabBar(selection: $router.tab) }
-                    }
-                    .padding(.horizontal, 16).padding(.vertical, 8).background(CalmStyle.background)
+                    LifeTabBar()
+                        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 4).background(CalmStyle.background)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)

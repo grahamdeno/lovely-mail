@@ -21,6 +21,7 @@ struct ReelmailApp: App {
         _store = State(initialValue: store)
         // Claude and the Grok API were removed (Nov 11, 2026): forget any saved keys and their settings.
         RetiredCloudEngines.forget()
+        LifeNavigationLook.install()
         // One workflow (Nov 12, 2026): the chat Home is the front page; the old switch is gone.
         UserDefaults.standard.set(true, forKey: LovelyHome.settingKey)
         MorningBriefScheduler.register(store: store)

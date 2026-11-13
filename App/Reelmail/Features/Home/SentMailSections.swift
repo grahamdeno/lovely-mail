@@ -198,7 +198,10 @@ struct NudgeSheet: View {
     private var to: String { EmailPresentation.address(in: request.email.to.first ?? "") }
     private var subject: String { GmailCompose.replySubject(request.email.subject) }
 
-    var body: some View {
+    var body: some View { sheetBody.lifeSheet() }
+
+
+    @ViewBuilder private var sheetBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Draft").font(.lovely(.title3, .semibold))
             Text("To \(to) · \(subject)").font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
