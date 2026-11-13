@@ -92,7 +92,7 @@ struct SettingsProfileHeader: View {
                         .frame(width: 96, height: 96)
                         .background(LifeColor.orange, in: Circle())
                         .overlay(Circle().strokeBorder(CalmStyle.card, lineWidth: 4))
-                    Image(systemName: "envelope").font(.footnote.weight(.semibold)).foregroundStyle(.white)
+                    Image(systemName: "envelope").font(.footnote.weight(.semibold)).foregroundStyle(CalmStyle.onBlue)
                         .frame(width: 34, height: 34).lifeBlack(corner: 11)
                         .offset(x: 4, y: 2)
                 }

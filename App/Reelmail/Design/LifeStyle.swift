@@ -43,16 +43,18 @@ enum LifeFont {
 }
 
 enum LifeColor {
-    /// The orange dot and the + button.
-    static let orange = Color(hex: 0xE8552F)
-    /// Done: the check circle, the filled drawer.
-    static let purple = Color(hex: 0x3D2A73)
-    /// Dashed connectors and drawer outlines.
-    static let dash = Color(hex: 0x9B7FD6)
-    static let black = Color(hex: 0x141414)
-    static let blackEdge = Color(hex: 0x2E2E2E)
+    /// Lovely's colors in the LifeOS shapes (owner, Nov 13, 2026). Names kept from the LifeOS pass.
+    /// The rose dot and the + button (hot magenta in Neon).
+    static let orange = CalmStyle.rose
+    /// Done: the check circle, the filled drawer: Lovely blue (cyan in Neon).
+    static let purple = CalmStyle.blue
+    /// Dashed connectors and drawer outlines (violet in Neon).
+    static let dash = Color(light: 0x8CA5FF, dark: 0x8CA5FF, neon: 0x9D4EDD)
+    /// The main button color: Lovely blue, not black (electric cyan in Neon).
+    static let black = CalmStyle.blue
+    static let blackEdge = Color(light: 0x2448A8, dark: 0x4A6BD0, neon: 0x9FF7F9)
     /// The light edge around a card.
-    static let cardEdge = Color(light: 0xFBF9F7, dark: 0x34313A)
+    static let cardEdge = Color(light: 0xFFFAFB, dark: 0x34313A, neon: 0x3A2F4A)
 }
 
 extension View {
@@ -66,6 +68,9 @@ extension View {
     func lifeBlack(corner: CGFloat = 16) -> some View {
         background(LifeColor.black, in: RoundedRectangle(cornerRadius: corner, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous).strokeBorder(LifeColor.blackEdge, lineWidth: 2))
+            // Neon: the tube glows.
+            .shadow(color: ThemeState.neon ? CalmStyle.blue.opacity(0.7) : .clear, radius: 12)
+            .shadow(color: ThemeState.neon ? CalmStyle.blue.opacity(0.35) : .clear, radius: 26)
     }
 }
 
@@ -77,7 +82,7 @@ struct LifeSquareStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         Group {
             if dark {
-                configuration.label.foregroundStyle(.white).frame(width: size, height: size).lifeBlack(corner: size * 0.31)
+                configuration.label.foregroundStyle(CalmStyle.onBlue).frame(width: size, height: size).lifeBlack(corner: size * 0.31)
             } else {
                 configuration.label.foregroundStyle(CalmStyle.ink).frame(width: size, height: size).lifeCard(corner: size * 0.31)
             }
@@ -90,7 +95,7 @@ struct LifeSquareStyle: ButtonStyle {
 /// The full-width black button ("Create automation" in LifeOS).
 struct LifeBlackButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.lovely(size: 17, weight: .medium)).foregroundStyle(.white)
+        configuration.label.font(.lovely(size: 17, weight: .medium)).foregroundStyle(CalmStyle.onBlue)
             .frame(maxWidth: .infinity, minHeight: 60).lifeBlack(corner: 20)
             .opacity(configuration.isPressed ? 0.8 : 1)
     }
@@ -125,11 +130,11 @@ struct LifeRow: View {
 
 extension LifeColor {
     /// The gray panel inside a step card.
-    static let panel = Color(light: 0xE6DFD8, dark: 0x2A2830)
+    static let panel = Color(light: 0xEBD9DE, dark: 0x2A2830)
     /// Dots on the sorting ground.
-    static let dot = Color(light: 0xD8CDC2, dark: 0x2C2A31)
+    static let dot = Color(light: 0xE3C9D0, dark: 0x2C2A31)
     /// LifeOS agent circles, used for people without a photo.
-    static let avatars: [Color] = [Color(hex: 0x7A5BA8), Color(hex: 0xD9502E), Color(hex: 0x8D97D6), Color(hex: 0x2B2B2B), Color(hex: 0xB0703A)]
+    static let avatars: [Color] = [Color(hex: 0x2E58C8), Color(hex: 0xD2546E), Color(hex: 0x7A5BA8), Color(hex: 0x2E8B57), Color(hex: 0xB0703A)]
 }
 
 /// The dotted ground behind the sorting cards (the LifeOS automations canvas).
@@ -238,6 +243,7 @@ struct LifeTabBar: View {
                     .frame(maxWidth: .infinity, minHeight: 60)
                     .background(LifeColor.orange, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 2))
+                    .shadow(color: ThemeState.neon ? CalmStyle.rose.opacity(0.7) : .clear, radius: 12)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Ask Lovely").accessibilityIdentifier("tab.ask")
@@ -251,7 +257,9 @@ struct LifeTabBar: View {
             Image(systemName: symbol).font(.title3).foregroundStyle(CalmStyle.ink)
                 .frame(maxWidth: .infinity, minHeight: 60)
                 .background(on ? Color(light: 0xFFFFFF, dark: 0x3A3740) : CalmStyle.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(LifeColor.cardEdge, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(on && ThemeState.neon ? CalmStyle.blue : LifeColor.cardEdge, lineWidth: on && ThemeState.neon ? 2 : 1.5))
+                .shadow(color: on && ThemeState.neon ? CalmStyle.blue.opacity(0.6) : .clear, radius: 10)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -290,7 +298,7 @@ enum LifeNavigationLook {
     /// A 44-point light rounded square with a chevron, drawn once (adapts to dark mode through the trait collection).
     static func backSquare() -> UIImage {
         let size = CGSize(width: 44, height: 44)
-        let light = draw(size, fill: UIColor(red: 0.965, green: 0.949, blue: 0.933, alpha: 1), edge: UIColor(red: 0.984, green: 0.976, blue: 0.969, alpha: 1), ink: UIColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1))
+        let light = draw(size, fill: UIColor(red: 0.984, green: 0.953, blue: 0.961, alpha: 1), edge: UIColor(red: 1, green: 0.98, blue: 0.984, alpha: 1), ink: UIColor(red: 0.18, green: 0.345, blue: 0.784, alpha: 1))
         let dark = draw(size, fill: UIColor(red: 0.16, green: 0.155, blue: 0.18, alpha: 1), edge: UIColor(red: 0.2, green: 0.19, blue: 0.23, alpha: 1), ink: .white)
         let asset = UIImageAsset()
         asset.register(light, with: UITraitCollection(userInterfaceStyle: .light))

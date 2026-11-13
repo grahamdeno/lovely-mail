@@ -1,35 +1,35 @@
 import SwiftUI
 
-/// Lovely's palette. Light mode is the LifeOS look (owner, Nov 12, 2026): greige ground, light cards, black for
-/// everything you tap, orange for Waiting on you, purple for done. Dark and Neon are unchanged.
-/// Earlier source of truth: Design/Brand/README.md.
+/// Lovely's palette. Light mode keeps the LifeOS shapes in Lovely's own colors (owner, Nov 13, 2026): a very light
+/// tint of the rose dot for the ground, Lovely blue (not black) for everything you tap, rose for Waiting on you.
+/// Source of truth before Nov 12: Design/Brand/README.md.
 /// Each color has a light (letter paper) and dark (airmail at night) value and follows the iPhone's appearance.
 /// Neon (owner, Nov 9): dark mode's surfaces and text, with cool neon accents: electric cyan for everything you can
 /// tap, hot magenta for Waiting on you, violet in the stripe, lime for Done.
 enum CalmStyle {
     /// Letter paper.
-    static let background = Color(light: 0xEAE2D9, dark: 0x17161A, neon: 0x121116)
+    static let background = Color(light: 0xF2E1E5, dark: 0x17161A, neon: 0x121116)
     /// Cards, pills and fields that sit on the background.
-    static let card = Color(light: 0xF6F2EE, dark: 0x25232A, neon: 0x211F27)
-    static let ink = Color(light: 0x141414, dark: 0xF2EFEA, neon: 0xF2EFEA)
-    static let secondary = Color(light: 0x5F5650, dark: 0xA9A3AC, neon: 0xA9A3AC)
+    static let card = Color(light: 0xFBF3F5, dark: 0x25232A, neon: 0x211F27)
+    static let ink = Color(light: 0x25222A, dark: 0xF2EFEA, neon: 0xF2EFEA)
+    static let secondary = Color(light: 0x5C5359, dark: 0xA9A3AC, neon: 0xA9A3AC)
     /// Airmail blue: everything you can tap. In Neon, electric cyan.
-    static let blue = Color(light: 0x141414, dark: 0x5B7FE8, neon: 0x2DE2E6)
+    static let blue = Color(light: 0x2E58C8, dark: 0x5B7FE8, neon: 0x2DE2E6)
     /// Text and icons on `blue`: white, except near-black on Neon's bright cyan.
     static let onBlue = Color(light: 0xFFFFFF, dark: 0xFFFFFF, neon: 0x0B1416)
     /// Postmark rose: "Waiting on you" only. Graphics (rings, dots). In Neon, hot magenta.
-    static let rose = Color(light: 0xE8552F, dark: 0xE0708A, neon: 0xFF3CAC)
+    static let rose = Color(light: 0xD2546E, dark: 0xE0708A, neon: 0xFF3CAC)
     /// Postmark rose for text; passes 4.5:1 on its background in every palette.
-    static let roseInk = Color(light: 0xAD3517, dark: 0xF08DA3, neon: 0xFF8FD0)
+    static let roseInk = Color(light: 0xA3344D, dark: 0xF08DA3, neon: 0xFF8FD0)
     /// Done. Swipe tint only, with white text.
-    static let green = Color(light: 0x3D2A73, dark: 0x3A9D66, neon: 0x17A866)
-    static let divider = Color(light: 0xDCD2C8, dark: 0x2F2D34, neon: 0x2C2A33)
+    static let green = Color(light: 0x2E8B57, dark: 0x3A9D66, neon: 0x17A866)
+    static let divider = Color(light: 0xE6CFD5, dark: 0x2F2D34, neon: 0x2C2A33)
     static let field = card
-    static let bubble = Color(light: 0xE3DBD3, dark: 0x2B2930, neon: 0x2A2731)
+    static let bubble = Color(light: 0xEAD5DA, dark: 0x2B2930, neon: 0x2A2731)
     static let warning = Color(light: 0xFFF4E6, dark: 0x3A2E1F, neon: 0x332A14)
     static let warningInk = Color(light: 0x7A4A10, dark: 0xF3C98B, neon: 0xFFE066)
     /// The Undo bar: dark in every palette, with white text.
-    static let toast = Color(light: 0x141414, dark: 0x3A3842, neon: 0x2E2B36)
+    static let toast = Color(light: 0x25222A, dark: 0x3A3842, neon: 0x2E2B36)
     /// Neon's signature stripe: cyan, violet, magenta. Used for the line under the top bar.
     static let gel = LinearGradient(colors: [Color(hex: 0x2DE2E6), Color(hex: 0x9D4EDD), Color(hex: 0xFF3CAC)],
                                     startPoint: .leading, endPoint: .trailing)
@@ -119,7 +119,7 @@ struct CalmActionStyle: ButtonStyle {
                 configuration.label
                     .font(.lovely(.callout, .medium))
                     .padding(.horizontal, 16).frame(minHeight: 50)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(CalmStyle.onBlue)
                     .lifeBlack(corner: 16)
             } else {
                 configuration.label
