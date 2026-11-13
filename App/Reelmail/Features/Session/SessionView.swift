@@ -11,6 +11,8 @@ struct SessionView: View {
     /// Bumped by "Clear the next page" to build a fresh plan in place.
     @State private var page = 0
     @State private var shown: Set<String> = []
+    /// The blue bar at the bottom of every card, and the dot's flight (owner, Nov 13, 2026).
+    @State private var drop = SessionDropBar()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,6 +24,8 @@ struct SessionView: View {
             }
         }
         .background(onCard ? CalmStyle.page : CalmStyle.background)
+        .overlay { if onCard || drop.flying { SessionDropLayer(bar: drop, showBar: onCard) } }
+        .environment(drop)
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
         .toolbar(.hidden, for: .navigationBar)
         .task(id: page) {
@@ -228,12 +232,10 @@ struct SessionItemScreen: View {
     @State var busy = false
     @State var showBox = false
     @State var peek: SessionItem?
-    @State var light: CGFloat = 0.3
-    @State var gelAwake = true
-    @State var gelSleep: Task<Void, Never>?
-    @State var ballCenter: CGPoint = .zero
-    /// One ball for the whole session, so its wobble carries over from one email to the next.
-    static let gel = GelPhysics()
+    /// The home indicator's inset, so Archive and ⋯ clear the blue bar on every phone.
+    @State var safeBottom: CGFloat = 0
+    @Environment(SessionDropBar.self) var bar: SessionDropBar?
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         if let item = model.item(itemID), let post = store.sessionPost(itemID) {
@@ -245,6 +247,9 @@ struct SessionItemScreen: View {
             .sheet(isPresented: $showMore) { moreSheet(item, post) }
             .sheet(item: $textAboutFromAsk) { TextAboutSheet(post: $0) }
             .sheet(item: $peek) { SessionPeek(item: $0) }
+            .onChange(of: mode != .decide || typing || showBox || slide < 0, initial: true) { _, hide in bar?.hidden = hide }
+            .onChange(of: drag) { _, d in bar?.pull = SessionCardMotion.pullProgress(d) }
+            .onDisappear { bar?.pull = 0 }
         } else {
             Color.clear.task { model.drop(itemID) }
         }
@@ -609,13 +614,13 @@ struct SessionItemScreen: View {
 
 // MARK: Sprint 8 card page
 
-/// Version 1 (owner, Nov 10, 2026): the email is a full white page. Sender at the top, one big fact, white space, then one
-/// glass pane (subject, summary, tags, Reply and Open, Ask Lovely). Archive and ⋯ sit beside the ball. Flick up skips for
-/// now, pull down into the ball puts it away (the destination is named during the pull), swipe left shows Move to Trash,
-/// tap opens the email. No main button: VoiceOver gets the same three moves as actions.
+/// Version 1 (owner, Nov 10, 2026), with the blue bar (Nov 13): the email is a full page. Sender at the top, one big
+/// fact, then the email in words set straight on the page (no box: the page is already the card), then tags, Reply and
+/// Open, and Ask Lovely. Archive and ⋯ sit just above a thin blue bar at the very bottom. Flick up skips for now; pull
+/// down and the bar rises while the drawer is named above it; let go past the line and the email drops into the bar
+/// (the destination was shown during the pull). Swipe left shows Move to Trash; tap opens the quick look. No main
+/// button: VoiceOver gets the same three moves as actions.
 extension SessionItemScreen {
-    private var gel: GelPhysics { Self.gel }
-
     private func pullTarget(_ item: SessionItem, _ post: Post) -> SessionPullTarget {
         let date = MailDates.extract(post.email, now: Date()).first.map { ComingUp.fullLabel($0) }
         return SessionPullTarget.make(item, dateLabel: date)
@@ -638,7 +643,7 @@ extension SessionItemScreen {
         ZStack(alignment: .bottom) {
             CalmStyle.pageGround.ignoresSafeArea()
 
-            // The white page, drawn to the bottom edge; the words ride on top with the same moves.
+            // The page, drawn to the bottom edge; the words ride on top with the same moves.
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .fill(CalmStyle.page)
                 .shadow(color: Color(hex: 0x25222A).opacity(drag != 0 || slide != 0 ? 0.12 : 0), radius: 18, y: 6)
@@ -670,34 +675,21 @@ extension SessionItemScreen {
                 .allowsHitTesting(false)
 
             if !typing {
-                // The drawer: a dashed box that fills Lovely blue once the pull will file it.
+                // Where it goes, named during the pull, just above the rising bar: dashed, then filled blue once
+                // letting go will file it. The bar itself carries no words.
                 Label(p >= 1 ? target.releaseLabel : target.label, systemImage: p >= 1 ? "checkmark" : "tray")
                     .font(.lovely(.callout, .medium))
                     .foregroundStyle(p >= 1 ? CalmStyle.onBlue : CalmStyle.ink)
                     .padding(.horizontal, 20).frame(minHeight: 56)
-                    .background(p >= 1 ? LifeColor.purple : CalmStyle.card.opacity(0.7), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(p >= 1 ? LifeColor.purple : CalmStyle.card.opacity(0.85), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(LifeColor.dash, style: StrokeStyle(lineWidth: 2, dash: p >= 1 ? [] : [6, 5])))
-                    .padding(.bottom, 170)
+                    .padding(.bottom, SessionDropBar.restHeight + (SessionDropBar.risenHeight - SessionDropBar.restHeight) * min(1, p) + 18)
+                    .ignoresSafeArea(.container, edges: .bottom)
                     .opacity(Double(min(1, p * 1.8)))
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
 
-                besideBall(item, post)
-                    .opacity(Double(max(0, 1 - p * 2)))
-                    .ignoresSafeArea(.container, edges: .bottom)
-
-                GelBall(physics: gel, awake: gelAwake)
-                    .frame(width: 400, height: 400)
-                    .onGeometryChange(for: CGPoint.self) { CGPoint(x: $0.frame(in: .global).midX, y: $0.frame(in: .global).midY) } action: { ballCenter = $0 }
-                    .offset(y: 200 - 4)
-                    .allowsHitTesting(false)
-                    .ignoresSafeArea(.container, edges: .bottom)
-                // A tap on the ball jiggles it.
-                Circle().fill(Color.clear).frame(width: 130, height: 70).contentShape(Rectangle())
-                    .onTapGesture { gel.kick(0.55, toward: -.pi / 2); wakeGel(); tick() }
-                    .ignoresSafeArea(.container, edges: .bottom)
-                    .accessibilityHidden(true)
             }
 
             if showBox {
@@ -707,12 +699,11 @@ extension SessionItemScreen {
                     .zIndex(5)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { safeBottom = $0 }
         .onAppear {
-            wakeGel()
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) { appeared = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { gel.kick(0.22, toward: -.pi / 2); settleGel() }
+            // The next email rises out of the bar.
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appeared = true }
         }
-        .onDisappear { gelSleep?.cancel() }
     }
 
     private func pageScaleNow(_ p: CGFloat) -> CGFloat {
@@ -735,10 +726,13 @@ extension SessionItemScreen {
         return SessionCardMotion.resisted(drag) + fly + into + rise
     }
 
-    /// The page's words: sender, the big fact, white space, then the glass pane.
+    /// The page's words, top to bottom: sender and when it came, the big fact, the subject and Lovely's summary, the
+    /// email's own words filling what room is left, then the choices and Ask Lovely near the thumb.
     private func cardPage(_ item: SessionItem, _ post: Post) -> some View {
         let fact = hero(item, post)
         let waiting = item.message.section == .waiting
+        let words = SessionCardText.make(item.message, summary: post.summary)
+        let talked = !askHistory.isEmpty || !proposals.isEmpty || askNote != nil || thinking
         return VStack(alignment: .leading, spacing: 0) {
             SenderWarning(verdict: store.senderVerdict(post.email), compact: true)
             HStack(spacing: 11) {
@@ -748,43 +742,58 @@ extension SessionItemScreen {
                     Text(post.email.from.email).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text(HomeDigest.age(of: post.email.date, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                Text(ReceivedDate.label(post.email.date, now: Date())).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+                    .accessibilityLabel("Received \(ReceivedDate.full(post.email.date))")
             }
             .padding(.top, 10)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(fact.label).font(.lovely(.subheadline, .semibold)).foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)
                 Text(fact.value)
-                    .font(.lovely(size: 72, weight: .heavy)).tracking(-2)
+                    .font(.lovely(size: 60, weight: .heavy)).tracking(-1.8)
                     .lineLimit(2).minimumScaleFactor(0.4)
                     .foregroundStyle(CalmStyle.ink)
-                Capsule().fill(waiting ? CalmStyle.rose : CalmStyle.divider).frame(width: 36, height: 4).padding(.top, 12)
             }
-            .padding(.top, 40)
+            .padding(.top, 28)
             .accessibilityElement(children: .combine)
 
-            Spacer(minLength: 16)
-            pane(item, post)
-                .padding(.horizontal, -10)
-                .padding(.bottom, typing ? 8 : 96)
+            VStack(alignment: .leading, spacing: 8) {
+                if !post.email.subject.isEmpty {
+                    Text(post.email.subject).font(.lovely(.title3, .bold)).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                }
+                if let lead = words.lead {
+                    Text(words.leadIsAsk ? "\u{201C}\(lead)\u{201D}" : lead)
+                        .font(.lovely(.body)).foregroundStyle(words.leadIsAsk ? CalmStyle.roseInk : CalmStyle.ink)
+                        .lineLimit(talked ? 2 : 4).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.top, 20)
+
+            if let excerpt = words.excerpt, !talked {
+                SessionExcerpt(text: excerpt)
+                    .padding(.top, 14).padding(.bottom, 10)
+                    .layoutPriority(-1)
+            } else {
+                Spacer(minLength: 14)
+            }
+
+            choices(item, post, talked: talked)
+                .padding(.bottom, typing ? 8 : 4)
+            if !typing {
+                // Archive and ⋯ in the page's own flow, so they never cover the ask field; clear of the bar on any phone.
+                aboveBar(item, post)
+                    .opacity(Double(max(0, 1 - SessionCardMotion.pullProgress(drag) * 2)))
+                    .padding(.bottom, max(4, SessionDropBar.restHeight + 8 - safeBottom))
+            }
         }
         .padding(.horizontal, 22)
         .foregroundStyle(CalmStyle.ink).tint(CalmStyle.blue)
     }
 
-    /// Pane 2: subject, summary, tags, Reply and Open, and Ask Lovely, on one piece of glass.
-    private func pane(_ item: SessionItem, _ post: Post) -> some View {
+    /// Near the thumb: a Trash hint when it applies, tags, Choose a drawer, Reply and Open, and Ask Lovely.
+    private func choices(_ item: SessionItem, _ post: Post, talked: Bool) -> some View {
         let canReply = item.suggestion == .reply || item.message.isPerson || item.message.section == .notes
-        let talked = !askHistory.isEmpty || !proposals.isEmpty || askNote != nil || thinking
         return VStack(alignment: .leading, spacing: 10) {
-            if !post.email.subject.isEmpty {
-                Text(post.email.subject).font(.lovely(.title3, .bold)).fixedSize(horizontal: false, vertical: true).lineLimit(3)
-            }
-            if let ask = item.message.ask {
-                Text("\u{201C}\(ask)\u{201D}").font(.lovely(.body)).foregroundStyle(CalmStyle.roseInk).lineLimit(4)
-            } else if !post.summary.blurb.isEmpty {
-                Text(post.summary.blurb).font(.lovely(.body)).foregroundStyle(CalmStyle.secondary).lineLimit(talked ? 2 : 4)
-            }
             if store.sessionTrashMemory.suggestsTrash(for: post.email.from.email) {
                 Text("You moved mail from this sender to Trash before. Swipe left to do it again.")
                     .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
@@ -808,12 +817,10 @@ extension SessionItemScreen {
             SessionAskField(hint: hint(item), thinking: thinking, onFocus: { typing = $0 }, onAsk: { ask($0, item, post) })
                 .id("\(item.id)-\(askResetCount)")
         }
-        .padding(18)
-        .glassPane(light: light)
     }
 
-    /// Archive (left) and ⋯ (right), beside the ball.
-    private func besideBall(_ item: SessionItem, _ post: Post) -> some View {
+    /// Archive (left) and ⋯ (right), just above the blue bar.
+    private func aboveBar(_ item: SessionItem, _ post: Post) -> some View {
         let move = SessionMove(messageID: item.id, drawer: nil)
         return HStack {
             SessionConfirmTap(previews: [FeedStore.putAwayPreview([move])], identifier: "session.archive") { approvals in
@@ -828,7 +835,7 @@ extension SessionItemScreen {
             .foregroundStyle(CalmStyle.blue)
             .accessibilityLabel("More for this email and sender").accessibilityIdentifier("session.more")
         }
-        .padding(.horizontal, 24).padding(.bottom, 18)
+        .padding(.horizontal, -10)
     }
 
     private func trashWord(_ item: SessionItem, _ post: Post) -> some View {
@@ -868,15 +875,9 @@ extension SessionItemScreen {
                 }
                 if slideStart < 0 { return }
                 drag = dy
-                if ballCenter != .zero { gel.angleTarget = atan2(Double(v.location.y - ballCenter.y), Double(v.location.x - ballCenter.x)) }
-                light = min(1, max(0, v.location.x / max(1, ballCenter.x * 2)))
-                let p = Double(SessionCardMotion.pullProgress(dy))
-                gel.scaleTarget = 1 + min(p, 1.25) * 0.42
-                gel.reachTarget = min(p, 1.2) * (p >= 1 ? 1 : 0.75)
-                wakeGel()
                 let c = -dy >= SessionCardMotion.upDistance ? 1 : (dy >= SessionCardMotion.downDistance ? -1 : 0)
                 if c != crossed {
-                    if c != 0 { tick(); gel.kick(c == -1 ? 0.18 : 0.08, toward: gel.angle) }
+                    if c != 0 { tick() }
                     crossed = c
                 }
             }
@@ -892,7 +893,6 @@ extension SessionItemScreen {
                 }
                 if slideStart < 0 || slide < 0 {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { slide = 0; drag = 0 }
-                    settleGel()
                     return
                 }
                 switch SessionCardMotion.release(dy: v.translation.height, predictedDy: v.predictedEndTranslation.height) {
@@ -900,7 +900,6 @@ extension SessionItemScreen {
                 case .putAway: release(item, post, target)
                 case .springBack:
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) { drag = 0 }
-                    settleGel(); gel.kick(0.12)
                 }
             }
     }
@@ -919,7 +918,6 @@ extension SessionItemScreen {
         guard !busy else { return }
         busy = true
         tick()
-        gel.kick(0.3, toward: -.pi / 2); settleGel()
         withAnimation(.easeIn(duration: 0.3)) { fly = -1100; flyOpacity = 0 }
         let id = item.id
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [model, store] in
@@ -954,7 +952,8 @@ extension SessionItemScreen {
         }
     }
 
-    /// Into the ball: the page shrinks into it, the ball gulps and wobbles, then the mail is put away (10-second Undo).
+    /// Into the bar: the page shrinks into it, the bar gulps, the rose dot flies out, and the mail is put away
+    /// (10-second Undo). The next email rises out of the bar while the dot is still falling: no wait.
     private func fileInto(_ move: SessionMove, _ approval: ConfirmedAction) {
         swallow { put(move, approval) }
     }
@@ -962,17 +961,12 @@ extension SessionItemScreen {
     private func swallow(then finish: @escaping () -> Void) {
         guard !busy else { return }
         busy = true
-        gel.scaleTarget = 1.45; gel.reachTarget = 0.4; gel.angleTarget = -.pi / 2
-        wakeGel()
-        withAnimation(.easeIn(duration: 0.34)) { intoBall = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.33) {
+        withAnimation(.easeIn(duration: 0.2)) { intoBall = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.17) {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 1)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) { UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.6) }
-            gel.scaleTarget = 1; gel.reachTarget = 0
-            gel.kick(1, toward: -.pi / 2)
-            settleGel()
+            bar?.launch(reduceMotion: reduceMotion)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.48) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.25 : 0.5)) {
             clearAsk()
             finish()
         }
@@ -994,17 +988,15 @@ extension SessionItemScreen {
     // MARK: The drawer box
 
     private func openBox() {
-        gel.scaleTarget = 1.3; gel.kick(0.6, toward: -.pi / 2); wakeGel()
         tick()
         withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) { showBox = true }
     }
 
     private func closeBox() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showBox = false }
-        gel.scaleTarget = 1; settleGel()
     }
 
-    /// Springs up out of the ball: the email for reference, the likeliest drawers with a reason, then the rest.
+    /// Springs up out of the bar: the email for reference, the likeliest drawers with a reason, then the rest.
     private func drawerBox(_ item: SessionItem, _ post: Post) -> some View {
         let picks = DrawerLikely.top(item.message, guess: item.drawer)
         let rest = DrawerChoice.all(kids: store.sessionKids).filter { c in !picks.contains { $0.choice == c } }
@@ -1064,26 +1056,6 @@ extension SessionItemScreen {
             .padding(18)
             .glassPane(corner: 32)
             .padding(.horizontal, 10).padding(.bottom, 10)
-        }
-    }
-
-    // MARK: The ball's life
-
-    /// The ball redraws while it moves and rests once it is a still sphere again.
-    private func wakeGel() {
-        gelAwake = true
-        gelSleep?.cancel()
-        gelSleep = nil
-    }
-
-    private func settleGel() {
-        gelAwake = true
-        gelSleep?.cancel()
-        gelSleep = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(400))
-                if dragDirection == nil, gel.isSettled { gelAwake = false; return }
-            }
         }
     }
 
@@ -1825,7 +1797,8 @@ struct SessionAskField: View {
                 TextField("Or say what to do", text: $text, axis: .vertical)
                     .lineLimit(1...5).submitLabel(.go).focused($focused)
                     .padding(.horizontal, 14).padding(.vertical, 12)
-                    .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                    .background(CalmStyle.pageGround, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(CalmStyle.divider, lineWidth: 1))
                     .onSubmit(send)
                     .accessibilityIdentifier("session.ask")
                 Button(action: send) {

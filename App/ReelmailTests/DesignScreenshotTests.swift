@@ -101,7 +101,8 @@ final class DesignScreenshotTests: XCTestCase {
     /// LifeOS shell (Nov 13, 2026): the sorting card on its dotted ground, and Search with the new bottom bar.
     func testLifeOSShellScreenshots() async throws {
         let store = await demoStore()
-        try await capture(NavigationStack { SessionView() }.environment(store).environment(Router()), name: "26-Sort-card")
+        // Long enough for the plan and the first email's page, with the blue bar and no box (Nov 13).
+        try await capture(NavigationStack { SessionView() }.environment(store).environment(Router()), name: "26-Sort-card", wait: 3_000_000_000)
         let router = Router(); router.tab = .search
         try await capture(RootView().environment(store).environment(router), name: "27-Search-tab-bar")
     }
@@ -130,7 +131,7 @@ final class DesignScreenshotTests: XCTestCase {
         }
         return try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive }, "No foreground scene became available within 10 seconds.")
     }
-    private func capture<Content: View>(_ content: Content, name: String, dark: Bool = false) async throws {
+    private func capture<Content: View>(_ content: Content, name: String, dark: Bool = false, wait: UInt64 = 500_000_000) async throws {
         let scene = try await foregroundScene()
         let previousKeyWindow = scene.windows.first { $0.isKeyWindow }
         let controller = UIHostingController(rootView: content.preferredColorScheme(dark ? .dark : .light))
@@ -143,7 +144,7 @@ final class DesignScreenshotTests: XCTestCase {
         controller.view.frame = window.bounds
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: wait)
         window.layoutIfNeeded()
         XCTAssertEqual(scene.activationState, .foregroundActive)
         XCTAssertTrue(window.windowScene === scene)
