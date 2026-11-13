@@ -1301,8 +1301,12 @@ struct SessionRowHeader: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(item.message.fromName).font(.subheadline.weight(.semibold)).lineLimit(1)
                     Spacer(minLength: 4)
-                    Text(ReceivedDate.label(item.message.date, now: Date()))
-                        .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).layoutPriority(1)
+                    // The chevron says the row opens (owner, Nov 12: "I had no way of opening the email").
+                    HStack(spacing: 4) {
+                        Text(ReceivedDate.label(item.message.date, now: Date()))
+                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                    }
+                    .font(.caption).foregroundStyle(CalmStyle.secondary).lineLimit(1).layoutPriority(1)
                 }
                 Text(item.message.subject).font(.subheadline).foregroundStyle(CalmStyle.secondary).lineLimit(2)
                     .multilineTextAlignment(.leading)
