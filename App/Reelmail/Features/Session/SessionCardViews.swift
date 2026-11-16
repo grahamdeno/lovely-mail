@@ -176,3 +176,139 @@ struct SessionExcerpt: View {
             .accessibilityLabel("From the email: \(text)")
     }
 }
+
+// MARK: Skipped three times and talking (owner, Nov 16, 2026; design canvas 5c)
+
+/// A date to hide an email until, waiting for his Yes. `heard` is what he said, when it came from the mic.
+struct SessionHideAsk: Equatable, Identifiable {
+    let date: Date
+    let heard: String?
+    var id: Date { date }
+}
+
+/// Three rose dots that drop in and bounce, one per skip (the logo's dot, like the one on the blue bar).
+struct SkipDots: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var landed = false
+
+    var body: some View {
+        HStack(spacing: 7) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(RadialGradient(colors: [Color(light: 0xF29AAE, dark: 0xF7B3C2, neon: 0xFF8AD0), CalmStyle.rose,
+                                                  Color(light: 0xA3384F, dark: 0xB4506A, neon: 0xB0207A)],
+                                         center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: 13))
+                    .frame(width: 18, height: 18)
+                    .offset(y: landed ? 0 : -70)
+                    .opacity(landed ? 1 : 0)
+                    .animation(reduceMotion ? nil : .interpolatingSpring(stiffness: 260, damping: 11).delay(Double(i) * 0.12), value: landed)
+            }
+        }
+        .frame(height: 20, alignment: .bottom)
+        .onAppear { landed = true }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Rises out of the blue bar while the mic is on: what he is saying, typed as he says it. Tap Done or pause to finish.
+struct SessionListeningSheet: View {
+    let dictation: SpeechDictation
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.28).ignoresSafeArea()
+                .onTapGesture { dictation.cancel() }
+                .accessibilityLabel("Stop listening")
+            VStack(alignment: .leading, spacing: 12) {
+                if case .failed(let message) = dictation.state {
+                    Text(message).font(.lovely(.title3, .semibold)).fixedSize(horizontal: false, vertical: true)
+                    Button("OK") { dictation.cancel() }
+                        .font(.lovely(.body, .semibold))
+                        .padding(.horizontal, 22).frame(minHeight: 46)
+                        .background(CalmStyle.onBlue.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                } else {
+                    Text("Listening").font(.lovely(.subheadline)).opacity(0.8)
+                    Text(dictation.text.isEmpty ? "Say what to do, or when to bring it back" : dictation.text)
+                        .font(.lovely(size: 26, weight: .semibold)).tracking(-0.4)
+                        .opacity(dictation.text.isEmpty ? 0.55 : 1)
+                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
+                        .accessibilityAddTraits(.updatesFrequently)
+                    SessionWave().frame(height: 40).frame(maxWidth: .infinity)
+                    HStack {
+                        Text("Try \u{201C}after Thanksgiving\u{201D} or \u{201C}help me reply\u{201D}")
+                            .font(.lovely(.caption)).opacity(0.75)
+                        Spacer(minLength: 8)
+                        Button("Done") { dictation.stop() }
+                            .font(.lovely(.body, .semibold))
+                            .padding(.horizontal, 18).frame(minHeight: 44)
+                            .background(CalmStyle.onBlue.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .accessibilityIdentifier("session.listening.done")
+                    }
+                }
+            }
+            .foregroundStyle(CalmStyle.onBlue)
+            .padding(24).padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(CalmStyle.blue, in: UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous))
+            .shadow(color: ThemeState.neon ? CalmStyle.blue.opacity(0.6) : .clear, radius: 18)
+            .ignoresSafeArea(edges: .bottom)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+/// Soft bars that move while listening; still with Reduce Motion.
+struct SessionWave: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(paused: reduceMotion)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
+                ForEach(0..<7, id: \.self) { i in
+                    Capsule().fill(CalmStyle.onBlue)
+                        .frame(width: 5, height: 10 + 26 * (0.5 + 0.5 * sin(t * 6 + Double(i) * 0.9)))
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Nothing happens on voice alone: what Lovely understood, and Yes or Change.
+struct SessionHideConfirm: View {
+    let ask: SessionHideAsk
+    let onYes: () -> Void
+    let onChange: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.28).ignoresSafeArea().onTapGesture(perform: onChange)
+            VStack(alignment: .leading, spacing: 8) {
+                if let heard = ask.heard {
+                    Text("You said \u{201C}\(heard)\u{201D}").font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
+                }
+                Text("Hide until \(SkipNudge.shortDay(ask.date))?")
+                    .font(.lovely(size: 28, weight: .bold)).tracking(-0.6)
+                Text("It leaves your sessions and comes back that morning. Nothing changes in Gmail.")
+                    .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Button(action: onYes) { Text("Yes, hide it").frame(maxWidth: .infinity) }
+                        .buttonStyle(CalmActionStyle(prominent: true))
+                        .accessibilityIdentifier("session.hide.yes")
+                    Button(action: onChange) { Text("Change").frame(width: 96) }
+                        .buttonStyle(CalmActionStyle())
+                        .accessibilityIdentifier("session.hide.change")
+                }
+                .padding(.top, 10)
+            }
+            .foregroundStyle(CalmStyle.ink)
+            .padding(24).padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(CalmStyle.page, in: UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous))
+            .ignoresSafeArea(edges: .bottom)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}

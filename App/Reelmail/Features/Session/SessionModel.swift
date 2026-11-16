@@ -58,6 +58,8 @@ final class SessionModel {
 
     /// Older read mail rather than new mail.
     let backlog: Bool
+    /// Skips count once per session (SkipMemory).
+    let sessionID = UUID().uuidString
 
     init(plan: SessionPlan, backlog: Bool = false) {
         self.backlog = backlog
