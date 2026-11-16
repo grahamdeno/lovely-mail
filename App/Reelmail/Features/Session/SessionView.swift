@@ -234,6 +234,13 @@ struct SessionItemScreen: View {
     @State var peek: SessionItem?
     /// The home indicator's inset, so Archive and ⋯ clear the blue bar on every phone.
     @State var safeBottom: CGFloat = 0
+    /// Skipped three times (owner, Nov 16, 2026): what the card asks, worked out once when the card appears.
+    @State var nudge: SkipNudge?
+    @State var nudgeDates = false
+    @State var pickingDate = false
+    @State var pickedDate = Date()
+    @State var hideAsk: SessionHideAsk?
+    @State var dictation = SpeechDictation()
     @Environment(SessionDropBar.self) var bar: SessionDropBar?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -692,6 +699,15 @@ extension SessionItemScreen {
 
             }
 
+            if dictation.state != .idle {
+                SessionListeningSheet(dictation: dictation).zIndex(6)
+            }
+            if let ask = hideAsk {
+                SessionHideConfirm(ask: ask, onYes: { hideUntil(item, post, ask.date) },
+                                   onChange: { withAnimation(.snappy) { hideAsk = nil; nudgeDates = true } })
+                    .zIndex(6)
+            }
+
             if showBox {
                 drawerBox(item, post)
                     .transition(.asymmetric(insertion: .scale(scale: 0.25, anchor: .bottom).combined(with: .opacity),
@@ -700,7 +716,12 @@ extension SessionItemScreen {
             }
         }
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { safeBottom = $0 }
+        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: dictation.state)
+        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: hideAsk)
+        .sheet(isPresented: $pickingDate) { datePickerSheet(item, post) }
+        .onDisappear { dictation.cancel() }
         .onAppear {
+            nudge = makeNudge(item, post)
             // The next email rises out of the bar.
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appeared = true }
         }
@@ -747,17 +768,28 @@ extension SessionItemScreen {
             }
             .padding(.top, 10)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(fact.label).font(.lovely(.subheadline, .semibold)).foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)
-                Text(fact.value)
-                    .font(.lovely(size: 60, weight: .heavy)).tracking(-1.8)
-                    .lineLimit(2).minimumScaleFactor(0.4)
-                    .foregroundStyle(CalmStyle.ink)
+            if let nudge {
+                // Skipped three times: it takes the big-fact slot, the first place the eye lands.
+                nudgeBlock(item, post, nudge)
+                    .padding(.top, 24)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fact.label).font(.lovely(.subheadline, .semibold)).foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)
+                    Text(fact.value)
+                        .font(.lovely(size: 60, weight: .heavy)).tracking(-1.8)
+                        .lineLimit(2).minimumScaleFactor(0.4)
+                        .foregroundStyle(CalmStyle.ink)
+                }
+                .padding(.top, 28)
+                .accessibilityElement(children: .combine)
             }
-            .padding(.top, 28)
-            .accessibilityElement(children: .combine)
 
             VStack(alignment: .leading, spacing: 8) {
+                if nudge != nil, fact.label != "From" {
+                    // The email's own fact, moved to a small line while the card asks.
+                    Text("\(fact.label) \u{00B7} \(fact.value)").font(.lovely(.caption, .semibold))
+                        .foregroundStyle(waiting ? CalmStyle.roseInk : CalmStyle.secondary)
+                }
                 if !post.email.subject.isEmpty {
                     Text(post.email.subject).font(.lovely(.title3, .bold)).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 }
@@ -767,7 +799,7 @@ extension SessionItemScreen {
                         .lineLimit(talked ? 2 : 4).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.top, 20)
+            .padding(.top, nudge == nil ? 20 : 16)
 
             if let excerpt = words.excerpt, !talked {
                 SessionExcerpt(text: excerpt)
@@ -814,9 +846,165 @@ extension SessionItemScreen {
                     .frame(maxHeight: 260)
                     .scrollDismissesKeyboard(.interactively)
             }
-            SessionAskField(hint: hint(item), thinking: thinking, onFocus: { typing = $0 }, onAsk: { ask($0, item, post) })
-                .id("\(item.id)-\(askResetCount)")
+            if nudge?.placeholder == nil {
+                SessionAskField(hint: hint(item), thinking: thinking, onMic: { talk(item, post) },
+                                onFocus: { typing = $0 }, onAsk: { ask($0, item, post) })
+                    .id("\(item.id)-\(askResetCount)")
+            }
         }
+    }
+
+    // MARK: Skipped three times (owner, Nov 16, 2026; design canvas 5c)
+
+    private func makeNudge(_ item: SessionItem, _ post: Post) -> SkipNudge? {
+        let memory = store.sessionSkipMemory
+        guard memory.shouldAsk(item.id) else { return nil }
+        let dates = item.message.isHealth
+            ? MailDates.extract(text: post.email.subject, sent: post.email.date, now: Date())
+            : MailDates.extract(post.email, now: Date())
+        return SkipNudge.make(item.message, count: memory.count(item.id), newsletter: item.group == .reading,
+                              hero: hero(item, post), dates: dates, now: Date())
+    }
+
+    private func nudgeBlock(_ item: SessionItem, _ post: Post, _ n: SkipNudge) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SkipDots()
+            Text(n.title)
+                .font(.lovely(size: 32, weight: .bold)).tracking(-0.9)
+                .foregroundStyle(CalmStyle.roseInk)
+                .padding(.top, 10)
+                .accessibilityAddTraits(.isHeader)
+            Text(n.line)
+                .font(.lovely(.subheadline)).foregroundStyle(CalmStyle.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 4)
+            if let placeholder = n.placeholder {
+                // One field: type or talk. It replaces the card's usual field on this email.
+                SessionAskField(hint: hint(item), thinking: thinking, placeholder: placeholder, accent: CalmStyle.rose,
+                                edge: CalmStyle.rose, onMic: { talk(item, post) },
+                                onFocus: { typing = $0 }, onAsk: { heardOrAsk($0, item, post) })
+                    .id("\(item.id)-nudge-\(askResetCount)")
+                    .padding(.top, 14)
+            }
+            if n.offersRule {
+                Button("Always put these away\u{2026}") { showMore = true }
+                    .font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.blue)
+                    .frame(minHeight: 40)
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("session.nudge.rule")
+            }
+            HStack(spacing: 12) {
+                Button { withAnimation(.snappy) { nudgeDates.toggle() } } label: {
+                    Text("Not until " + (nudgeDates ? "\u{25B4}" : "\u{25BE}"))
+                        .font(.lovely(.subheadline, .semibold)).foregroundStyle(CalmStyle.ink)
+                        .padding(.horizontal, 14).frame(minHeight: 40)
+                        .background(CalmStyle.card, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(CalmStyle.divider, lineWidth: 1.5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("session.nudge.notUntil")
+                Spacer(minLength: 0)
+                Button("Keep showing it") { keepShowing(item) }
+                    .font(.lovely(.footnote, .semibold)).foregroundStyle(CalmStyle.secondary)
+                    .accessibilityHint("Lovely won't ask about this email again unless you skip it three more times.")
+                    .accessibilityIdentifier("session.nudge.keep")
+            }
+            .padding(.top, 10)
+            if nudgeDates {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(n.options) { option in
+                            Button { hideAsk = SessionHideAsk(date: option.date, heard: nil) } label: {
+                                nudgeChip(option.title, fromEmail: option.fromEmail)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Button { pickedDate = n.options.last?.date ?? Date(); pickingDate = true } label: { nudgeChip("Pick a date", fromEmail: false) }
+                            .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func nudgeChip(_ title: String, fromEmail: Bool) -> some View {
+        Text(title)
+            .font(.lovely(.subheadline, .medium))
+            .foregroundStyle(fromEmail ? CalmStyle.roseInk : CalmStyle.ink)
+            .padding(.horizontal, 14).frame(minHeight: 38)
+            .background(fromEmail ? CalmStyle.rose.opacity(0.08) : CalmStyle.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(fromEmail ? CalmStyle.rose : CalmStyle.divider, lineWidth: 1.5))
+    }
+
+    /// The mic, on every card: words on this iPhone, then a date to confirm or a question for Ask Lovely.
+    private func talk(_ item: SessionItem, _ post: Post) {
+        dictation.onFinish = { words in
+            guard !words.isEmpty else { return }
+            heardOrAsk(words, item, post)
+        }
+        Task { await dictation.start() }
+    }
+
+    /// "After Thanksgiving" asks to hide it until then (a tap still decides); anything else goes to Ask Lovely.
+    private func heardOrAsk(_ said: String, _ item: SessionItem, _ post: Post) {
+        if let date = SkipDateParser.parse(said, now: Date()) {
+            hideAsk = SessionHideAsk(date: date, heard: said)
+        } else {
+            ask(said, item, post)
+        }
+    }
+
+    private func keepShowing(_ item: SessionItem) {
+        var memory = store.sessionSkipMemory
+        memory.keepShowing(item.id)
+        store.saveSessionSkipMemory(memory)
+        withAnimation(.snappy) { nudge = nil; nudgeDates = false }
+    }
+
+    /// Hidden in Lovely until that morning (the Later list; Gmail is not changed), with the 10-second Undo.
+    private func hideUntil(_ item: SessionItem, _ post: Post, _ date: Date) {
+        hideAsk = nil
+        var memory = store.sessionSkipMemory
+        let before = memory
+        memory.forget(item.id)
+        store.saveSessionSkipMemory(memory)
+        let id = item.id
+        swallow { [model, store] in
+            store.putOff(post, until: date)
+            model.record(id, .leftUnread)
+            store.undo.enqueue(title: "Hidden until " + SkipNudge.shortDay(date), work: {}, undone: {
+                store.bringBack(id)
+                store.saveSessionSkipMemory(before)
+                model.returnTo(id)
+            })
+            model.advance()
+        }
+    }
+
+    private func datePickerSheet(_ item: SessionItem, _ post: Post) -> some View {
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Hide until").font(.lovely(.title3, .bold))
+            DatePicker("Day", selection: $pickedDate, in: tomorrow..., displayedComponents: .date)
+                .datePickerStyle(.graphical).labelsHidden().tint(CalmStyle.blue)
+            Button {
+                pickingDate = false
+                let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: pickedDate) ?? pickedDate
+                hideUntil(item, post, morning)
+            } label: {
+                Text("Hide until " + SkipNudge.shortDay(pickedDate)).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(CalmActionStyle(prominent: true))
+            .accessibilityIdentifier("session.nudge.pickedDate")
+            Text("It leaves your sessions and comes back that morning. Nothing changes in Gmail.")
+                .font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)
+        }
+        .padding(22)
+        .presentationDetents([.large])
+        .lifeSheet()
     }
 
     /// Archive (left) and ⋯ (right), just above the blue bar.
@@ -835,7 +1023,7 @@ extension SessionItemScreen {
             .foregroundStyle(CalmStyle.blue)
             .accessibilityLabel("More for this email and sender").accessibilityIdentifier("session.more")
         }
-        .padding(.horizontal, -10)
+        .padding(.trailing, -10)   // Archive lines up with Reply; ⋯ keeps its 44-point target at the edge
     }
 
     private func trashWord(_ item: SessionItem, _ post: Post) -> some View {
@@ -920,10 +1108,16 @@ extension SessionItemScreen {
         tick()
         withAnimation(.easeIn(duration: 0.3)) { fly = -1100; flyOpacity = 0 }
         let id = item.id
+        let sender = item.message.fromAddress
+        let session = model.sessionID
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [model, store] in
             clearAsk()
             model.record(id, .leftUnread)
-            store.undo.enqueue(title: "Skipped. Back next session", work: {}, undone: { model.returnTo(id) })
+            store.recordSessionSkip(id, sender: sender, session: session)
+            store.undo.enqueue(title: "Skipped. Back next session", work: {}, undone: {
+                store.undoSessionSkip(id, sender: sender, session: session)
+                model.returnTo(id)
+            })
             model.advance()
         }
     }
@@ -1624,7 +1818,7 @@ extension SessionItemScreen {
 
     private func hint(_ item: SessionItem) -> String {
         let base = item.message.isPerson ? "Try \u{201C}tell \(item.message.fromName.split(separator: " ").first.map(String.init) ?? "them") Thursday works\u{201D} or \u{201C}file it in People\u{201D}." : "Try \u{201C}Kids\u{201D}, \u{201C}later tomorrow\u{201D}, \u{201C}archive\u{201D} or \u{201C}delete\u{201D}."
-        return base + " Tap the mic on the keyboard to talk."
+        return base + " Or tap the mic and say it."
     }
 
     private func ask(_ text: String, _ item: SessionItem, _ post: Post) {
@@ -1784,6 +1978,11 @@ struct SessionHandoffSheet: View {
 struct SessionAskField: View {
     let hint: String
     let thinking: Bool
+    var placeholder = "Or say what to do"
+    var accent: Color = CalmStyle.blue
+    var edge: Color? = nil
+    /// The mic inside the field (Nov 16, 2026): talk instead of type.
+    var onMic: (() -> Void)? = nil
     let onFocus: (Bool) -> Void
     let onAsk: (String) -> Void
     @State private var text = ""
@@ -1794,20 +1993,36 @@ struct SessionAskField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("Or say what to do", text: $text, axis: .vertical)
-                    .lineLimit(1...5).submitLabel(.go).focused($focused)
-                    .padding(.horizontal, 14).padding(.vertical, 12)
-                    .background(CalmStyle.pageGround, in: RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(CalmStyle.divider, lineWidth: 1))
-                    .onSubmit(send)
-                    .accessibilityIdentifier("session.ask")
-                Button(action: send) {
-                    Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.lovely(.body, .bold))
-                        .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
-                        .background(CalmStyle.blue, in: Circle())
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField(placeholder, text: $text, axis: .vertical)
+                        .lineLimit(1...5).submitLabel(.go).focused($focused)
+                        .padding(.vertical, onMic == nil ? 12 : 12)
+                        .onSubmit(send)
+                        .accessibilityIdentifier("session.ask")
+                    if let onMic, text.isEmpty {
+                        Button(action: onMic) {
+                            Image(systemName: "mic.fill").font(.lovely(.callout, .semibold))
+                                .frame(width: 36, height: 36).foregroundStyle(CalmStyle.onBlue)
+                                .background(accent, in: Circle())
+                        }
+                        .padding(.bottom, 5)
+                        .accessibilityLabel("Talk")
+                        .accessibilityHint("Say what to do, or when to bring this email back.")
+                        .accessibilityIdentifier("session.ask.mic")
+                    }
                 }
-                .disabled(!canSend).opacity(canSend ? 1 : 0.5)
-                .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
+                .padding(.leading, 14).padding(.trailing, onMic != nil && text.isEmpty ? 5 : 14)
+                .background(edge == nil ? CalmStyle.pageGround : CalmStyle.card, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(edge ?? CalmStyle.divider, lineWidth: edge == nil ? 1 : 1.5))
+                if !text.isEmpty || onMic == nil {
+                    Button(action: send) {
+                        Image(systemName: thinking ? "ellipsis" : "arrow.up").font(.lovely(.body, .bold))
+                            .frame(width: 46, height: 46).foregroundStyle(CalmStyle.onBlue)
+                            .background(CalmStyle.blue, in: Circle())
+                    }
+                    .disabled(!canSend).opacity(canSend ? 1 : 0.5)
+                    .accessibilityLabel("Go").accessibilityIdentifier("session.ask.go")
+                }
             }
             if focused, text.isEmpty {
                 Text(hint).font(.lovely(.caption)).foregroundStyle(CalmStyle.secondary)

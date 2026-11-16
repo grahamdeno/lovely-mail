@@ -107,6 +107,20 @@ final class DesignScreenshotTests: XCTestCase {
         try await capture(RootView().environment(store).environment(router), name: "27-Search-tab-bar")
     }
 
+    /// Skipped three times (Nov 16): the first card, seeded with three skips, shows the ask in the big-fact slot.
+    func testSkipNudgeScreenshot() async throws {
+        let store = await demoStore()
+        let plan = store.makeSessionPlan()
+        guard let first = SessionGroup.allCases.flatMap({ g in plan.items.filter { $0.group == g } }).first else {
+            return XCTFail("no session card")
+        }
+        var memory = SkipMemory()
+        for session in ["a", "b", "c"] { memory.recordSkip(first.id, sender: first.message.fromAddress, session: session, now: Date()) }
+        store.saveSessionSkipMemory(memory)
+        defer { store.saveSessionSkipMemory(SkipMemory()) }
+        try await capture(NavigationStack { SessionView() }.environment(store).environment(Router()), name: "28-Skip-nudge", wait: 3_000_000_000)
+    }
+
     func testSprint5Screenshots() async throws {
         let client = Sprint3ScreenshotClient()
         let store = FeedStore(gmail: client, summarizeOnDevice: false, cacheStore: nil, veto: nil)

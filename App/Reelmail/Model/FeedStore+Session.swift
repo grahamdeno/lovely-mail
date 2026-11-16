@@ -154,6 +154,27 @@ extension FeedStore {
         }, undone: { [self] in outboxCancel(batch: batch); restore(Set(posts.map(\.id))); onReturn(posts.map(\.id)) })
     }
 
+    // MARK: Skips (owner, Nov 16, 2026)
+
+    /// How many sessions each email was skipped in; at three the card asks (SkipNudge).
+    var sessionSkipMemory: SkipMemory { SkipMemory.load(account: account ?? "demo") }
+
+    func saveSessionSkipMemory(_ memory: SkipMemory) { memory.save(account: account ?? "demo") }
+
+    /// A flick up in a session. Counts once per session; emails no longer loaded are dropped.
+    func recordSessionSkip(_ id: String, sender: String, session: String) {
+        var memory = sessionSkipMemory
+        memory.prune(keeping: Set(posts.map(\.id)))
+        memory.recordSkip(id, sender: sender, session: session, now: Date())
+        saveSessionSkipMemory(memory)
+    }
+
+    func undoSessionSkip(_ id: String, sender: String, session: String) {
+        var memory = sessionSkipMemory
+        memory.undoSkip(id, sender: sender, session: session)
+        saveSessionSkipMemory(memory)
+    }
+
     // MARK: Trash in a session
 
     /// Senders he trashed before in a session; Lovely offers Trash first for them.

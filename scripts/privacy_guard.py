@@ -104,6 +104,9 @@ def check(files):
         hit(r"api\.anthropic\.com|api\.x\.ai", "Lovely calls no cloud language model (removed Nov 11, 2026): only Hand to Grok.")
         hit(r"(?i)x-api-key|anthropic-version", "No Anthropic API key or header anywhere (removed Nov 11, 2026).")
         hit(r"claude://|claude\.ai/|grok\.com/\?q=", "No link that opens Claude or a Grok chat (removed Nov 11, 2026): only Hand to Grok.")
+        # Talking to Lovely (owner, Nov 16, 2026): speech is turned into words on this iPhone only.
+        if re.search(r"SFSpeech\w*RecognitionRequest", text) and "requiresOnDeviceRecognition = true" not in text:
+            bad.append(f"{rel}: Speech recognition must stay on this iPhone: set requiresOnDeviceRecognition = true.")
         hit(r"googleapis\.com/auth/", "OAuth scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
         hit(r"(?<![\w.])gmail\.(labels|metadata|insert|addons|settings)", "Gmail scopes may be named only in GmailConfig.swift.", allowed=(CONFIG,))
         hit(r"gmail\.googleapis\.com", "The Gmail API may be called only from GmailService.swift and GmailActions.swift.", allowed=(SERVICE, ACTIONS))
@@ -212,6 +215,9 @@ struct GmailActions {
     assert check({SESSION_CONFIRM: "let c = ConfirmedAction(preview: p)"}) == []
     # Hand to Grok posts to the owner's own webhook from the Keychain; that is not a cloud model call.
     assert check({"Model/GrokHandoff.swift": 'var req = URLRequest(url: url); req.httpMethod = "POST"'}) == []
+    # Speech must be on-device.
+    assert check({"Features/X.swift": "let r = SFSpeechAudioBufferRecognitionRequest()"}), "guard missed: speech off the phone"
+    assert check({"Features/X.swift": "let r = SFSpeechAudioBufferRecognitionRequest()\nr.requiresOnDeviceRecognition = true"}) == []
     # Comments never trip the guard.
     assert check({"Model/X.swift": "// we never call /messages/send here"}) == []
     print("privacy_guard selftest: ok")
